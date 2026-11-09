@@ -26,7 +26,7 @@ const fail = (msg) => {
 // The animated installer (installer/build.cjs) and the portable zip; latest.yml carries the installer's hash.
 // Copies from before 1.6 look for an installer named Twilight-Setup-<version>.exe, so the installer
 // goes up under that name too (the same file, so latest.yml's checksum holds for both).
-copyFileSync(join(root, 'release', `Tasogare-Setup-${version}.exe`), join(root, 'release', `Tasogare-Setup-${version}.exe`))
+copyFileSync(join(root, 'release', `Tasogare-Setup-${version}.exe`), join(root, 'release', `Twilight-Setup-${version}.exe`))
 const files = [`Tasogare-Setup-${version}.exe`, 'latest.yml', `Tasogare-${version}-x64.zip`, `Twilight-Setup-${version}.exe`].map((f) =>
   join(root, 'release', f)
 )
