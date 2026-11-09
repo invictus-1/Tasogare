@@ -4,6 +4,9 @@ What's shipped, what's next, and ideas not yet committed to. Tasogare shows this
 
 ## Shipped
 
+### 1.6.0 · November 2026
+- [x] **Twilight is now 黄昏 (Tasogare)** · Core — the same app under a new name: 黄昏 in the window, the welcome and the installer, Tasogare in files and shortcuts, with your data and updates carried over
+
 ### 1.5.5 · November 2026
 - [x] **No more meteor showers** · Core — shooting stars no longer pile up while the sky is scrolled away and fall all at once on your return
 - [x] **The cache bar stays** · Chat — its × hides it for one chat only, and the compaction bar sits above it so nothing moves under the pointer

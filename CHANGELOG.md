@@ -4,6 +4,8 @@ Each version's section becomes its release notes on the releases page (`npm run 
 
 ## Unreleased
 
+## 1.6.0
+
 - **Twilight is now 黄昏 (Tasogare):** the same app under a new name. The window, the welcome and the installer show 黄昏, and the Start menu, desktop shortcut and installer files say Tasogare. Your chats, settings, keys, writing and backups stay where they were, and updating from an earlier version works as before. A taskbar pin made for Twilight may need pinning again.
 
 ## 1.5.5
