@@ -1,24 +1,26 @@
 <div align="center">
 
-![Twilight: the wordmark over an evening sky, a sun setting behind bands of cloud](docs/screenshots/hero.png)
+# 黄昏 Tasogare
+
+![Tasogare: the wordmark over an evening sky, a sun setting behind bands of cloud](docs/screenshots/hero.png)
 
 **A fast, local-first desktop app for writing with language models.**
 
 Claude and any OpenAI-compatible model (OpenRouter, LM Studio, Ollama, llama.cpp) in one quiet workspace for long-form fiction and text adventures.
 
-[**Download the latest release**](https://github.com/invictus-1/twilight/releases/latest) · Windows 10 and 11, 64-bit · [What's new](CHANGELOG.md)
+[**Download the latest release**](https://github.com/invictus-1/Tasogare/releases/latest) · Windows 10 and 11, 64-bit · [What's new](CHANGELOG.md)
 
 </div>
 
 ## A look inside
 
-![A chat in Twilight: a scene, a logbook block, and a choice card with two decisions](docs/screenshots/chat.png)
+![A chat in Tasogare: a scene, a logbook block, and a choice card with two decisions](docs/screenshots/chat.png)
 
 Chats that run to hundreds of thousands of tokens without slowing down or losing the prompt cache. Two models side by side. A manuscript editor with AI tools that show their edits as a diff, and a library that finds the right passage in everything you've written. A coding agent that asks before it changes anything. A judge that scores passages blind. Your writing habits as numbers. All of it on your own computer, with your own keys, and the window is up in under 300 ms.
 
 ## Before you download: this is a personal project
 
-Twilight is a personal project. I built it for my own very specific use, and I release it as-is in case it's useful to someone else. My use is long-form fiction and text adventures: chats that run to 300k+ tokens, side-by-side model comparisons, a writing editor for manuscripts of 100k+ words, and a judge that scores passages against my own rubric.
+Tasogare is a personal project. I built it for my own very specific use, and I release it as-is in case it's useful to someone else. My use is long-form fiction and text adventures: chats that run to 300k+ tokens, side-by-side model comparisons, a writing editor for manuscripts of 100k+ words, and a judge that scores passages against my own rubric.
 
 It does those things the way I want them done, so please set your expectations to match:
 
@@ -26,7 +28,7 @@ It does those things the way I want them done, so please set your expectations t
 - Feature requests and support aren't offered. Issues are turned off.
 - The source is here for anyone curious, but it's shaped around my needs first.
 - It's Windows only and not code-signed (see [Download](#download)).
-- Things can change or break between versions. Settings → Updates can roll back to an earlier version, and Twilight backs up its database before every update.
+- Things can change or break between versions. Settings → Updates can roll back to an earlier version, and Tasogare backs up its database before every update.
 
 If that still sounds like what you're after, welcome. Enjoy it.
 
@@ -77,7 +79,7 @@ Clone a chat into two panes and send to A, B or both, each with its own model an
 
 ![The document library: a search over a manuscript finds the passages about who lights the lamps, each with its file and line](docs/screenshots/library.png)
 
-Point Twilight at the folders you write in, and with **Document library** on, each message brings the passages from them that bear on it, with a chip saying where they came from. It searches a full-text index on your computer, fast even on very large collections, and an embedding model (on Ollama, say) adds search by meaning. Models that can use tools search it themselves mid-reply when the first passages aren't enough.
+Point Tasogare at the folders you write in, and with **Document library** on, each message brings the passages from them that bear on it, with a chip saying where they came from. It searches a full-text index on your computer, fast even on very large collections, and an embedding model (on Ollama, say) adds search by meaning. Models that can use tools search it themselves mid-reply when the first passages aren't enough.
 
 ### Code: an agent that asks first
 
@@ -110,7 +112,7 @@ Your writing folder, seen as numbers: words written today, this week and this ye
 
 ### Make it yours
 
-![Six of Twilight's themes side by side: Twilight, Ultraviolet, Synthwave, Aurora, Campfire and the light Moonlit Paper](docs/screenshots/themes.png)
+![Six of Tasogare's themes side by side: Tasogare, Ultraviolet, Synthwave, Aurora, Campfire and the light Moonlit Paper](docs/screenshots/themes.png)
 
 Eleven themes, from the default dusk to Synthwave, Aurora, Campfire, a high-contrast one and **Moonlit Paper**, a light theme of warm paper and dark ink, or **build your own** from a ground colour and three accents (every colour is kept readable). Put a picture of your own or a gradient behind the whole window, framed how you like. Drag the sections on the left into your own order. Pages fade in, messages ease in, and the window opens on a moment of evening glow, or turn the motion down or off.
 
@@ -132,7 +134,7 @@ Eleven themes, from the default dusk to Synthwave, Aurora, Campfire, a high-cont
 ### Your data, kept safe
 
 - **Backups:** everything (chats, settings, keys, pictures, your theme) backed up as a plain folder, whenever you like and automatically each day or week. Restore any of them in a click; what's there is backed up first.
-- **Keep it where you want:** move Twilight's data to another drive or a synced folder. It's copied and checked before it's used, and the old copy stays until you remove it.
+- **Keep it where you want:** move Tasogare's data to another drive or a synced folder. It's copied and checked before it's used, and the old copy stays until you remove it.
 
 ### Fast, and measured
 
@@ -140,25 +142,25 @@ The window is up in about 270 ms and a 115k-word manuscript opens in about 35 ms
 
 ### Updates you control
 
-![The Roadmap: where Twilight is headed, with every release on the way to 1.0 beside it](docs/screenshots/roadmap.png)
+![The Roadmap: where Tasogare is headed, with every release on the way to 1.0 beside it](docs/screenshots/roadmap.png)
 
-Twilight checks this repository's releases once a day (you can turn that off) and updates in one click, quietly. Any of the last three versions is a click away if an update doesn't suit you, and your database is backed up before every switch. Settings → Roadmap shows what has shipped and what's next.
+Tasogare checks this repository's releases once a day (you can turn that off) and updates in one click, quietly. Any of the last three versions is a click away if an update doesn't suit you, and your database is backed up before every switch. Settings → Roadmap shows what has shipped and what's next.
 
 ## Private by design
 
 - The interface never touches the network. Fonts are bundled, and web requests from the window are blocked.
 - Your chats, documents, settings and background picture stay on your computer.
 - Model requests go only to the providers you set up. Web search, when you switch it on, runs on your provider's side. MCP servers, image models and embedding models are reached only once you add them.
-- The document library's index and the Code tab's snapshots stay in Twilight's data folder.
-- The once-a-day update check (which you can turn off) is the only request Twilight makes on its own.
+- The document library's index and the Code tab's snapshots stay in Tasogare's data folder.
+- The once-a-day update check (which you can turn off) is the only request Tasogare makes on its own.
 
 ## Download
 
-Get `Twilight-Setup-<version>.exe` from the [latest release](https://github.com/invictus-1/twilight/releases/latest), or the portable `.zip`. The installer is the app's own evening: the sun sets, a glowing bar fills, and Twilight opens. It installs just for you and never asks for admin rights.
+Get `Tasogare-Setup-<version>.exe` from the [latest release](https://github.com/invictus-1/Tasogare/releases/latest), or the portable `.zip`. The installer is the app's own evening: the sun sets, a glowing bar fills, and Tasogare opens. It installs just for you and never asks for admin rights.
 
 The installers aren't code-signed yet, so Windows SmartScreen may warn the first time you run one. Choose **More info**, then **Run anyway**.
 
-**Code signing:** Twilight is applying to the [SignPath Foundation](https://signpath.org) for free code signing of open-source projects. Once accepted, Windows releases will be built by [GitHub Actions](.github/workflows/build.yml) from this repository's public source and signed with a certificate from SignPath Foundation (free code signing provided by [SignPath.io](https://signpath.io)).
+**Code signing:** Tasogare is applying to the [SignPath Foundation](https://signpath.org) for free code signing of open-source projects. Once accepted, Windows releases will be built by [GitHub Actions](.github/workflows/build.yml) from this repository's public source and signed with a certificate from SignPath Foundation (free code signing provided by [SignPath.io](https://signpath.io)).
 
 For Claude you need an API key from [console.anthropic.com](https://console.anthropic.com) (a Claude subscription can't be used). Local models need a server such as LM Studio or Ollama running on your computer.
 
@@ -198,7 +200,7 @@ Caching is a prefix match, so requests are built to be the previous request plus
 - The system prompt carries its own cache breakpoint; Claude's replies (thinking and web-search blocks included) are stored exactly as the API returned them and replayed unchanged.
 - A top-level `cache_control` moves the second breakpoint to the end of the conversation. Cache lifetime defaults to 1 hour.
 - Anything that changes over time (an instruction change, the date and time, an attached file, library passages) goes into the newest message, never into the prefix.
-- Tools Twilight runs itself (MCP, pictures, the library search) are rounds stored inside the one reply and replayed exactly, so a reply that used tools reads from the cache like any other.
+- Tools Tasogare runs itself (MCP, pictures, the library search) are rounds stored inside the one reply and replayed exactly, so a reply that used tools reads from the cache like any other.
 
 #### Tests
 

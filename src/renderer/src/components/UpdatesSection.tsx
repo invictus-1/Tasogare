@@ -77,7 +77,7 @@ function ReleaseRow({ release, current }: { release: ReleaseInfo; current: strin
       </div>
       {confirming && (
         <p className="field-note">
-          Twilight backs up your data, closes, installs {release.version}
+          Tasogare backs up your data, closes, installs {release.version}
           {u.canInstall ? ' and opens again' : ''}. Your chats, documents and settings carry over.
           {order < 0 ? ' Anything a newer version added that this one doesn’t know about stays in the backup.' : ''}
         </p>
@@ -105,7 +105,7 @@ export function UpdatesSection() {
   return (
     <>
       <div className="settings-card">
-        <h3 className="t-heading">Twilight {u.current}</h3>
+        <h3 className="t-heading">黄昏 Tasogare {u.current}</h3>
         <p className="field-note">
           {installedAt ? `Running since ${day(installedAt)}.` : ''}
           {earlier.length > 0 && ` Before that: ${earlier.map((h) => `${h.version} (${day(h.installedAt)})`).join(', ')}.`}
@@ -118,7 +118,7 @@ export function UpdatesSection() {
               : u.error
                 ? u.error
                 : u.latest
-                  ? `Twilight ${u.latest} is available.`
+                  ? `Tasogare ${u.latest} is available.`
                   : u.lastChecked
                     ? 'You have the newest version.'
                     : 'Not checked yet.'}
@@ -139,7 +139,7 @@ export function UpdatesSection() {
         <div className="settings-card">
           <h3 className="t-heading">Versions</h3>
           <p className="field-note">
-            Newer releases, this one, and up to {ROLLBACK_DEPTH} earlier ones to roll back to. Before any switch Twilight saves a copy of its database
+            Newer releases, this one, and up to {ROLLBACK_DEPTH} earlier ones to roll back to. Before any switch Tasogare saves a copy of its database
             (the last 3 are kept).
           </p>
           <ul className="release-list">

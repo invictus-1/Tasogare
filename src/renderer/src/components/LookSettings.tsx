@@ -71,7 +71,7 @@ export function BackgroundPicker() {
           )}
         </div>
       )}
-      <p className="field-note">Shown behind the whole window. Darken it until text reads comfortably; your picture stays on this PC, copied into Twilight's data folder.</p>
+      <p className="field-note">Shown behind the whole window. Darken it until text reads comfortably; your picture stays on this PC, copied into Tasogare's data folder.</p>
     </div>
   )
 }

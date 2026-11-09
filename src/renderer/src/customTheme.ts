@@ -3,7 +3,7 @@
 // it sits on, lines 3:1), and nudged lighter until it passes, so no choice makes text hard to read.
 
 export interface CustomTheme {
-  /** The darkest ground; kept dark, since Twilight's design is dark throughout. */
+  /** The darkest ground; kept dark, since Tasogare's design is dark throughout. */
   ground: string
   /** Actions (buttons, selection), tools (AI, keywords) and writing (warm highlights). */
   actions: string

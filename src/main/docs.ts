@@ -3,8 +3,9 @@ import { promises as fs } from 'node:fs'
 import { basename, dirname, join, relative, resolve, sep } from 'node:path'
 import type { DocContent, DocContext, DocEntry } from '@shared/types'
 import { handle, kvDelete, kvGet, kvSet } from './db'
+import { documentsFolder } from './location'
 
-// A document's writing-tool context lives in Twilight's database, never in the user's files.
+// A document's writing-tool context lives in Tasogare's database, never in the user's files.
 const EMPTY_CONTEXT: DocContext = { instructions: '', references: [], wholeManuscript: false }
 const contextKey = (rel: string): string => `docContext:${writingFolder()}:${rel}`
 
@@ -23,7 +24,7 @@ const MAX_FILES = 10_000
 const SKIP = new Set(['node_modules'])
 
 export function writingFolder(): string {
-  return kvGet<string>('writingFolder') ?? join(app.getPath('documents'), 'Twilight')
+  return kvGet<string>('writingFolder') ?? documentsFolder('Tasogare', 'Twilight')
 }
 
 export async function chooseWritingFolder(win: BrowserWindow | null): Promise<string | null> {

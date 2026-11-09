@@ -147,7 +147,7 @@ export function RoadmapSection() {
           </div>
           <div className="rm-hero-body">
             <span className="rm-eyebrow">{version ? `You're on ${version}` : 'Roadmap'}</span>
-            <h3 className="rm-hero-title">Where Twilight is headed</h3>
+            <h3 className="rm-hero-title">Where Tasogare is headed</h3>
             <p className="rm-hero-text">What has shipped, what's being built, and what's further out on the horizon.</p>
             <div className="rm-stats">
               <div className="rm-stat">

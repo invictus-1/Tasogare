@@ -1,8 +1,8 @@
-// Updates from this repository's GitHub releases. Twilight
+// Updates from this repository's GitHub releases. Tasogare
 // checks GitHub's release list at most once a day when automatic checks are on, or when asked.
 // Nothing else reaches the network. Installing any listed version, newer or older, downloads
 // its installer, checks it against the release's latest.yml hash, backs up the database, and
-// hands over to the installer, which closes Twilight and starts the new version.
+// hands over to the installer, which closes Tasogare and starts the new version.
 
 import { app, type WebContents } from 'electron'
 import { spawn } from 'node:child_process'
@@ -13,7 +13,7 @@ import { dirname, join } from 'node:path'
 import type { ReleaseInfo, UpdateState } from '@shared/types'
 import * as db from './db'
 
-export const RELEASES_REPO = 'invictus-1/twilight'
+export const RELEASES_REPO = 'invictus-1/Tasogare'
 const RELEASES_PAGE = `https://github.com/${RELEASES_REPO}/releases`
 const DAY = 24 * 60 * 60 * 1000
 const KEEP_INSTALLERS = 3
@@ -39,7 +39,9 @@ export const lastTestInstall = (): string | null => testInstalled
 
 const updatesFolder = (): string => join(app.getPath('userData'), 'updates')
 const backupsFolder = (): string => join(app.getPath('userData'), 'backups')
-const installerPath = (version: string): string => join(updatesFolder(), `Twilight-Setup-${version}.exe`)
+/** An installer by either name: releases before 1.6 were Twilight-Setup-<version>.exe. */
+export const INSTALLER = /^(Tasogare|Twilight)-Setup-.*\.exe$/
+const installerPath = (version: string): string => join(updatesFolder(), `Tasogare-Setup-${version}.exe`)
 
 function parseVersion(v: string): number[] {
   return v.replace(/^v/, '').split(/[.-]/).slice(0, 3).map((n) => Number.parseInt(n, 10) || 0)
@@ -51,7 +53,7 @@ export function compareVersions(a: string, b: string): number {
   return 0
 }
 
-/** Each version this copy of Twilight has run as, oldest first, with when it first did. */
+/** Each version this copy of Tasogare has run as, oldest first, with when it first did. */
 function history(): UpdateState['history'] {
   return db.kvGet<UpdateState['history']>('updates.history') ?? []
 }
@@ -113,7 +115,7 @@ interface GithubRelease {
 
 async function github(path: string): Promise<Response> {
   const res = await fetch(`${apiBase}${path}`, {
-    headers: { accept: 'application/vnd.github+json', 'user-agent': `Twilight/${app.getVersion()}` },
+    headers: { accept: 'application/vnd.github+json', 'user-agent': `Tasogare/${app.getVersion()}` },
     signal: AbortSignal.timeout(15000)
   })
   if (!res.ok) throw new Error(res.status === 403 ? 'GitHub is rate limiting checks right now; try again in an hour.' : `GitHub answered ${res.status}.`)
@@ -130,7 +132,7 @@ export async function check(): Promise<UpdateState> {
     releases = list
       .filter((r) => !r.draft && !r.prerelease && /^v?\d+\.\d+\.\d+$/.test(r.tag_name))
       .map((r) => {
-        const setup = r.assets.find((a) => /^Twilight-Setup-.*\.exe$/.test(a.name))
+        const setup = r.assets.find((a) => /^Tasogare-Setup-.*\.exe$/.test(a.name)) ?? r.assets.find((a) => INSTALLER.test(a.name))
         const yml = r.assets.find((a) => a.name === 'latest.yml')
         return {
           version: r.tag_name.replace(/^v/, ''),
@@ -192,7 +194,7 @@ async function download(release: ReleaseInfo): Promise<string> {
   downloading = null
   await writeFile(`${target}.part`, Buffer.concat(chunks))
   await rename(`${target}.part`, target)
-  await prune(join(updatesFolder()), /^Twilight-Setup-.*\.exe$/, KEEP_INSTALLERS, target)
+  await prune(join(updatesFolder()), INSTALLER, KEEP_INSTALLERS, target)
   return target
 }
 
@@ -224,7 +226,7 @@ export async function install(version: string): Promise<UpdateState> {
     if (!app.isPackaged) throw new Error(`Downloaded to ${file}. Installing only works from the installed app.`)
     // An installed copy updates quietly and starts again by itself; a portable copy gets the
     // installer's usual pages.
-    const installed = existsSync(join(dirname(app.getPath('exe')), 'Uninstall Twilight.exe'))
+    const installed = ['Uninstall Tasogare.exe', 'Uninstall Twilight.exe'].some((f) => existsSync(join(dirname(app.getPath('exe')), f)))
     spawn(file, installed ? ['/S', '--updated', '--force-run'] : [], { detached: true, stdio: 'ignore' }).unref()
     setTimeout(() => app.quit(), 300)
     return state()

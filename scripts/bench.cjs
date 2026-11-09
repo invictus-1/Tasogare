@@ -20,7 +20,7 @@ if (!label || label.startsWith('--')) {
 }
 const at = process.argv.indexOf('--runs')
 const runs = at > 0 ? Number(process.argv[at + 1]) : 5
-const exe = join(root, 'release', 'win-unpacked', 'Twilight.exe')
+const exe = join(root, 'release', 'win-unpacked', 'Tasogare.exe')
 if (!existsSync(exe)) {
   console.error('No packaged app; run npm run dist first.')
   process.exit(1)

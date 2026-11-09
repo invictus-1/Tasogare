@@ -1,5 +1,5 @@
 // Choice cards for text adventures. With "Choices" on, the system prompt asks the model to end a
-// reply with a fenced `choices` block whenever the reader should decide; Twilight hides the
+// reply with a fenced `choices` block whenever the reader should decide; Tasogare hides the
 // block and shows the options as a card to click, edit, or answer in your own words. A plain
 // text convention rather than tool calling, so it works with every model, local ones included.
 // Replies that offer options as an ordinary numbered list (from a system prompt of your own)

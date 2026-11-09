@@ -1,12 +1,12 @@
 {
-  "name": "twilight",
-  "productName": "Twilight",
+  "name": "tasogare",
+  "productName": "Tasogare",
   "version": "1.5.5",
   "license": "MIT",
   "description": "A fast, local-first desktop front end for language models, agents and writing.",
   "private": true,
   "main": "out/main/index.js",
-  "author": "Twilight",
+  "author": "Tasogare",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
@@ -52,7 +52,7 @@
   },
   "build": {
     "appId": "app.twilight.desktop",
-    "productName": "Twilight",
+    "productName": "Tasogare",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -68,7 +68,7 @@
     ],
     "win": {
       "icon": "build/icon.png",
-      "artifactName": "Twilight-${version}-${arch}.${ext}",
+      "artifactName": "Tasogare-${version}-${arch}.${ext}",
       "target": [
         "nsis",
         "zip"
@@ -79,17 +79,17 @@
       "allowToChangeInstallationDirectory": false,
       "include": "build/installer.nsh",
       "createDesktopShortcut": true,
-      "shortcutName": "Twilight",
+      "shortcutName": "Tasogare",
       "installerSidebar": "build/installerSidebar.bmp",
       "uninstallerSidebar": "build/installerSidebar.bmp",
       "installerHeader": "build/installerHeader.bmp",
       "runAfterFinish": true,
-      "artifactName": "Twilight-Core-Setup-${version}.${ext}"
+      "artifactName": "Tasogare-Core-Setup-${version}.${ext}"
     },
     "publish": {
       "provider": "github",
       "owner": "invictus-1",
-      "repo": "twilight"
+      "repo": "Tasogare"
     }
   }
 }

@@ -382,7 +382,7 @@ export function ChatSettingsPanel({ onClose }: { onClose: () => void }) {
           <span className="field-note">Read only under a title that asks (“What do you do?”, “Choices…”) or with a “Something else” option; other lists stay lists.</span>
           <label className="check">
             <input type="checkbox" checked={settings.choiceInstructions} onChange={(e) => void update({ choiceInstructions: e.target.checked })} />
-            Add Twilight’s how-to to the system prompt
+            Add Tasogare’s how-to to the system prompt
           </label>
           <span className="field-note">
             {settings.choiceTool

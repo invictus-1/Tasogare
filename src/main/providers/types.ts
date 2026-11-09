@@ -17,7 +17,7 @@ export interface GenerateRequest {
   onThinking(delta: string): void
   /** A web search or page read has started ("Searching: …"). */
   onActivity?(label: string): void
-  /** Tools Twilight runs itself (MCP servers, pictures), offered after the built-in ones. */
+  /** Tools Tasogare runs itself (MCP servers, pictures), offered after the built-in ones. */
   clientTools?: ClientToolDef[]
   /** Runs a round of calls to those tools (asking you first where needed). */
   runTools?(calls: ClientCall[]): Promise<ClientOutcome[]>
@@ -43,7 +43,7 @@ export interface ClientOutcome {
   /** Pictures a tool returned, passed back to models that can see them. */
   images?: { mediaType: string; data: string }[]
   isError?: boolean
-  /** A picture Twilight made, shown in the reply. */
+  /** A picture Tasogare made, shown in the reply. */
   generated?: { file: string; prompt: string }
 }
 

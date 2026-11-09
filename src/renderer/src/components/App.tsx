@@ -221,7 +221,7 @@ export function App() {
       {latestUpdate && latestUpdate !== noticed && !settingsOpen && !undo && !error && !unlocked.length && (
         <div className="toast toast-info update-toast" role="status">
           <span className="update-dot" />
-          <span>Twilight {latestUpdate} is available</span>
+          <span>Tasogare {latestUpdate} is available</span>
           <button
             className="tw-btn tw-btn-ghost tw-btn-sm"
             onClick={() => {

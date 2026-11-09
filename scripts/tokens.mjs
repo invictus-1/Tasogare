@@ -1,4 +1,4 @@
-// Compiles design/tokens.json (the Twilight design system's tokens) into CSS custom properties.
+// Compiles design/tokens.json (the Tasogare design system's tokens) into CSS custom properties.
 // Run `node scripts/tokens.mjs` after pulling new tokens from the design system.
 import { readFileSync, writeFileSync } from 'node:fs'
 
@@ -7,7 +7,7 @@ const theme = tokens.color.themes[0].id
 const value = (v) => (typeof v === 'string' ? v : v[theme])
 const css = (v) => value(v).replace(/^\{(.+)\}$/, 'var(--$1)')
 
-const lines = ['/* Twilight — generated from design/tokens.json by scripts/tokens.mjs. Do not edit. */', ':root {']
+const lines = ['/* Tasogare — generated from design/tokens.json by scripts/tokens.mjs. Do not edit. */', ':root {']
 for (const t of tokens.color.tokens) lines.push(`  --${t.name}: ${css(t.value)};`)
 for (const family of ['shadow', 'spacing', 'radius', 'size']) {
   for (const t of tokens[family]?.tokens ?? []) lines.push(`  --${t.name}: ${css(t.value)};`)

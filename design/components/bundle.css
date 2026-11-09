@@ -1,6 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Literata:opsz,wght@7..72,400;7..72,600&display=swap");
 
-/* Twilight components — plain CSS, prefix tw-. Values come from tokens.css; nothing here declares a color. */
+/* Tasogare components — plain CSS, prefix tw-. Values come from tokens.css; nothing here declares a color. */
 
 body { margin: 0; font-family: var(--font-sans); font-size: 14px; line-height: 22px; background: var(--surface); color: var(--ink); -webkit-font-smoothing: antialiased; }
 ::selection { background: var(--selection); }

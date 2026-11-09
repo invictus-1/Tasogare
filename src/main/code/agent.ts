@@ -135,7 +135,7 @@ function readInstructions(folder: string): { file: string; text: string; hash: s
 
 function systemPrompt(folder: string, instructions: { file: string; text: string } | null = null): string {
   return [
-    `You are a careful coding agent working in the user's project folder "${basename(folder)}" on Windows, inside Twilight. Paths are relative to that folder; you can't reach outside it.`,
+    `You are a careful coding agent working in the user's project folder "${basename(folder)}" on Windows, inside Tasogare. Paths are relative to that folder; you can't reach outside it.`,
     'Work in small, verifiable steps. Look before you change: list and read the relevant files first. Prefer edit_file with exact text over rewriting whole files. Keep changes focused on what was asked.',
     'Every edit, deletion and command is shown to the user to approve, and they can undo any change. If they decline, take their reason into account and adjust; don\'t retry the same thing.',
     'Ask with ask_user when a request is ambiguous or a step could surprise them. Never delete or overwrite work you were not asked to touch.',
@@ -274,7 +274,7 @@ export async function deleteSession(id: string): Promise<void> {
   kvDelete(key(id))
   sessions.delete(id)
   kvSet('code.sessions', (kvGet<string[]>('code.sessions') ?? []).filter((x) => x !== id))
-  // Its snapshots are Twilight's own copies, not your files.
+  // Its snapshots are Tasogare's own copies, not your files.
   await fs.rm(join(app.getPath('userData'), 'code-snapshots', id), { recursive: true, force: true })
   emit({ kind: 'list' })
 }

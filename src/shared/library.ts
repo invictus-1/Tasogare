@@ -1,5 +1,5 @@
 // The library: personas (a saved system prompt with a name, and optionally a model and choice
-// cards) and prompts (saved messages to insert in the composer). Both live in Twilight's own
+// cards) and prompts (saved messages to insert in the composer). Both live in Tasogare's own
 // database; a library file moves them between installs.
 
 export interface Persona {

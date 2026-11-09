@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<!-- Runs as the user: Twilight installs per user, so the installer never asks for admin rights.
+<!-- Runs as the user: Tasogare installs per user, so the installer never asks for admin rights.
      (Without this, Windows guesses that anything called "Setup" needs them.) -->
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">

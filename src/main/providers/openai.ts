@@ -18,7 +18,7 @@ interface StoredCall {
   arguments: string
 }
 
-/** A round of tools Twilight ran inside a reply: the text before the calls, the calls, their results. */
+/** A round of tools Tasogare ran inside a reply: the text before the calls, the calls, their results. */
 interface ToolRound {
   type: 'tool_round'
   text: string
@@ -346,7 +346,7 @@ export const openaiProvider: Provider = {
           }
         }
         const asked = calls.filter(Boolean).map((c, i) => ({ ...c, id: c.id || `call_${rounds.length}_${i}` }))
-        // Calls to Twilight's own tools are run and the reply carries on; anything else (a
+        // Calls to Tasogare's own tools are run and the reply carries on; anything else (a
         // present_choices call) ends it.
         if (!req.runTools || !asked.length || !asked.every((c) => clientNames.has(c.name))) break
         if (rounds.length >= MAX_TOOL_ROUNDS) {

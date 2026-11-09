@@ -197,13 +197,13 @@ function startServer(): Promise<Server> {
     if (url.startsWith('/gh/releases')) {
       const release = (version: string, day: number, notes: string) => ({
         tag_name: `v${version}`,
-        name: `Twilight ${version}`,
+        name: `Tasogare ${version}`,
         body: notes,
         draft: false,
         prerelease: false,
         published_at: new Date(Date.UTC(2026, 9, day, 16)).toISOString(),
         html_url: '',
-        assets: [{ name: `Twilight-Setup-${version}.exe`, size: 122_600_000, browser_download_url: '' }]
+        assets: [{ name: `Tasogare-Setup-${version}.exe`, size: 122_600_000, browser_download_url: '' }]
       })
       return json(res, [
         release(app.getVersion(), 28, '- Clearer key errors\n- Model providers in two panes\n- The Roadmap page'),

@@ -297,7 +297,7 @@ function Dashboard({ s }: { s: InsightsSummary }) {
       </section>
       {s.written === 0 && (
         <p className="ins-note">
-          Your folder's existing {n(s.storyTotal)} words are the starting point, not today's work. From here on, words you add (in Twilight, Obsidian or anywhere
+          Your folder's existing {n(s.storyTotal)} words are the starting point, not today's work. From here on, words you add (in Tasogare, Obsidian or anywhere
           else) are counted on the day you write them.
         </p>
       )}
@@ -598,7 +598,7 @@ function Characters({ s }: { s: InsightsSummary }) {
       )}
       {s.suggestions.length > 0 && (
         <section className="ins-card">
-          <h3 className="ins-card-title">Names Twilight noticed</h3>
+          <h3 className="ins-card-title">Names Tasogare noticed</h3>
           <p className="ins-card-note">Capitalised words that keep turning up mid-sentence. Click one to track it.</p>
           <div className="word-chips">
             {s.suggestions.map((sg) => (

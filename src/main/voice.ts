@@ -129,7 +129,7 @@ let installing: { done: number; total: number } | null = null
 let error: string | null = null
 const downloads = new Map<string, { done: number; total: number; controller: AbortController }>()
 
-/** Fetches whisper.cpp from its official GitHub releases and unpacks it beside Twilight's data. */
+/** Fetches whisper.cpp from its official GitHub releases and unpacks it beside Tasogare's data. */
 export async function installWhisper(): Promise<void> {
   if (installing) return
   error = null

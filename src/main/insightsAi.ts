@@ -187,7 +187,7 @@ async function call(system: string, user: string, maxTokens: number, signal: Abo
   try {
     json = parseJson(result.text)
   } catch {
-    throw new Error("The model's answer wasn't the JSON Twilight asked for. Try again, or pick another model.")
+    throw new Error("The model's answer wasn't the JSON Tasogare asked for. Try again, or pick another model.")
   }
   const local = provider.kind === 'openai' && /localhost|127\.0\.0\.1/.test(provider.baseUrl ?? '')
   return { json, costUsd: costOf(result.modelId, result.usage, local), model: result.modelId }

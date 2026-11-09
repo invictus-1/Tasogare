@@ -193,7 +193,7 @@ function write(next: Record<string, string>): void {
   try {
     localStorage.setItem(STORE_KEY, JSON.stringify(next))
   } catch {
-    // Storage unavailable: the binding holds until Twilight closes.
+    // Storage unavailable: the binding holds until Tasogare closes.
   }
   listeners.forEach((l) => l())
 }

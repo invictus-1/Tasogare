@@ -133,7 +133,7 @@ function DeleteButton({ node }: { node: NodeView }) {
 }
 
 /**
- * Copy as an icon that answers: a tick and "Copied" for a moment. It goes through Twilight's own
+ * Copy as an icon that answers: a tick and "Copied" for a moment. It goes through Tasogare's own
  * clipboard, since the page's is refused along with every other web permission.
  */
 export function CopyIconButton({ text, label = 'Copy' }: { text: () => string; label?: string }) {

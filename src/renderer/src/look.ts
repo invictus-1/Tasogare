@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react'
 
 // Background and motion: how the window looks around your work. Both are per install (like the
-// theme), kept in local storage; the background picture itself lives in Twilight's data folder.
+// theme), kept in local storage; the background picture itself lives in Tasogare's data folder.
 
 export interface Backdrop {
   kind: 'none' | 'gradient' | 'image'

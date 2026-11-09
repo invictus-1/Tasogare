@@ -1,4 +1,4 @@
-// Every theme Twilight ships. The colours themselves are tokens in styles/themes.css; this list is
+// Every theme Tasogare ships. The colours themselves are tokens in styles/themes.css; this list is
 // what the pickers, the command menu and the window frame read.
 
 export interface ThemeInfo {

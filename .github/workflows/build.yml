@@ -22,9 +22,9 @@ jobs:
       - run: npm run dist
       - uses: actions/upload-artifact@v4
         with:
-          name: twilight-windows
+          name: tasogare-windows
           path: |
-            release/Twilight-Setup-*.exe
-            release/Twilight-*-x64.zip
+            release/Tasogare-Setup-*.exe
+            release/Tasogare-*-x64.zip
             release/latest.yml
           if-no-files-found: error

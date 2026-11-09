@@ -60,7 +60,7 @@ export function WorkspaceDialog({ workspace, onClose }: { workspace: ChatFolder;
               set({ providerId, modelId })
             }}
           >
-            <option value="">Twilight's default</option>
+            <option value="">Tasogare's default</option>
             {draft.providerId && draft.modelId && !models.some((m) => m.providerId === draft.providerId && m.id === draft.modelId) && (
               <option value={`${draft.providerId}::${draft.modelId}`}>{modelName(models, draft.modelId)} (not available now)</option>
             )}

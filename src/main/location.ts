@@ -2,13 +2,16 @@ import { app } from 'electron'
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-// Where Twilight keeps its data. The standard place is %APPDATA%\Twilight; you can choose another
+// Where Tasogare keeps its data. The standard place is %APPDATA%\Twilight (the name it had before
+// 1.6, kept so existing data stays where it is: the database holds full paths into it); you can choose another
 // (a bigger drive, a synced folder). A small pointer file in the standard place says where the
 // data is. A move is done on the next start, before anything opens the data: everything is
 // copied to the new folder, checked, and only then used. The old copy stays where it was until
 // you remove it, so a move never loses anything.
 
 const POINTER = 'location.json'
+/** The app's name before 1.6, which its data folder keeps. */
+const LEGACY_NAME = 'Twilight'
 
 interface Pointer {
   /** The folder in use, when it isn't the standard one. */
@@ -22,7 +25,7 @@ interface Pointer {
 /** Chromium's caches are rebuilt on their own; copying them would only slow a move. */
 const SKIP = new Set(['Cache', 'Code Cache', 'GPUCache', 'DawnGraphiteCache', 'DawnWebGPUCache', 'GPUPersistentCache', 'GrShaderCache', 'ShaderCache', 'blob_storage', POINTER])
 
-export const standardFolder = (): string => join(app.getPath('appData'), 'Twilight')
+export const standardFolder = (): string => join(app.getPath('appData'), LEGACY_NAME)
 
 function read(standard: string): Pointer {
   try {
@@ -41,9 +44,9 @@ function write(standard: string, pointer: Pointer): void {
 export function checkTarget(target: string, current: string, standard = standardFolder()): string | null {
   if (!target.trim()) return 'Choose a folder.'
   const norm = (p: string): string => p.replace(/[\\/]+$/, '').toLowerCase()
-  if (norm(target) === norm(current)) return 'Twilight already keeps its data there.'
+  if (norm(target) === norm(current)) return 'Tasogare already keeps its data there.'
   if (norm(target).startsWith(`${norm(current)}\\`) || norm(target).startsWith(`${norm(current)}/`)) return "That folder is inside the current data folder; choose one outside it."
-  if (norm(target) !== norm(standard) && existsSync(target) && readdirSync(target).length) return 'Choose an empty folder (or a new one), so nothing in it is mixed with Twilight\'s data.'
+  if (norm(target) !== norm(standard) && existsSync(target) && readdirSync(target).length) return 'Choose an empty folder (or a new one), so nothing in it is mixed with Tasogare\'s data.'
   return null
 }
 
@@ -95,6 +98,12 @@ function copyData(from: string, to: string): number {
   }
   walk(from, to)
   return count
+}
+
+/** A folder in Documents: the one by the app's old name when only that exists, else the new name. */
+export function documentsFolder(name: string, legacy: string): string {
+  const documents = app.getPath('documents')
+  return !existsSync(join(documents, name)) && existsSync(join(documents, legacy)) ? join(documents, legacy) : join(documents, name)
 }
 
 export function lastLocationChange(standard = standardFolder()): Pointer['last'] | null {

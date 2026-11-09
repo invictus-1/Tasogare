@@ -11,7 +11,7 @@ const SECTIONS: { mode: Mode; label: string; icon: ReactNode; command: string }[
   { mode: 'code', label: 'Code', icon: <CodeIcon size={19} />, command: 'go-code' }
 ]
 
-/** Twilight's mark: a sun on the horizon under two bands of sky. */
+/** Tasogare's mark: a sun on the horizon under two bands of sky. */
 function Mark() {
   return (
     <svg className="rail-mark" viewBox="0 0 32 32" aria-hidden="true">
@@ -204,7 +204,7 @@ export function Rail() {
           className="rail-item"
           data-rail="settings"
           aria-selected={settingsOpen}
-          title={latestUpdate ? `Settings · Twilight ${latestUpdate} is available` : tip('Settings', 'settings')}
+          title={latestUpdate ? `Settings · Tasogare ${latestUpdate} is available` : tip('Settings', 'settings')}
           onClick={() => useStore.getState().setSettingsOpen(!settingsOpen)}
         >
           <span className="rail-icon">

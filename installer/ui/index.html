@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Twilight Setup</title>
+<title>黄昏 Setup</title>
 <!-- The installer's whole interface: the app's first-run evening (src/renderer/src/components/
      Welcome.tsx and its .wl-* styles), in a window of its own. installer/build.cjs inlines the
      fonts where the FONTS marker is; setup.cpp shows it in WebView2 and answers its messages. -->
@@ -36,6 +36,7 @@ body.done .sun { translate: 0 0; box-shadow: 0 0 160px 50px #ffb48a44; }
 .intro { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; margin-bottom: 24vh; }
 .tagline, .note, .progress-line { text-shadow: 0 1px 10px #0b0d1c, 0 0 2px #0b0d1c; }
 .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .3em; text-transform: uppercase; color: var(--dusk); animation: rise 700ms 1.4s both; }
+.wordmark:lang(ja) { font-family: 'Yu Mincho', 'YuMincho', var(--font-serif); letter-spacing: .08em; }
 .wordmark { margin: 0 0 .2em; font-family: var(--font-serif); font-size: 92px; line-height: 1; font-weight: 600; letter-spacing: -.03em; color: var(--ink); text-shadow: 0 0 60px color-mix(in srgb, var(--dusk) 45%, transparent); animation: rise 900ms 1.6s cubic-bezier(.2, .8, .2, 1) both; }
 .tagline { margin: 0; font-size: 16px; color: var(--ink-muted); min-height: 22px; animation: rise 700ms 2s both; }
 .actions { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 22px; min-height: 92px; animation: rise 700ms 2.4s both; }
@@ -89,12 +90,12 @@ body.done .sun { translate: 0 0; box-shadow: 0 0 160px 50px #ffb48a44; }
   </div>
   <main class="intro">
     <div class="eyebrow" id="eyebrow">Install</div>
-    <h1 class="wordmark">Twilight</h1>
+    <h1 class="wordmark" lang="ja">黄昏</h1>
     <p class="tagline" id="tagline">A quiet place to write with language models.</p>
     <div class="actions">
       <div id="start" class="actions-body">
         <div class="row" style="flex-direction: column; gap: 12px">
-          <button class="primary" id="install" autofocus>Install Twilight</button>
+          <button class="primary" id="install" autofocus>Install Tasogare</button>
           <span class="note" id="about">Installs for you on this PC. Your chats and documents are never touched.</span>
         </div>
       </div>
@@ -103,7 +104,7 @@ body.done .sun { translate: 0 0; box-shadow: 0 0 160px 50px #ffb48a44; }
         <div class="progress-line"><span id="phase">Getting ready</span><span id="percent">0%</span></div>
       </div>
       <div id="finished" class="row fade-in" hidden>
-        <button class="primary" id="open">Open Twilight</button>
+        <button class="primary" id="open">Open Tasogare</button>
         <button class="ghost" id="closeDone">Close</button>
       </div>
       <div id="failed" class="row fade-in" hidden>
@@ -165,7 +166,7 @@ host && host.addEventListener('message', (e) => {
   const m = e.data || {}
   if (m.type === 'info') {
     $('about').textContent = `Version ${m.version} · installs for you on this PC. Your chats and documents are never touched.`
-    if (m.installed) $('install').textContent = m.installed === m.version ? 'Reinstall Twilight' : `Update to ${m.version}`
+    if (m.installed) $('install').textContent = m.installed === m.version ? 'Reinstall Tasogare' : `Update to ${m.version}`
     // A dry run (TWILIGHT_SETUP_DRYRUN) starts by itself once the evening has settled.
     if (m.rehearse) setTimeout(install, 3600)
   } else if (m.type === 'progress') {
@@ -175,7 +176,7 @@ host && host.addEventListener('message', (e) => {
     setTimeout(() => {
       show('finished')
       $('eyebrow').textContent = 'Ready'
-      $('tagline').textContent = 'Twilight is installed. Its welcome will walk you through the rest.'
+      $('tagline').textContent = 'Tasogare is installed. Its welcome will walk you through the rest.'
       $('open').focus()
     }, 450)
   } else if (m.type === 'error') {

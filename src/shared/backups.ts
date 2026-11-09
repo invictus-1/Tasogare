@@ -1,10 +1,10 @@
-// Backups and where Twilight keeps its data (Settings → Data).
+// Backups and where Tasogare keeps its data (Settings → Data).
 
 export interface BackupSettings {
   schedule: 'off' | 'daily' | 'weekly'
   /** Scheduled backups kept; older ones go to the Recycle Bin. Ones you make are kept until you remove them. */
   keep: number
-  /** Where backups go; empty for "Twilight backups" in Documents. */
+  /** Where backups go; empty for "Tasogare backups" in Documents. */
   folder: string
 }
 

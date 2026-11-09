@@ -101,7 +101,7 @@ function PromptEditor({ prompt, onDone }: { prompt: SavedPrompt; onDone: () => v
         <span className="field-label">Text</span>
         <textarea rows={6} value={draft.text} placeholder="The message it puts in the box" onChange={(e) => setDraft({ ...draft, text: e.target.value })} />
         <span className="field-note">
-          Write {INPUT_PLACEHOLDER} where something changes each time: Twilight asks for it when you insert the prompt.
+          Write {INPUT_PLACEHOLDER} where something changes each time: Tasogare asks for it when you insert the prompt.
         </span>
       </label>
       <div className="dialog-actions">

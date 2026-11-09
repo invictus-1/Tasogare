@@ -4,7 +4,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, extname, join } from 'node:path'
 
 // Pictures made during chats (by the Pictures tool, or by an image model answering itself),
-// kept in Twilight's data folder and served to the window as twilight-bg://generated/<file>.
+// kept in Tasogare's data folder and served to the window as twilight-bg://generated/<file>.
 
 const TYPES: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' }
 const EXT: Record<string, string> = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp' }

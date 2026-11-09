@@ -6,8 +6,9 @@ import Database from 'better-sqlite3'
 import type { BackupInfo, BackupSettings } from '@shared/backups'
 import { backupDatabase, kvGet, kvSet } from './db'
 import { toRecycleBin } from './code/workspace'
+import { documentsFolder } from './location'
 
-// Backups of everything Twilight keeps: the database (chats, workspaces, settings, encrypted
+// Backups of everything Tasogare keeps: the database (chats, workspaces, settings, encrypted
 // keys), your background picture, the pictures chats made, and the window's own settings (theme,
 // motion, shortcuts). Each is a plain folder, so it can be copied anywhere and looked into. A
 // restore happens on the next start, before anything is open, and the state it replaces is
@@ -33,7 +34,7 @@ export function setBackupSettings(patch: Partial<BackupSettings>): BackupSetting
 export function backupFolder(): string {
   const chosen = backupSettings().folder
   if (chosen) return chosen
-  return process.env.TWILIGHT_E2E ? join(app.getPath('userData'), 'backups') : join(app.getPath('documents'), 'Twilight backups')
+  return process.env.TWILIGHT_E2E ? join(app.getPath('userData'), 'backups') : documentsFolder('Tasogare backups', 'Twilight backups')
 }
 
 export async function chooseBackupFolder(win: BrowserWindow | null): Promise<BackupSettings> {
@@ -74,8 +75,8 @@ async function folderSize(dir: string): Promise<number> {
 export async function createBackup(reason: BackupInfo['reason']): Promise<BackupInfo> {
   const root = backupFolder()
   const now = new Date()
-  let dir = join(root, `Twilight ${stamp(now)}`)
-  for (let n = 2; existsSync(dir); n++) dir = join(root, `Twilight ${stamp(now)} (${n})`)
+  let dir = join(root, `Tasogare ${stamp(now)}`)
+  for (let n = 2; existsSync(dir); n++) dir = join(root, `Tasogare ${stamp(now)} (${n})`)
   await mkdir(dir, { recursive: true })
   await backupDatabase(join(dir, DB))
   for (const f of FOLDERS) {
@@ -142,14 +143,14 @@ export function startBackupSchedule(): void {
 }
 
 // ——— Restoring ———
-// The database is open while Twilight runs, so a restore is set up now and done on the next
+// The database is open while Tasogare runs, so a restore is set up now and done on the next
 // start, before the database opens. What's there is backed up first.
 
 const PENDING = 'restore.json'
 const LOCAL = 'restore-window-settings.json'
 
 export async function stageRestore(backupPath: string): Promise<void> {
-  if (!existsSync(join(backupPath, DB)) || !existsSync(join(backupPath, MANIFEST))) throw new Error("That folder isn't a Twilight backup.")
+  if (!existsSync(join(backupPath, DB)) || !existsSync(join(backupPath, MANIFEST))) throw new Error("That folder isn't a Tasogare backup.")
   await createBackup('before-restore')
   await writeFile(join(app.getPath('userData'), PENDING), JSON.stringify({ from: backupPath }))
 }

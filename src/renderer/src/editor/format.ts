@@ -1,7 +1,7 @@
 import type { Command } from '@codemirror/view'
 
 // Markdown formatting for the selection toolbar and shortcuts. The manuscript stays plain
-// markdown, so Obsidian reads exactly what Twilight writes.
+// markdown, so Obsidian reads exactly what Tasogare writes.
 
 /** Wraps the selection in `mark` (e.g. ** for bold), or unwraps it if it's already wrapped. */
 export const toggleWrap =

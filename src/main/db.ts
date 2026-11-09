@@ -430,7 +430,7 @@ function compactionView(content: string): { carried: number; local: boolean; kep
   return { carried: blocks.find((b) => b.type === 'carried')?.blocks?.length ?? 0, local: blocks[0]?.local === true, kept: blocks.find((b) => b.type === 'kept')?.count ?? 0 }
 }
 
-/** Tools Twilight ran and pictures it made during a reply; most replies have neither, so they skip the parse. */
+/** Tools Tasogare ran and pictures it made during a reply; most replies have neither, so they skip the parse. */
 function toolsOf(content: string | null): Pick<NodeView, 'tools' | 'images'> {
   if (!content || !(content.includes('"tool_results"') || content.includes('"tool_round"') || content.includes('"generated_image"'))) return {}
   const blocks = JSON.parse(content) as { type: string; [key: string]: unknown }[]

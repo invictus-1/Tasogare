@@ -1,8 +1,8 @@
-# Twilight design system
+# Tasogare design system
 
-The source of truth for how Twilight looks: `tokens.json` (colours, type, spacing, radii, shadows, sizes), `components/` (each with guidelines and a preview), and the principles below. The app's own CSS (`src/renderer/src/styles/`) implements these tokens.
+The source of truth for how Tasogare looks: `tokens.json` (colours, type, spacing, radii, shadows, sizes), `components/` (each with guidelines and a preview), and the principles below. The app's own CSS (`src/renderer/src/styles/`) implements these tokens.
 
-Twilight is a desktop front end for language models — cloud APIs, local models, tools and agents — with a writing studio and a coding agent built in. It should feel like the quiet hour after sunset: calm, and fast. Every rule below serves two promises: **nothing waits on the interface**, and **the user's words are the brightest thing on screen**.
+Tasogare is a desktop front end for language models — cloud APIs, local models, tools and agents — with a writing studio and a coding agent built in. It should feel like the quiet hour after sunset: calm, and fast. Every rule below serves two promises: **nothing waits on the interface**, and **the user's words are the brightest thing on screen**.
 
 This describes the app as of 1.0. When the app and this file disagree, check the app's CSS (`src/renderer/src/styles/`) and update whichever is wrong.
 

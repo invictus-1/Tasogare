@@ -6,7 +6,7 @@ import { IMAGE_EXTENSIONS } from '@shared/attachments'
 import { kvGet, kvSet } from './db'
 import { readGenerated } from './generated'
 
-// Your own background picture. The chosen file is copied into Twilight's data folder (so moving
+// Your own background picture. The chosen file is copied into Tasogare's data folder (so moving
 // or deleting the original changes nothing) and served to the window as twilight-bg://image,
 // which keeps file paths out of the page and the network lockdown untouched.
 

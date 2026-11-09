@@ -1,8 +1,8 @@
 # Start here
 
-For a Claude session picking up Twilight with no memory of how it got here. Read this, then [CLAUDE.md](../CLAUDE.md) (ground rules and a map of the code), then skim [CHANGELOG.md](../CHANGELOG.md) and [ROADMAP.md](../ROADMAP.md). Together they are everything earlier sessions knew.
+For a Claude session picking up Tasogare with no memory of how it got here. Read this, then [CLAUDE.md](../CLAUDE.md) (ground rules and a map of the code), then skim [CHANGELOG.md](../CHANGELOG.md) and [ROADMAP.md](../ROADMAP.md). Together they are everything earlier sessions knew.
 
-## What Twilight is
+## What Tasogare is
 
 A fast, local-first Windows desktop app (Electron + React + TypeScript, SQLite) for writing with language models. Its owner built it with Claude for their own work: long-form fiction and text adventures, in chats that run to 300k+ tokens, a manuscript editor for 100k+ words, side-by-side model comparisons and a judge that scores passages. It talks to Claude through the user's own Anthropic API key and to any OpenAI-compatible server (OpenRouter, OpenAI, LM Studio, Ollama, llama.cpp).
 
@@ -48,7 +48,7 @@ The test modes run the real app in a throwaway profile and never touch real data
 
 ```bash
 TWILIGHT_E2E=<folder> node_modules/electron/dist/electron.exe .         # ~550 checks → <folder>/e2e.json + screenshots
-TWILIGHT_E2E=<folder> release/win-unpacked/Twilight.exe                  # the same against the packaged app
+TWILIGHT_E2E=<folder> release/win-unpacked/Tasogare.exe                  # the same against the packaged app
 TWILIGHT_SELFTEST=<folder> node_modules/electron/dist/electron.exe .    # scroll timings on a 450-turn chat
 TWILIGHT_SHOWCASE=<folder> node_modules/electron/dist/electron.exe .    # README screenshots from demo data
 ```
@@ -71,7 +71,7 @@ A release goes: update CHANGELOG and ROADMAP (mark the version's date) → `npm 
 
 - **Conversations are trees** of messages under a hidden root; regenerating or editing adds a sibling, and the thread is the path of active children. Split compare's pane B is a second branch of the same tree.
 - **Requests are append-only** for the cache (see above). Context that changes (date and time, an instruction change, attached files, library passages) is a tagged block in the newest user message (`src/shared/attachments.ts`, `isContextText`).
-- **Tools Twilight runs itself** (MCP, pictures, `search_library`) happen inside one reply: Claude rounds are stored as `tool_results` blocks, OpenAI-compatible ones as `tool_round` blocks, replayed exactly (`src/main/providers/`). Each MCP call waits for approval unless allowed.
+- **Tools Tasogare runs itself** (MCP, pictures, `search_library`) happen inside one reply: Claude rounds are stored as `tool_results` blocks, OpenAI-compatible ones as `tool_round` blocks, replayed exactly (`src/main/providers/`). Each MCP call waits for approval unless allowed.
 - **The Code tab** (`src/main/code/`) is our own agent loop: path confinement with realpath, nothing written inside `.git`, a snapshot before every change, deletions to the Recycle Bin, risky commands flagged and never allowed for good, plan mode, rewind, and a stopped turn's results joined to the next message.
 - **The interface never reaches the network.** Model calls, MCP, embeddings and the daily update check run in the main process; the window's web requests are blocked.
 - **Data safety:** restores and data-folder moves happen at startup, before the database opens, and back up first. The document library's index is its own `library.db`, rebuilt from the files whenever needed.
@@ -91,7 +91,7 @@ A release goes: update CHANGELOG and ROADMAP (mark the version's date) → `npm 
 
 **1.0 is the foundation; everything past it is extras, cool features and experiments**, and what stays is decided as they're tried. The owner will review this plan and talk it through on their main account before anything is built.
 
-The proposed theme for 2.0, agreed in outline at the end of the 1.0 session: **Twilight knows your story.** Its parts build on each other, so they belong in one release (on the roadmap under Later):
+The proposed theme for 2.0, agreed in outline at the end of the 1.0 session: **Tasogare knows your story.** Its parts build on each other, so they belong in one release (on the roadmap under Later):
 
 1. **Retrieval research, first.** Look beyond graph RAG at what else exists, and weigh building a fully custom system (on RAG or newer, experimental methods) against the known approaches, before choosing.
 2. **Context scout** (the owner's idea): a small, fast model reads each message first and gathers what the main model needs — passages, earlier scenes, facts about the characters in play.
@@ -107,7 +107,7 @@ The owner's answers (2026-10-29, after 1.1.0):
 - **Every 2.0 part can be switched off.** Not everyone wants it.
 - **Retrieval must be exceptional,** using the newest methods, not the same RAG everyone ships. The research is the first job of the next session.
 - **Local models, made easy:** search Hugging Face for models and download them in the app, with a built-in check of what this PC can run (like LM Studio's), so anyone can use local models without the convoluted interfaces most wrappers have. To be explored alongside the retrieval research.
-- **Motion:** explore new animations across the app, unique to Twilight, for the owner and for everyone.
+- **Motion:** explore new animations across the app, unique to Tasogare, for the owner and for everyone.
 
 **Shelved, 2026-10-30: the story bible and the continuity watcher.** Both were built (entries proposed from chosen library documents, accepted by the user, brought into chats by name; every reply checked against them) and then taken out by the owner, who tried them. The reasons: relying on a model to sort everyone's notes is fragile when most people's notes are less organised than theirs, and the cheap fast models that could afford to check every reply hallucinate too much to be trusted, while a manuscript of 200k tokens is more than they can hold. The code is kept whole on the branch `shelved/story-bible` (commit de4b6fb), off the roadmap, to revisit once fast models are smart and cheap enough and handle long context well. What replaced the watcher is Writing → Continuity: the writer picks the documents to check against (with presets such as Characters or Lore, or Everything), and the writing tools' own model does the check, on request only.
 

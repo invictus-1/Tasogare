@@ -670,7 +670,7 @@ export function closeSplit(id: string, keep: Pane): ConversationView {
   return view(id)
 }
 
-// ——— Tools Twilight runs during a reply ———
+// ——— Tools Tasogare runs during a reply ———
 
 /** Approvals the replies are waiting on, by approval id. */
 const approvals = new Map<string, (r: ToolApprovalResponse) => void>()
@@ -1011,7 +1011,7 @@ function generate(
 export interface CompactionSettings {
   /** Offer to compact once a chat's context reaches this many tokens; null never offers. */
   threshold: number | null
-  /** Your own summary instructions; empty uses the model's (Claude's own, or Twilight's below). */
+  /** Your own summary instructions; empty uses the model's (Claude's own, or Tasogare's below). */
   instructions: string
   /** Attach again, after the summary, the documents and instruction changes from the turns it replaced. */
   keepDocs: boolean
@@ -1024,7 +1024,7 @@ export function setCompactionSettings(patch: Partial<CompactionSettings>): Compa
   return next
 }
 
-/** For models without Claude's compaction: the summary request Twilight sends instead. */
+/** For models without Claude's compaction: the summary request Tasogare sends instead. */
 const LOCAL_SUMMARY = `Write a summary of this whole conversation so far, to stand in for it from now on: the conversation will continue from your summary alone, so anything you leave out is lost.
 
 Keep: every person, place and thing that matters, with names spelled exactly; what has happened, in order, with the details later turns could call back to; decisions made, promises, open questions and anything still unresolved; what the user has asked for and any standing instructions, preferences or rules they gave; the current situation at the very end, precisely enough to pick up mid-scene.

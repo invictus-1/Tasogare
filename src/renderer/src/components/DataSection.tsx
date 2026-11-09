@@ -3,7 +3,7 @@ import type { BackupInfo, BackupSettings, DataInfo } from '@shared/backups'
 import { useStore } from '../store'
 import { FolderIcon, RefreshIcon, TrashIcon } from './Icons'
 
-// Settings → Data: where Twilight keeps its data, moving it, and backups you can go back to.
+// Settings → Data: where Tasogare keeps its data, moving it, and backups you can go back to.
 
 const api = window.twilight
 const errText = (err: unknown): string => (err instanceof Error ? err.message : String(err)).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
@@ -49,7 +49,7 @@ export function DataSection() {
     <>
       <div className="settings-card data-where">
         <h3 className="t-heading">Where your data lives</h3>
-        <p className="field-note">Chats, workspaces, settings, encrypted keys, your background and the pictures chats made. Updating or reinstalling Twilight never touches it.</p>
+        <p className="field-note">Chats, workspaces, settings, encrypted keys, your background and the pictures chats made. Updating or reinstalling Tasogare never touches it.</p>
         <div className="field-inline">
           <span className="folder-path log-path">{info.folder}</span>
           <button className="tw-btn tw-btn-sm" onClick={() => void api.openDataFolder()}>
@@ -72,7 +72,7 @@ export function DataSection() {
           {info.moved && <Confirm label="Move back to the standard place" armed="Restart and move back" onConfirm={() => void api.moveDataBack().then(setNote).catch(fail)} />}
         </div>
         <p className="field-note">
-          Twilight backs up first, restarts, copies everything to the new folder and checks the copy before using it. The old copy stays where it was until you remove it yourself.
+          Tasogare backs up first, restarts, copies everything to the new folder and checks the copy before using it. The old copy stays where it was until you remove it yourself.
         </p>
         {note && (
           <p className="form-error" role="alert">
@@ -113,7 +113,7 @@ export function DataSection() {
           </label>
         </div>
         <p className="field-note">
-          {b.schedule === 'off' ? 'No automatic backups.' : `A backup ${b.schedule === 'daily' ? 'each day' : 'each week'}, a minute after Twilight starts when one is due.`} Older automatic ones go to the
+          {b.schedule === 'off' ? 'No automatic backups.' : `A backup ${b.schedule === 'daily' ? 'each day' : 'each week'}, a minute after Tasogare starts when one is due.`} Older automatic ones go to the
           Recycle Bin; ones you make stay until you remove them.
           {b.last && ` Last automatic backup: ${when(b.last)}.`}
         </p>
@@ -150,7 +150,7 @@ export function DataSection() {
               <div className="backup-what">
                 <span className="backup-name">{when(x.createdAt)}</span>
                 <span className="field-note">
-                  {REASONS[x.reason]} · {x.chats} chat{x.chats === 1 ? '' : 's'} · {size(x.bytes)} · Twilight {x.version}
+                  {REASONS[x.reason]} · {x.chats} chat{x.chats === 1 ? '' : 's'} · {size(x.bytes)} · Tasogare {x.version}
                 </span>
               </div>
               <Confirm label="Restore" armed="Back up current, then restart into this" className="tw-btn tw-btn-sm" onConfirm={() => void api.restoreBackup(x.path).catch(fail)} />

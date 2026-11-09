@@ -173,7 +173,7 @@ http.createServer((req, res) => {
 
 /**
  * whisper.cpp's stand-in: checks it was given a model and a WAV, and answers the way whisper-cli
- * can (a timestamped line and a blank-audio marker), which Twilight cleans into plain text.
+ * can (a timestamped line and a blank-audio marker), which Tasogare cleans into plain text.
  */
 const FAKE_WHISPER = `
 const fs = require('node:fs')
@@ -189,14 +189,14 @@ function mockGithub(url: string, base: string, res: import('node:http').ServerRe
   if (url.startsWith('/gh/releases?')) {
     const release = (v: string, notes: string) => ({
       tag_name: `v${v}`,
-      name: `Twilight ${v}`,
+      name: `Tasogare ${v}`,
       body: notes,
       draft: false,
       prerelease: false,
       published_at: new Date(Date.UTC(2026, 9, 1 + Number(v.split('.')[1]))).toISOString(),
       html_url: `${base}/tag/v${v}`,
       assets: [
-        { name: `Twilight-Setup-${v}.exe`, size: installerBytes(v).length, browser_download_url: `${base}/download/${v}/Twilight-Setup-${v}.exe` },
+        { name: `Tasogare-Setup-${v}.exe`, size: installerBytes(v).length, browser_download_url: `${base}/download/${v}/Tasogare-Setup-${v}.exe` },
         { name: 'latest.yml', size: 100, browser_download_url: `${base}/download/${v}/latest.yml` }
       ]
     })
@@ -215,9 +215,9 @@ function mockGithub(url: string, base: string, res: import('node:http').ServerRe
     const sha = createHash('sha512').update(v === broken ? Buffer.from('other') : installerBytes(v)).digest('base64')
     res.end(`version: ${v}
 files:
-  - url: Twilight-Setup-${v}.exe
+  - url: Tasogare-Setup-${v}.exe
     sha512: ${sha}
-path: Twilight-Setup-${v}.exe
+path: Tasogare-Setup-${v}.exe
 sha512: ${sha}
 `)
     return
@@ -499,7 +499,7 @@ function startMockServer(log: LoggedRequest[]): Promise<Server> {
         // A question about the passage, answered from the references.
         reply = `Partly. Profiles says "She has grey eyes", so the green eyes don't fit; the rest does. (${/Question: (.*)$/s.exec(lastUser)?.[1]})`
       } else if (system.startsWith('You help a fiction writer keep their story consistent')) {
-        // Eyes of the wrong colour against a reference that says grey; and two findings Twilight must drop:
+        // Eyes of the wrong colour against a reference that says grey; and two findings Tasogare must drop:
         // words the passage doesn't hold, and a reference it wasn't given.
         const eyes = /\b(green|blue) eyes\b/i.exec(lastUser)?.[0]
         reply = JSON.stringify({
@@ -1965,7 +1965,7 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         jumpCard('Imported novel')?.querySelector('.ins-jump-skip')?.click()
         await wait(300)
         out.jumpsAfter = document.querySelectorAll('.ins-jump').length
-        // Pointing at a bar, or a day on the heatmap, shows its label at once, drawn by Twilight rather than the browser.
+        // Pointing at a bar, or a day on the heatmap, shows its label at once, drawn by Tasogare rather than the browser.
         const hover = async (el) => (el?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })), await wait(50))
         const leave = async (el) => (el?.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body })), await wait(50))
         const tipText = () => [...document.querySelectorAll('.chart-tip span')].map((e) => e.textContent)
@@ -2149,7 +2149,7 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         out.closed = !document.querySelector('.welcome')
         return out
       })()`)
-      check('the welcome opens with the intro', welcome.open && welcome.wordmark === 'Twilight', welcome)
+      check('the welcome opens with the intro', welcome.open && welcome.wordmark === '黄昏', welcome)
       check('the welcome finds a local model server', welcome.modelTitle === 'Connect a model' && /Found/.test(welcome.status ?? '') && welcome.models.length >= 2, welcome)
       check('the welcome shows the writing folder and themes', !!welcome.folder && welcome.theme === 'ultraviolet', welcome)
       check('the welcome finishes with tips and closes', welcome.done === "You're all set" && welcome.tips === 4 && welcome.closed, welcome)
@@ -2264,11 +2264,16 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
       check('a download that fails its checksum is refused and discarded', /checksum/.test(checksumError) && !us.cached.includes(bump(cur, 2)), checksumError)
       await updates.install(bump(cur, 1))
       us = updates.state()
-      check('update downloads and verifies the installer', !!updates.lastTestInstall()?.endsWith(`Twilight-Setup-${bump(cur, 1)}.exe`) && existsSync(updates.lastTestInstall()!) && us.cached.includes(bump(cur, 1)))
+      check('update downloads and verifies the installer', !!updates.lastTestInstall()?.endsWith(`Tasogare-Setup-${bump(cur, 1)}.exe`) && existsSync(updates.lastTestInstall()!) && us.cached.includes(bump(cur, 1)))
       const backups = await readdir(join(app.getPath('userData'), 'backups'))
       check('database backed up before switching', backups.some((f) => f.endsWith('.db')), backups)
       await updates.install(bump(cur, -1))
-      check('rolling back downloads the older installer', !!updates.lastTestInstall()?.endsWith(`Twilight-Setup-${bump(cur, -1)}.exe`))
+      check('rolling back downloads the older installer', !!updates.lastTestInstall()?.endsWith(`Tasogare-Setup-${bump(cur, -1)}.exe`))
+      // Releases from before the rename carry Twilight-Setup-<version>.exe; rolling back to one still finds it.
+      check(
+        'the updater knows the installer by its new name and its old one',
+        updates.INSTALLER.test('Tasogare-Setup-1.6.0.exe') && updates.INSTALLER.test('Twilight-Setup-1.5.5.exe') && !updates.INSTALLER.test('Other-Setup-1.0.0.exe')
+      )
       check('daily check can be turned off', updates.setAutoCheck(false).autoCheck === false && updates.setAutoCheck(true).autoCheck === true)
 
       await reloadUi()
@@ -2450,7 +2455,7 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
 
       // 31. Images and PDFs: sent as the files themselves, in each provider's format.
       const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
-      const pdf = Buffer.from('%PDF-1.4\n% Twilight test\n').toString('base64')
+      const pdf = Buffer.from('%PDF-1.4\n% Tasogare test\n').toString('base64')
       const c32 = chat.create().id
       const before32 = log.length
       chat.send(contents, c32, 'What is in these?', 'a', [

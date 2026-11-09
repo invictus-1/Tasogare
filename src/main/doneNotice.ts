@@ -14,7 +14,7 @@ export function setDoneNotification(on: boolean): boolean {
   return on
 }
 
-/** Whether a finished reply gets the signal: a long one, while Twilight wasn't the window in front. */
+/** Whether a finished reply gets the signal: a long one, while Tasogare wasn't the window in front. */
 export const shouldSignal = (focused: boolean, tookMs: number): boolean => !focused && tookMs >= LONG_REPLY_MS
 
 /**

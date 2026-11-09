@@ -98,7 +98,7 @@ export function ExtrasSettings() {
         <Switch
           name="warmNight"
           label="Warmer light late at night"
-          note="Between midnight and 5 am, Twilight's colours warm slightly, like a reading lamp, to be easier on your eyes. It changes nothing else."
+          note="Between midnight and 5 am, Tasogare's colours warm slightly, like a reading lamp, to be easier on your eyes. It changes nothing else."
         />
       </div>
       <div className="settings-card">

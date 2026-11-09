@@ -140,7 +140,7 @@ p.ai{margin:0 0 10px}
 footer{margin-top:48px;font-size:12px;color:#8a90c4;text-align:center}
 </style></head>
 <body><main>
-<section class="hero"><div class="eyebrow">Twilight</div><h1>${TITLES[kind]}</h1><div class="range">${esc(range)}</div></section>
+<section class="hero"><div class="eyebrow">黄昏</div><h1>${TITLES[kind]}</h1><div class="range">${esc(range)}</div></section>
 <div class="stats">
 ${stat(n(written), 'words written')}
 ${stat(n(days.length), `active day${days.length === 1 ? '' : 's'}`)}
@@ -162,7 +162,7 @@ ${s.characters.length ? `<h2>Screen time</h2><div class="card">${[...s.character
 ${earned.length ? `<h2>Achievements unlocked</h2><div class="ach">${earned.map((a) => `<div><b>${esc(a.def.name)}</b><span>${esc(a.def.goal)}</span></div>`).join('')}</div>` : ''}
 ${ai?.notes ? `<h2>Insights</h2><div class="card">${ai.notes.observations.map((o) => `<p class="ai"><b>${esc(o.title)}.</b> ${esc(o.text)}</p>`).join('')}${ai.notes.nextStep ? `<p class="ai"><b>Next:</b> ${esc(ai.notes.nextStep)}</p>` : ''}</div>` : ''}
 ${story ? `<h2>The story</h2><div class="card"><p class="ai">${esc(story.summary)}</p>${story.themes.map((th) => `<p class="theme"><b>${esc(th.name)}</b> · ${esc(th.description)}</p>`).join('')}</div>` : ''}
-<footer>Made by Twilight on ${esc(label(today, { month: 'long', day: 'numeric', year: 'numeric' }))}. This file was made on your computer and links to nothing.</footer>
+<footer>Made by Tasogare on ${esc(label(today, { month: 'long', day: 'numeric', year: 'numeric' }))}. This file was made on your computer and links to nothing.</footer>
 </main></body></html>`
 
   await mkdir(reportsFolder(), { recursive: true })

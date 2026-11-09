@@ -6,7 +6,7 @@ import { getApiKey, getProvider } from './providers'
 
 // Pictures a chat asks for. The chat's model calls the generate_image tool; the picture comes
 // from the image model chosen in Settings → Tools (OpenAI's images endpoint and servers that copy
-// it, or an OpenRouter model that answers with images). It's saved in Twilight's data folder and
+// it, or an OpenRouter model that answers with images). It's saved in Tasogare's data folder and
 // shown in the reply; the model is told it was made, not sent the picture back.
 
 /** The tool a chat's model calls for a picture. */

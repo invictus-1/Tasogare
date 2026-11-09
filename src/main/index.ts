@@ -128,7 +128,7 @@ function lockDownNetwork(): void {
       callback({ cancel: !allowed })
     }
   )
-  // The microphone only, for dictation, and only for Twilight's own page; everything else is refused.
+  // The microphone only, for dictation, and only for Tasogare's own page; everything else is refused.
   const ownPage = (url: string): boolean => url.startsWith('file:') || (devOrigin !== null && url.includes(devOrigin))
   session.defaultSession.setPermissionRequestHandler((wc, permission, callback, details) => {
     const audioOnly = permission === 'media' && 'mediaTypes' in details && (details.mediaTypes ?? []).every((t) => t === 'audio')
@@ -156,7 +156,7 @@ function createWindow(): BrowserWindow {
     // A maximized window shows as it maximizes, so it never flashes at its smaller size first.
     show: !place.maximized,
     backgroundColor: frame.night,
-    title: 'Twilight',
+    title: '黄昏',
     titleBarStyle: 'hidden',
     titleBarOverlay: { color: frame.night, symbolColor: frame.symbol, height: 40 },
     webPreferences: {
@@ -204,7 +204,7 @@ async function pickAttachments(win: BrowserWindow | null): Promise<Attachment[]>
     defaultPath: db.kvGet<string>('lastAttachFolder') ?? docs.writingFolder(),
     properties: ['openFile', 'multiSelections'],
     filters: [
-      { name: 'Everything Twilight can attach', extensions: ['md', 'txt', 'markdown', 'json', 'csv', 'tsv', 'yaml', 'yml', 'xml', 'html', 'htm', 'log', 'ini', 'toml', 'pdf', ...IMAGE_EXTENSIONS] },
+      { name: 'Everything Tasogare can attach', extensions: ['md', 'txt', 'markdown', 'json', 'csv', 'tsv', 'yaml', 'yml', 'xml', 'html', 'htm', 'log', 'ini', 'toml', 'pdf', ...IMAGE_EXTENSIONS] },
       { name: 'Images and PDFs', extensions: ['pdf', ...IMAGE_EXTENSIONS] },
       { name: 'Text and documents', extensions: ['md', 'txt', 'markdown', 'json', 'csv', 'tsv', 'yaml', 'yml', 'xml', 'html', 'htm', 'log', 'ini', 'toml'] },
       { name: 'Code', extensions: ['ts', 'tsx', 'js', 'jsx', 'py', 'rs', 'go', 'java', 'cs', 'cpp', 'c', 'h', 'css', 'sql', 'sh', 'ps1', 'lua', 'rb', 'php'] },
@@ -288,7 +288,7 @@ function registerIpc(): void {
     deletePrompt: (_e, id: string) => library.deletePrompt(id),
     importLibrary: async (e) => {
       const win = BrowserWindow.fromWebContents(e.sender)
-      const options: Electron.OpenDialogOptions = { title: 'Import personas and prompts', properties: ['openFile'], filters: [{ name: 'Twilight library', extensions: ['json'] }] }
+      const options: Electron.OpenDialogOptions = { title: 'Import personas and prompts', properties: ['openFile'], filters: [{ name: 'Tasogare library', extensions: ['json'] }] }
       const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
       if (result.canceled || !result.filePaths[0]) return null
       return library.importLibrary(await readFile(result.filePaths[0], 'utf8'))
@@ -296,7 +296,7 @@ function registerIpc(): void {
     exportLibrary: async (e, ids?: string[]) => {
       const win = BrowserWindow.fromWebContents(e.sender)
       const text = library.libraryFile(ids)
-      const options: Electron.SaveDialogOptions = { title: 'Export personas and prompts', defaultPath: 'twilight-library.json', filters: [{ name: 'Twilight library', extensions: ['json'] }] }
+      const options: Electron.SaveDialogOptions = { title: 'Export personas and prompts', defaultPath: 'tasogare-library.json', filters: [{ name: 'Tasogare library', extensions: ['json'] }] }
       const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options)
       if (result.canceled || !result.filePath) return false
       await writeFile(result.filePath, text)
@@ -562,7 +562,7 @@ function registerIpc(): void {
     },
     moveData: async (e) => {
       const win = BrowserWindow.fromWebContents(e.sender)
-      const options: Electron.OpenDialogOptions = { title: 'Choose a new folder for Twilight\'s data', properties: ['openDirectory', 'createDirectory'] }
+      const options: Electron.OpenDialogOptions = { title: 'Choose a new folder for Tasogare\'s data', properties: ['openDirectory', 'createDirectory'] }
       const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
       if (result.canceled || !result.filePaths[0]) return null
       return startMove(result.filePaths[0])
@@ -641,7 +641,7 @@ app.whenReady().then(() => {
     updates.startDailyCheck()
     insights.start()
     startBackupSchedule()
-    // The document library catches up with files changed while Twilight was closed.
+    // The document library catches up with files changed while Tasogare was closed.
     keepFresh()
     local.initLocalModels()
   }
@@ -663,5 +663,5 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
-// MCP servers Twilight started end with it.
+// MCP servers Tasogare started end with it.
 app.on('will-quit', () => mcp.closeAll())

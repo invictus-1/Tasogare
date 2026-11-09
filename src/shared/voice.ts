@@ -1,7 +1,7 @@
 // Offline voice: replies read aloud with Windows' own voices, and dictation transcribed on this PC
 // by whisper.cpp. Nothing is sent anywhere; whisper.cpp and its model are fetched once, on request.
 
-/** A whisper.cpp model Twilight offers, from ggerganov/whisper.cpp on Hugging Face. */
+/** A whisper.cpp model Tasogare offers, from ggerganov/whisper.cpp on Hugging Face. */
 export interface VoiceModel {
   file: string
   label: string

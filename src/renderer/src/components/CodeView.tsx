@@ -136,7 +136,7 @@ function PendingCard({ p }: { p: CodePending }) {
       {p.command && <pre className="code-command">{p.command}</pre>}
       {p.risk && (
         <p className="code-risk" role="alert">
-          <AlertIcon size={14} /> Careful: {p.risk}. Read it before you approve; Twilight can't undo what a command does.
+          <AlertIcon size={14} /> Careful: {p.risk}. Read it before you approve; Tasogare can't undo what a command does.
         </p>
       )}
       {p.kind === 'command' && !p.risk && <p className="field-note">Commands run in the project folder but can reach outside it, and only file edits can be undone.</p>}

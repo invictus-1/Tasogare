@@ -20,7 +20,7 @@ const sidebar = `
     <path d="M38 236 A60 60 0 0 1 158 236"/>
     <path d="M18 236 A80 80 0 0 1 178 236"/>
   </g>
-  <text x="16" y="282" font-family="Segoe UI Semibold, Segoe UI, sans-serif" font-weight="600" font-size="27" fill="#eceefe" letter-spacing="-0.5">Twilight</text>
+  <text x="16" y="282" font-family="Yu Mincho, Segoe UI, serif" font-weight="600" font-size="30" fill="#eceefe" letter-spacing="2">黄昏</text>
   <text x="17" y="300" font-family="Segoe UI, sans-serif" font-size="10.5" fill="#a6abd8">Models, agents and writing.</text>
 </svg>`
 
@@ -35,7 +35,7 @@ const header = `
     <path d="M89 44 A18 18 0 0 1 125 44"/>
     <path d="M81 44 A26 26 0 0 1 133 44"/>
   </g>
-  <text x="10" y="34" font-family="Segoe UI Semibold, Segoe UI, sans-serif" font-weight="600" font-size="15" fill="#eceefe">Twilight</text>
+  <text x="10" y="34" font-family="Yu Mincho, Segoe UI, serif" font-weight="600" font-size="17" fill="#eceefe" letter-spacing="1">黄昏</text>
 </svg>`
 
 /** A 24-bit, bottom-up BMP from a captured image (Electron gives BGRA bytes). */

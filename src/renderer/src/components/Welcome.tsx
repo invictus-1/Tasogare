@@ -91,7 +91,7 @@ function ModelStep() {
   return (
     <div className="wl-step">
       <h2 className="wl-title">Connect a model</h2>
-      <p className="wl-sub">Twilight talks to the models you choose, with your own keys. Keys are encrypted on this computer and only ever sent to their provider.</p>
+      <p className="wl-sub">Tasogare talks to the models you choose, with your own keys. Keys are encrypted on this computer and only ever sent to their provider.</p>
       <div className="wl-choices" role="radiogroup" aria-label="Where your models come from">
         {(
           [
@@ -212,13 +212,13 @@ export function Welcome() {
   const go = (delta: number): void => setStep(STEPS[Math.min(STEPS.length - 1, Math.max(0, index + delta))])
 
   return (
-    <div className={`welcome ${step === 'intro' ? 'is-intro' : ''}`} role="dialog" aria-modal="true" aria-label="Welcome to Twilight">
+    <div className={`welcome ${step === 'intro' ? 'is-intro' : ''}`} role="dialog" aria-modal="true" aria-label="Welcome to Tasogare">
       <div className="wl-drag drag" />
       <Sky settled={settled || step !== 'intro'} />
       {step === 'intro' ? (
         <div className="wl-intro">
           <span className="wl-eyebrow">Welcome to</span>
-          <h1 className="wl-wordmark">Twilight</h1>
+          <h1 className="wl-wordmark" lang="ja">黄昏</h1>
           <p className="wl-tagline">A quiet place to write with language models.</p>
           <div className="wl-intro-actions">
             <button className="tw-btn tw-btn-primary wl-begin" onClick={() => go(1)}>

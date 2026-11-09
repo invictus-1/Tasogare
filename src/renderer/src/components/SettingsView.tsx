@@ -29,13 +29,13 @@ import { ChipIcon, CloseIcon, CloudIcon, PenIcon, PlusIcon, RefreshIcon, TrashIc
 type Section = 'providers' | 'local' | 'tools' | 'voice' | 'prices' | 'usage' | 'general' | 'appearance' | 'library' | 'writing' | 'data' | 'shortcuts' | 'extras' | 'updates' | 'roadmap' | 'about'
 
 // Grouped by what people come looking for: how the app behaves and looks, what you write with,
-// the models, and Twilight itself. Each page holds one kind of thing, named the way you'd ask for it.
+// the models, and Tasogare itself. Each page holds one kind of thing, named the way you'd ask for it.
 const SECTIONS: { id: Section; group: string; label: string; description: string }[] = [
   { id: 'general', group: 'App', label: 'General', description: 'How chats behave: what the Chats button opens, the cache status line, spelling, and Game Format for copying replies into a game.' },
-  { id: 'appearance', group: 'App', label: 'Appearance', description: 'How Twilight looks: the theme, a background, motion, the size of chat text and the colour of bold words.' },
-  { id: 'data', group: 'App', label: 'Data', description: 'Where Twilight keeps your chats and settings, backups you can go back to, moving it all, and request logs.' },
+  { id: 'appearance', group: 'App', label: 'Appearance', description: 'How Tasogare looks: the theme, a background, motion, the size of chat text and the colour of bold words.' },
+  { id: 'data', group: 'App', label: 'Data', description: 'Where Tasogare keeps your chats and settings, backups you can go back to, moving it all, and request logs.' },
   { id: 'voice', group: 'App', label: 'Voice', description: 'Replies read aloud in a voice Windows already has, and dictation into the message box, transcribed on this PC by whisper.cpp. Nothing is sent anywhere.' },
-  { id: 'shortcuts', group: 'App', label: 'Keyboard shortcuts', description: 'Every shortcut Twilight knows, and your own bindings.' },
+  { id: 'shortcuts', group: 'App', label: 'Keyboard shortcuts', description: 'Every shortcut Tasogare knows, and your own bindings.' },
   { id: 'extras', group: 'App', label: 'Extras', description: "Just for fun: the sky through the day, small motions and celebrations. None of them change how anything works; each has its own switch." },
   { id: 'library', group: 'Writing', label: 'Personas and prompts', description: 'Your personas and prompts. A persona starts a chat with its instructions; a prompt goes into the message box from the composer.' },
   { id: 'writing', group: 'Writing', label: 'Documents', description: 'Where your documents live, and the document library that finds passages for your messages. Point it at an Obsidian vault and both apps edit the same files.' },
@@ -44,9 +44,9 @@ const SECTIONS: { id: Section; group: string; label: string; description: string
   { id: 'tools', group: 'Models', label: 'Tools', description: 'MCP servers that give chats tools, and the model that makes pictures. Each is switched on per chat in the Tools menu.' },
   { id: 'prices', group: 'Models', label: 'Prices', description: 'What replies cost: your own prices per model, and the built-in ones. A cost the provider reports itself comes first.' },
   { id: 'usage', group: 'Models', label: 'Usage', description: 'Tokens and spend over time, by model and by chat, counted from every reply and Judge run.' },
-  { id: 'updates', group: 'About', label: 'Updates', description: 'Your version, new releases, and rolling back to an earlier one. The daily check is the only request Twilight makes on its own.' },
+  { id: 'updates', group: 'About', label: 'Updates', description: 'Your version, new releases, and rolling back to an earlier one. The daily check is the only request Tasogare makes on its own.' },
   { id: 'roadmap', group: 'About', label: 'Roadmap', description: 'What has shipped, what comes next, and the ideas further out.' },
-  { id: 'about', group: 'About', label: 'About', description: 'Version and where Twilight lives.' }
+  { id: 'about', group: 'About', label: 'About', description: 'Version and where Tasogare lives.' }
 ]
 
 const BUILT_IN = new Set(['anthropic', 'ollama', 'lmstudio'])
@@ -251,7 +251,7 @@ function ProviderDetail({ provider, filter }: { provider: ProviderConfig; filter
               onChange={(e) => setUrl(e.target.value)}
               onBlur={() => url !== (provider.baseUrl ?? '') && void saveProvider({ ...provider, baseUrl: url.trim() || undefined })}
             />
-            <span className="field-note">{anthropic ? 'Leave empty for api.anthropic.com. No /v1 needed; Twilight adds it.' : 'Most servers end in /v1.'}</span>
+            <span className="field-note">{anthropic ? 'Leave empty for api.anthropic.com. No /v1 needed; Tasogare adds it.' : 'Most servers end in /v1.'}</span>
           </label>
         </div>
         <div className="field-inline">
@@ -490,7 +490,7 @@ function GeneralSection() {
   )
 }
 
-/** How Twilight looks: theme, background, motion, chat text. */
+/** How Tasogare looks: theme, background, motion, chat text. */
 function AppearanceSection() {
   const [theme, setThemeState] = useState<Theme>(savedTheme)
   const pick = (t: Theme): void => {
@@ -630,7 +630,7 @@ function DoneSignal() {
   return (
     <div className="settings-card">
       <h3 className="t-heading">When a long reply is ready</h3>
-      <p className="field-note">If a reply takes 10 seconds or more and you&apos;re in another window when it finishes, Twilight&apos;s taskbar button glows until you come back.</p>
+      <p className="field-note">If a reply takes 10 seconds or more and you&apos;re in another window when it finishes, Tasogare&apos;s taskbar button glows until you come back.</p>
       <label className="check">
         <input type="checkbox" checked={on} onChange={(e) => void window.twilight.setDoneNotification(e.target.checked).then(setOn)} />
         Also show a quiet Windows notification
@@ -671,7 +671,7 @@ function WritingSection() {
             Choose…
           </button>
         </div>
-        <p className="field-note">Documents are plain .md files. Twilight's per-document context and edit history stay in its own database, never in your files.</p>
+        <p className="field-note">Documents are plain .md files. Tasogare's per-document context and edit history stay in its own database, never in your files.</p>
       </div>
     </>
   )
@@ -689,7 +689,7 @@ function AboutSection() {
   }, [])
   return (
     <div className="settings-card">
-      <h3 className="t-heading">Twilight {info?.version}</h3>
+      <h3 className="t-heading">黄昏 Tasogare {info?.version}</h3>
       <p className="field-note">Electron {info?.electron}. Local-first: the interface never touches the network; only your configured providers are contacted.</p>
       <div className="field-inline">
         <button className="tw-btn tw-btn-sm" onClick={() => useStore.getState().setWelcomeOpen(true)}>
@@ -702,7 +702,7 @@ function AboutSection() {
 
 function UpdateDot() {
   const latest = useStore((s) => s.updates?.latest)
-  return latest ? <span className="update-dot" title={`Twilight ${latest} is available`} /> : null
+  return latest ? <span className="update-dot" title={`Tasogare ${latest} is available`} /> : null
 }
 
 export function SettingsView() {

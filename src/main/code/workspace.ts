@@ -32,7 +32,7 @@ export const shown = (root: string, full: string): string => relative(realpathSy
 
 /** Writes inside .git would let the agent rewrite history behind your back. */
 function refuseGitInternals(root: string, full: string): void {
-  if (shown(root, full).split('/').includes('.git')) throw new Error("Twilight's agent doesn't change files inside .git. Use a git command instead, which asks first.")
+  if (shown(root, full).split('/').includes('.git')) throw new Error("Tasogare's agent doesn't change files inside .git. Use a git command instead, which asks first.")
 }
 
 export async function listFiles(root: string, rel = '.', depth = 2): Promise<string> {
@@ -204,7 +204,7 @@ export function stopCommand(sessionId: string): void {
 /** Runs one PowerShell command in the folder, with a time limit; returns its exit code and output. */
 export function runCommand(sessionId: string, root: string, command: string, timeoutSeconds = 120): Promise<{ code: number | null; output: string; timedOut: boolean }> {
   return new Promise((done) => {
-    // The command gets your environment, minus Twilight's own switches.
+    // The command gets your environment, minus Tasogare's own switches.
     const env = { ...process.env }
     for (const k of ['TWILIGHT_E2E', 'TWILIGHT_SELFTEST', 'TWILIGHT_SHOWCASE', 'ELECTRON_RUN_AS_NODE']) delete env[k]
     const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', command], { cwd: realpathSync(root), windowsHide: true, env })

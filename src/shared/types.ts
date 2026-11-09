@@ -35,7 +35,7 @@ export interface ProviderConfig {
   labels?: Record<string, string>
   /** Model ids added by hand (for servers that don't list everything). */
   customModels?: string[]
-  /** The last time Twilight talked to this provider, and how it went. */
+  /** The last time Tasogare talked to this provider, and how it went. */
   status?: ProviderStatus
 }
 
@@ -121,7 +121,7 @@ export interface ChatSettings {
   choiceFenced: boolean
   /** Read plain numbered options at the end of the reply (a title that asks, or "Something else"). */
   choicePlain: boolean
-  /** Add Twilight's short how-to to the system prompt: for the tool if it's on, else for choices blocks. */
+  /** Add Tasogare's short how-to to the system prompt: for the tool if it's on, else for choices blocks. */
   choiceInstructions: boolean
   /** Let the model search the web (Claude's server tool, or OpenRouter's web plugin). */
   webSearch: boolean
@@ -270,7 +270,7 @@ export interface NodeView {
   dateTime?: string
   /** What the reply searched for and read on the web, and the sources it cited. */
   web?: WebActivity
-  /** Tools Twilight ran during the reply (MCP servers, pictures). */
+  /** Tools Tasogare ran during the reply (MCP servers, pictures). */
   tools?: ToolStep[]
   /** Pictures made during the reply. */
   images?: GeneratedImage[]
@@ -313,7 +313,7 @@ export interface ConversationSummary {
 
 /**
  * A workspace: a sidebar group of chats with its own defaults. New chats started in it take its
- * system prompt and model. (Twilight's own; nothing on disk.)
+ * system prompt and model. (Tasogare's own; nothing on disk.)
  */
 export interface ChatFolder {
   id: string
@@ -780,7 +780,7 @@ export interface TwilightApi {
   getUpdateState(): Promise<UpdateState>
   checkForUpdates(): Promise<UpdateState>
   setAutoUpdateCheck(on: boolean): Promise<UpdateState>
-  /** Installs any listed version, newer or older; Twilight closes and the installer takes over. */
+  /** Installs any listed version, newer or older; Tasogare closes and the installer takes over. */
   installVersion(version: string): Promise<UpdateState>
   openBackupsFolder(): Promise<void>
 

@@ -1,6 +1,6 @@
-# Twilight roadmap
+# Tasogare roadmap
 
-What's shipped, what's next, and ideas not yet committed to. Twilight shows this file as its Roadmap page (Settings → Roadmap), so keep the shape: `- [x]` shipped, `- [~]` in progress, `- [ ]` planned, each as `**Title** · Area — what it does`.
+What's shipped, what's next, and ideas not yet committed to. Tasogare shows this file as its Roadmap page (Settings → Roadmap), so keep the shape: `- [x]` shipped, `- [~]` in progress, `- [ ]` planned, each as `**Title** · Area — what it does`.
 
 ## Shipped
 
@@ -111,7 +111,7 @@ What's shipped, what's next, and ideas not yet committed to. Twilight shows this
 - [x] **Instruction changes mid-chat** · Chat — change the instructions from the next message on, cache intact
 - [x] **PDFs and images** · Chat — attach them (Claude reads them natively), drop files on the composer, paste screenshots
 - [x] **Document picker** · Writing — attach documents from the writing folder
-- [x] **Folder management** · Writing — rename and remove documents and folders in Twilight
+- [x] **Folder management** · Writing — rename and remove documents and folders in Tasogare
 - [x] **Game Format everywhere** · Writing — in the editor too, and for a whole chat
 - [x] **More undo** · Core — undo for trashing chats, moving, renaming and deleting workspaces
 - [x] **Section rail** · Core — a vertical row of icons with names for every section, sleeker than tabs
@@ -163,12 +163,12 @@ What's shipped, what's next, and ideas not yet committed to. Twilight shows this
 - [x] **Forge-style tools** · Writing — Ask, Rewrite, Tighten, Expand and Tone on a selection, shown as an in-place diff you accept or reject
 - [x] **Document context** · Writing — instructions, reference documents and the whole manuscript, cached
 - [x] **240 Hz scrolling** · Core — measured on a 350k-token chat
-- [x] **Installer** · Core — Windows installer and portable zip, with Twilight artwork
+- [x] **Installer** · Core — Windows installer and portable zip, with Tasogare artwork
 
 ## Next
 - [~] **Your feedback on 1.0** · Core — fixes from real use
 
 ## Later
-- [ ] **The road to 2.0** · Core — 1.0 is the foundation; everything after it is extras and experiments, kept if they earn it. The proposed theme: Twilight knows your story
+- [ ] **The road to 2.0** · Core — 1.0 is the foundation; everything after it is extras and experiments, kept if they earn it. The proposed theme: Tasogare knows your story
 - [x] **Retrieval research** · Writing — for 2.0, first: looked beyond graph RAG; the answer is a story ledger behind a context scout, judged on your own questions before anything bigger is built
 

@@ -262,7 +262,7 @@ export function Editor({ docPath }: { docPath: string }) {
     []
   )
 
-  // Pick up edits made outside Twilight (in Obsidian, say) when the window regains focus.
+  // Pick up edits made outside Tasogare (in Obsidian, say) when the window regains focus.
   useEffect(() => {
     const onFocus = async (): Promise<void> => {
       const view = viewRef.current

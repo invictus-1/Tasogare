@@ -85,7 +85,7 @@ const keepDraft = (): void => {
     if (unsent.text) localStorage.setItem(DRAFT_KEY, unsent.text)
     else localStorage.removeItem(DRAFT_KEY)
   } catch {
-    // Storage unavailable: the draft still holds while Twilight is open.
+    // Storage unavailable: the draft still holds while Tasogare is open.
   }
 }
 window.addEventListener('beforeunload', keepDraft)

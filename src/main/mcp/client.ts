@@ -1,9 +1,9 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { homedir } from 'node:os'
 
-// A small Model Context Protocol client: JSON-RPC 2.0 to a program Twilight starts (one message
+// A small Model Context Protocol client: JSON-RPC 2.0 to a program Tasogare starts (one message
 // per line on stdin/stdout) or to a server at a URL (Streamable HTTP: each message is a POST,
-// answered with JSON or with a stream of server-sent events). Twilight only lists and calls
+// answered with JSON or with a stream of server-sent events). Tasogare only lists and calls
 // tools, so that's all this speaks; anything the server asks of it is politely refused.
 
 const PROTOCOL = '2025-06-18'
@@ -69,7 +69,7 @@ export class McpClient {
     try {
       const init = (await client.request(
         'initialize',
-        { protocolVersion: PROTOCOL, capabilities: {}, clientInfo: { name: 'Twilight', version: '1' } },
+        { protocolVersion: PROTOCOL, capabilities: {}, clientInfo: { name: 'Tasogare', version: '1' } },
         CONNECT_MS
       )) as { serverInfo?: { name?: string; version?: string } }
       client.info = [init.serverInfo?.name, init.serverInfo?.version].filter(Boolean).join(' ')
@@ -123,7 +123,7 @@ export class McpClient {
 
   private start(o: StdioOptions): void {
     // The program gets your environment (so it finds node, python and the like), minus
-    // Twilight's own switches, plus what you set for it.
+    // Tasogare's own switches, plus what you set for it.
     const env: Record<string, string | undefined> = { ...process.env }
     for (const k of ['TWILIGHT_E2E', 'TWILIGHT_SELFTEST', 'TWILIGHT_SHOWCASE', 'ELECTRON_RUN_AS_NODE']) delete env[k]
     Object.assign(env, o.env)
@@ -167,8 +167,8 @@ export class McpClient {
 
   private receive(msg: Message): void {
     if (msg.id !== undefined && msg.method) {
-      // A request from the server (sampling, roots, elicitation): Twilight offers none of them.
-      const reply = msg.method === 'ping' ? { jsonrpc: '2.0', id: msg.id, result: {} } : { jsonrpc: '2.0', id: msg.id, error: { code: -32601, message: 'Twilight does not support this.' } }
+      // A request from the server (sampling, roots, elicitation): Tasogare offers none of them.
+      const reply = msg.method === 'ping' ? { jsonrpc: '2.0', id: msg.id, result: {} } : { jsonrpc: '2.0', id: msg.id, error: { code: -32601, message: 'Tasogare does not support this.' } }
       void this.post(reply as Message).catch(() => undefined)
       return
     }

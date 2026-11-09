@@ -12,7 +12,7 @@ import { MAX_TOOL_ROUNDS, TOO_MANY_ROUNDS, mergeExtraParams, textBlocks, wantsCh
 // each assistant turn replayed exactly as the API returned it, then the new user turn. The
 // top-level cache_control moves the second breakpoint to the end of the conversation.
 
-/** Models older than the 4.6 generation take budget_tokens thinking, which Twilight does not send. */
+/** Models older than the 4.6 generation take budget_tokens thinking, which Tasogare does not send. */
 const NO_ADAPTIVE_THINKING = /^claude-(3|haiku-4-5|sonnet-4-5|sonnet-4$|sonnet-4-2|opus-4$|opus-4-1|opus-4-2|opus-4-5)/
 /** Models that accept the server-side refusal fallback. */
 const SUPPORTS_FALLBACK = /^claude-(opus-5|opus-5-5|fable-5-1|sonnet-5-5)$/
@@ -36,7 +36,7 @@ const SERVER_RESULTS = new Set([
 ])
 /**
  * Block types replayed from a stored reply; anything else (another provider's bookkeeping, a
- * picture Twilight made) is left out. tool_results marks where Twilight ran a round of tools.
+ * picture Tasogare made) is left out. tool_results marks where Tasogare ran a round of tools.
  */
 const REPLAYED = new Set(['text', 'thinking', 'redacted_thinking', 'tool_use', 'server_tool_use', 'tool_results', ...SERVER_RESULTS])
 const isDocument = (b: Block): boolean => b.type === 'image' || b.type === 'document' || (b.type === 'text' && typeof b.text === 'string' && isContextText(b.text))
@@ -65,7 +65,7 @@ const resultText = (content: unknown): string =>
   typeof content === 'string' ? content : Array.isArray(content) ? (content as Block[]).map((b) => (b.type === 'text' ? String(b.text) : '')).join('\n') : ''
 
 /**
- * A stored reply as the turns it took. Where Twilight ran tools in the middle of it, the reply
+ * A stored reply as the turns it took. Where Tasogare ran tools in the middle of it, the reply
  * becomes the assistant's calls, a user turn with their results, and the assistant carrying on,
  * exactly as they were sent. A round whose tools are no longer offered (a server switched off)
  * is told as text instead, since the API takes calls only to tools in the request.
@@ -361,7 +361,7 @@ function activityLabel(name: string, input: { query?: string; url?: string }): s
 /** A long run of searches pauses the turn (pause_turn); it's resumed this many times at most. */
 const MAX_CONTINUATIONS = 4
 
-/** What goes back to the API from the reply so far: Twilight's own blocks (pictures made) left out. */
+/** What goes back to the API from the reply so far: Tasogare's own blocks (pictures made) left out. */
 const sendable = (content: Block[]): Message[] => replyTurns(content.filter((b) => REPLAYED.has(b.type)))
 
 async function generateAnthropic(req: GenerateRequest): Promise<GenerateResult> {
@@ -454,7 +454,7 @@ async function generateAnthropic(req: GenerateRequest): Promise<GenerateResult> 
     usage.cacheWrite += u.cache_creation_input_tokens ?? 0
     usage.webSearches += u.server_tool_use?.web_search_requests ?? 0
     stopReason = final.stop_reason
-    // Calls to Twilight's own tools: run them, add the round, and let the reply carry on. A call
+    // Calls to Tasogare's own tools: run them, add the round, and let the reply carry on. A call
     // to present_choices among them ends the reply instead (its answer is your next message).
     const calls = (final.content as unknown as Block[]).filter((b) => b.type === 'tool_use')
     if (stopReason === 'tool_use' && req.runTools && calls.length && calls.every((c) => clientNames.has(String(c.name)))) {
@@ -544,14 +544,14 @@ export async function compactAnthropic(req: {
     )
   }
   const { type: _type, ...rest } = raw
-  // Kept with its type first (how Twilight finds it again) and otherwise exactly as it came.
+  // Kept with its type first (how Tasogare finds it again) and otherwise exactly as it came.
   return { block: { type: 'compaction', ...rest }, text, usage: compactionUsage(res.usage, Date.now() - started) }
 }
 
 type CompactionUsage = { iterations?: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number }[] }
 
 /**
- * What the summary cost, in Twilight's usage shape: billed like any request, and reported under
+ * What the summary cost, in Tasogare's usage shape: billed like any request, and reported under
  * usage.iterations (the top-level counts are zero, since no reply was written).
  */
 function compactionUsage(u: CompactionUsage | undefined, ms: number): Usage {
@@ -563,9 +563,9 @@ function compactionUsage(u: CompactionUsage | undefined, ms: number): Usage {
 export const ANTHROPIC_DEFAULT_URL = 'https://api.anthropic.com'
 
 /**
- * Every Anthropic client is built from Twilight's own settings only. The SDK otherwise reads
+ * Every Anthropic client is built from Tasogare's own settings only. The SDK otherwise reads
  * ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN from the environment, which other tools (Claude Code
- * among them) set for themselves; inherited, they'd send Twilight's key to the wrong place.
+ * among them) set for themselves; inherited, they'd send Tasogare's key to the wrong place.
  */
 export function anthropicClient(config: ProviderConfig, apiKey: string): Anthropic {
   // The SDK adds /v1 itself; an endpoint written with it would become /v1/v1.

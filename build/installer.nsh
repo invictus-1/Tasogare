@@ -1,4 +1,4 @@
-; Twilight's installer, in Twilight's colours. electron-builder includes this file before the
+; Tasogare's installer, in Tasogare's colours. electron-builder includes this file before the
 ; installer's pages are built, so the Modern UI settings below apply to every page.
 ;
 ; Colours: night 0B0D1C, surface 111430, ink ECEEFE, ink-muted A6ABD8, line-strong 6F77BD,
@@ -15,10 +15,10 @@
 !define MUI_INSTFILESPAGE_PROGRESSBAR "smooth"
 !define MUI_CUSTOMFUNCTION_GUIINIT twilightGuiInit
 
-!define MUI_WELCOMEPAGE_TITLE "Welcome to Twilight"
-!define MUI_WELCOMEPAGE_TEXT "A quiet place to write with language models.$\r$\n$\r$\nThis installs Twilight ${VERSION}. Your chats, documents and settings stay on your computer; installing or updating never touches them.$\r$\n$\r$\nClick Next to begin."
-!define MUI_FINISHPAGE_TITLE "Twilight is ready"
-!define MUI_FINISHPAGE_TEXT "Everything is in place. Twilight opens with a short welcome that helps you connect a model and choose where your writing lives."
+!define MUI_WELCOMEPAGE_TITLE "Welcome to Tasogare"
+!define MUI_WELCOMEPAGE_TEXT "A quiet place to write with language models.$\r$\n$\r$\nThis installs Tasogare ${VERSION}. Your chats, documents and settings stay on your computer; installing or updating never touches them.$\r$\n$\r$\nClick Next to begin."
+!define MUI_FINISHPAGE_TITLE "Tasogare is ready"
+!define MUI_FINISHPAGE_TEXT "Everything is in place. Tasogare opens with a short welcome that helps you connect a model and choose where your writing lives."
 
 !define TWILIGHT_PBM_SETBARCOLOR 0x0409
 !define TWILIGHT_PBM_SETBKCOLOR 0x2001
@@ -79,7 +79,7 @@ FunctionEnd
   !define MUI_PAGE_CUSTOMFUNCTION_SHOW twilightDarkPage
 !macroend
 
-; The finish page, with Twilight's words, an "Open Twilight" box readable on the dark page, and
+; The finish page, with Tasogare's words, an "Open Tasogare" box readable on the dark page, and
 ; the app opening afterwards.
 !macro customFinishPage
   Function StartApp
@@ -92,7 +92,7 @@ FunctionEnd
   FunctionEnd
   !define MUI_FINISHPAGE_RUN
   !define MUI_FINISHPAGE_RUN_FUNCTION "StartApp"
-  !define MUI_FINISHPAGE_RUN_TEXT "Open Twilight"
+  !define MUI_FINISHPAGE_RUN_TEXT "Open Tasogare"
   !define MUI_PAGE_CUSTOMFUNCTION_SHOW twilightFinishShow
   !insertmacro MUI_PAGE_FINISH
   Function twilightFinishShow

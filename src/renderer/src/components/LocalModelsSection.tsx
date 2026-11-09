@@ -149,7 +149,7 @@ export function LocalModelsSection() {
       <div className="settings-card local-engine">
         <h3 className="t-heading">llama.cpp</h3>
         <p className="field-note">
-          Twilight runs your downloaded models with llama.cpp, fetched from its official releases on GitHub. One server serves every model in the folder and loads the one a chat asks for. It shows in the model picker as This PC. LM Studio and Ollama work too, as providers in Model providers.
+          Tasogare runs your downloaded models with llama.cpp, fetched from its official releases on GitHub. One server serves every model in the folder and loads the one a chat asks for. It shows in the model picker as This PC. LM Studio and Ollama work too, as providers in Model providers.
         </p>
         {engine.installing ? (
           <>
@@ -204,7 +204,7 @@ export function LocalModelsSection() {
               </button>
               <label className="check">
                 <input type="checkbox" checked={state.autoStart} onChange={(e) => void api.setLlamaAutoStart(e.target.checked)} />
-                Start with Twilight
+                Start with Tasogare
               </label>
             </div>
           </>

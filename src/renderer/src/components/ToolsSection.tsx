@@ -216,7 +216,7 @@ function ImagePicker() {
           </select>
         </label>
       </div>
-      <p className="field-note">Pictures are saved in Twilight's data folder and shown in the reply. Each one is billed by its provider.</p>
+      <p className="field-note">Pictures are saved in Tasogare's data folder and shown in the reply. Each one is billed by its provider.</p>
     </div>
   )
 }

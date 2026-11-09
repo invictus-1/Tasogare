@@ -1,6 +1,6 @@
 // Models on this PC: search Hugging Face for GGUF models, see at a glance whether each size fits
 // this computer, download one, and run it with llama.cpp (fetched from its official releases and
-// started by Twilight in router mode, so every downloaded model is one server). LM Studio and
+// started by Tasogare in router mode, so every downloaded model is one server). LM Studio and
 // Ollama stay as they are: providers that point at servers those apps run.
 
 export interface Hardware {
@@ -152,7 +152,7 @@ export interface LocalState {
   autoStart: boolean
 }
 
-/** The id Twilight's own llama.cpp server has as a provider. */
+/** The id Tasogare's own llama.cpp server has as a provider. */
 export const THIS_PC = 'thispc'
 
 /** Bytes as Windows counts them (a 24 GB card reads 24 GB): 4.9 GB, 812 MB. */

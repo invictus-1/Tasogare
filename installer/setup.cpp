@@ -1,10 +1,10 @@
-// Twilight's installer: the app's first-run evening (ui/index.html) in a borderless window drawn by
+// Tasogare's installer: the app's first-run evening (ui/index.html) in a borderless window drawn by
 // WebView2, wrapped around the regular NSIS installer, which does the installing itself, silently.
 // So shortcuts, the uninstaller, upgrades and Add/Remove Programs all stay exactly as before.
 //
 // The NSIS installer and a little metadata are appended to this program by build.cjs:
 //   [setup.exe][NSIS installer][metadata JSON][trailer]
-// Run with /S (as Twilight's updater does) and the window never opens: the arguments go straight
+// Run with /S (as Tasogare's updater does) and the window never opens: the arguments go straight
 // to the NSIS installer. Without the WebView2 runtime, the classic installer pages open instead.
 
 #ifndef UNICODE
@@ -37,7 +37,7 @@ using Microsoft::WRL::ComPtr;
 
 namespace {
 
-constexpr wchar_t kClass[] = L"TwilightSetupWindow";
+constexpr wchar_t kClass[] = L"TasogareSetupWindow";
 constexpr UINT WM_APP_POST = WM_APP + 1;  // lParam: a std::wstring* of JSON for the page
 constexpr int kWidth = 920, kHeight = 600;
 constexpr COLORREF kNight = RGB(0x0b, 0x0d, 0x1c);
@@ -145,7 +145,7 @@ bool extractPayload(const Payload& p, const std::wstring& target, F onProgress) 
 std::wstring tempInstallerPath(const std::wstring& version) {
   wchar_t dir[MAX_PATH];
   GetTempPathW(MAX_PATH, dir);
-  return std::wstring(dir) + L"Twilight-Setup-core-" + version + L"-" + std::to_wstring(GetCurrentProcessId()) + L".exe";
+  return std::wstring(dir) + L"Tasogare-Setup-core-" + version + L"-" + std::to_wstring(GetCurrentProcessId()) + L".exe";
 }
 
 /** Starts the NSIS installer with `args`; returns its process handle, or null. */
@@ -169,13 +169,13 @@ DWORD runInstaller(const std::wstring& exe, const std::wstring& args) {
   return code;
 }
 
-// ——— Where Twilight is (or will be) installed ———
+// ——— Where Tasogare is (or will be) installed ———
 
 struct Installed {
   std::wstring location, version;
 };
 
-/** Twilight's entry in Add/Remove Programs for this user, if there is one. */
+/** Tasogare's entry in Add/Remove Programs for this user, if there is one. */
 Installed findInstalled() {
   Installed result;
   HKEY root;
@@ -188,11 +188,12 @@ Installed findInstalled() {
     if (RegOpenKeyExW(root, name, 0, KEY_READ, &key) != ERROR_SUCCESS) continue;
     wchar_t value[1024];
     DWORD size = sizeof value;
-    if (RegGetValueW(key, nullptr, L"DisplayName", RRF_RT_REG_SZ, nullptr, value, &size) == ERROR_SUCCESS && wcsncmp(value, L"Twilight", 8) == 0 &&
-        (value[8] == 0 || value[8] == L' ')) {
+    // Its name before 1.6 was Twilight; an install from then is the same app, updated in place.
+    if (RegGetValueW(key, nullptr, L"DisplayName", RRF_RT_REG_SZ, nullptr, value, &size) == ERROR_SUCCESS &&
+        (wcsncmp(value, L"Tasogare", 8) == 0 || wcsncmp(value, L"Twilight", 8) == 0) && (value[8] == 0 || value[8] == L' ')) {
       size = sizeof value;
       if (RegGetValueW(key, nullptr, L"InstallLocation", RRF_RT_REG_SZ, nullptr, value, &size) == ERROR_SUCCESS && value[0]) result.location = value;
-      // electron-builder leaves InstallLocation empty; the icon path ("…\Twilight.exe,0") says where.
+      // electron-builder leaves InstallLocation empty; the icon path ("…\Tasogare.exe,0") says where.
       size = sizeof value;
       if (result.location.empty() && RegGetValueW(key, nullptr, L"DisplayIcon", RRF_RT_REG_SZ, nullptr, value, &size) == ERROR_SUCCESS) {
         std::wstring icon = value;
@@ -212,7 +213,7 @@ Installed findInstalled() {
 std::wstring defaultLocation() {
   wchar_t* local = nullptr;
   std::wstring out;
-  if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_LocalAppData, 0, nullptr, &local))) out = std::wstring(local) + L"\\Programs\\Twilight";
+  if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_LocalAppData, 0, nullptr, &local))) out = std::wstring(local) + L"\\Programs\\Tasogare";
   CoTaskMemFree(local);
   return out;
 }
@@ -313,16 +314,16 @@ void installWorker() {
   if (code == 0) post(L"{\"type\":\"done\"}");
   else {
     wchar_t buf[200];
-    swprintf_s(buf, L"{\"type\":\"error\",\"message\":\"The installer stopped with code %lu. Close Twilight if it's open, then try again.\"}", code);
+    swprintf_s(buf, L"{\"type\":\"error\",\"message\":\"The installer stopped with code %lu. Close Tasogare if it's open, then try again.\"}", code);
     post(buf);
   }
   g_installing = false;
 }
 
-void openTwilight() {
+void openTasogare() {
   std::wstring location = findInstalled().location;
   if (location.empty()) location = defaultLocation();
-  ShellExecuteW(nullptr, L"open", (location + L"\\Twilight.exe").c_str(), nullptr, location.c_str(), SW_SHOWNORMAL);
+  ShellExecuteW(nullptr, L"open", (location + L"\\Tasogare.exe").c_str(), nullptr, location.c_str(), SW_SHOWNORMAL);
 }
 
 std::wstring loadPage() {
@@ -346,7 +347,7 @@ void onMessage(const std::wstring& word) {
   if (word == L"ready") sendInfo();
   else if (word == L"install" && !g_installing.exchange(true)) std::thread(installWorker).detach();
   else if (word == L"open") {
-    if (!dryRun()) openTwilight();
+    if (!dryRun()) openTasogare();
     DestroyWindow(g_hwnd);
   } else if (word == L"close") {
     if (!g_installing) DestroyWindow(g_hwnd);
@@ -378,7 +379,7 @@ bool g_classic = false;
 void createWebView() {
   wchar_t temp[MAX_PATH];
   GetTempPathW(MAX_PATH, temp);
-  const std::wstring data = std::wstring(temp) + L"TwilightSetup.WebView2";
+  const std::wstring data = std::wstring(temp) + L"TasogareSetup.WebView2";
   const HRESULT hr = CreateCoreWebView2EnvironmentWithOptions(
       nullptr, data.c_str(), nullptr,
       Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>([](HRESULT result, ICoreWebView2Environment* env) -> HRESULT {
@@ -479,7 +480,7 @@ bool silentRequested(std::wstring& rest) {
 
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
   if (!readPayload(g_payload)) {
-    MessageBoxW(nullptr, L"This installer is incomplete. Download it again from the releases page.", L"Twilight Setup", MB_ICONERROR);
+    MessageBoxW(nullptr, L"This installer is incomplete. Download it again from the releases page.", L"Tasogare Setup", MB_ICONERROR);
     return 1;
   }
   g_version = widen(metaField(g_payload.meta, "version"));
@@ -506,7 +507,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
   }
 
   // One installer window at a time.
-  HANDLE once = CreateMutexW(nullptr, TRUE, L"Local\\TwilightSetup");
+  HANDLE once = CreateMutexW(nullptr, TRUE, L"Local\\TasogareSetup");
   if (GetLastError() == ERROR_ALREADY_EXISTS) {
     if (HWND other = FindWindowW(kClass, nullptr)) SetForegroundWindow(other);
     return 0;
@@ -530,7 +531,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
   const int w = MulDiv(kWidth, dpi, 96), h = MulDiv(kHeight, dpi, 96);
   RECT work;
   SystemParametersInfoW(SPI_GETWORKAREA, 0, &work, 0);
-  g_hwnd = CreateWindowExW(WS_EX_APPWINDOW, kClass, L"Twilight Setup", WS_POPUP | WS_SYSMENU | WS_MINIMIZEBOX, work.left + (work.right - work.left - w) / 2,
+  g_hwnd = CreateWindowExW(WS_EX_APPWINDOW, kClass, L"Tasogare Setup", WS_POPUP | WS_SYSMENU | WS_MINIMIZEBOX, work.left + (work.right - work.left - w) / 2,
                            work.top + (work.bottom - work.top - h) / 2, w, h, nullptr, nullptr, instance, nullptr);
   const DWORD round = 2;  // DWMWCP_ROUND
   DwmSetWindowAttribute(g_hwnd, 33 /* DWMWA_WINDOW_CORNER_PREFERENCE */, &round, sizeof round);

@@ -1,4 +1,4 @@
-// Publishes the built installers as a GitHub release of this repository, where Twilight's
+// Publishes the built installers as a GitHub release of this repository, where Tasogare's
 // updater finds them. Run `npm run dist` first. The release notes come from this version's
 // section of CHANGELOG.md, and the release is tagged on the current commit.
 //
@@ -6,11 +6,11 @@
 //   npm run release -- --dry   show what would be published
 
 const { execFileSync } = require('node:child_process')
-const { existsSync, readFileSync, readdirSync, writeFileSync, mkdtempSync } = require('node:fs')
+const { copyFileSync, existsSync, readFileSync, readdirSync, writeFileSync, mkdtempSync } = require('node:fs')
 const { join } = require('node:path')
 const { homedir, tmpdir } = require('node:os')
 
-const REPO = 'invictus-1/twilight'
+const REPO = 'invictus-1/Tasogare'
 const root = join(__dirname, '..')
 const dry = process.argv.includes('--dry')
 const { version } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
@@ -24,7 +24,10 @@ const fail = (msg) => {
 }
 
 // The animated installer (installer/build.cjs) and the portable zip; latest.yml carries the installer's hash.
-const files = [`Twilight-Setup-${version}.exe`, 'latest.yml', `Twilight-${version}-x64.zip`].map((f) =>
+// Copies from before 1.6 look for an installer named Twilight-Setup-<version>.exe, so the installer
+// goes up under that name too (the same file, so latest.yml's checksum holds for both).
+copyFileSync(join(root, 'release', `Tasogare-Setup-${version}.exe`), join(root, 'release', `Tasogare-Setup-${version}.exe`))
+const files = [`Tasogare-Setup-${version}.exe`, 'latest.yml', `Tasogare-${version}-x64.zip`, `Twilight-Setup-${version}.exe`].map((f) =>
   join(root, 'release', f)
 )
 for (const f of files) if (!existsSync(f)) fail(`missing ${f}; run npm run dist first.`)
@@ -52,12 +55,12 @@ try {
 } catch {}
 if (published) fail(`${tag} is already published. Bump the version in package.json for a new release.`)
 
-console.log(`Publishing Twilight ${version} to ${REPO}:\n${files.map((f) => `  ${f}`).join('\n')}\n\n${notes}\n`)
+console.log(`Publishing Tasogare ${version} to ${REPO}:\n${files.map((f) => `  ${f}`).join('\n')}\n\n${notes}\n`)
 if (dry) process.exit(0)
 
 const notesFile = join(mkdtempSync(join(tmpdir(), 'twilight-release-')), 'notes.md')
 writeFileSync(notesFile, notes)
-if (!run('git', ['tag', '--list', tag])) run('git', ['tag', '-a', tag, '-m', `Twilight ${version}`])
+if (!run('git', ['tag', '--list', tag])) run('git', ['tag', '-a', tag, '-m', `Tasogare ${version}`])
 run('git', ['push', 'origin', tag], { stdio: 'inherit' })
-run('gh', ['release', 'create', tag, '--repo', REPO, '--title', `Twilight ${version}`, '--notes-file', notesFile, ...files], { stdio: 'inherit' })
+run('gh', ['release', 'create', tag, '--repo', REPO, '--title', `Tasogare ${version}`, '--notes-file', notesFile, ...files], { stdio: 'inherit' })
 console.log(`Done: https://github.com/${REPO}/releases/tag/${tag}`)

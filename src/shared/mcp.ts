@@ -1,5 +1,5 @@
 // Tools from MCP servers, and pictures made on request. Both are switched on per chat in the
-// Tools menu. A model's call to one of them is run by Twilight during the reply (after your
+// Tools menu. A model's call to one of them is run by Tasogare during the reply (after your
 // approval, unless you've allowed it), and the round is stored inside that reply so the next
 // request replays it byte-for-byte.
 
@@ -7,7 +7,7 @@
 export interface McpServer {
   id: string
   name: string
-  /** A program Twilight starts (stdio), or a server at a URL (Streamable HTTP). */
+  /** A program Tasogare starts (stdio), or a server at a URL (Streamable HTTP). */
   kind: 'stdio' | 'http'
   command: string
   args: string[]
@@ -118,7 +118,7 @@ function nameParts(name: string): { server: string; tool: string } {
 }
 
 /**
- * The tool calls Twilight ran inside a stored reply: Claude's tool_use blocks answered by a
+ * The tool calls Tasogare ran inside a stored reply: Claude's tool_use blocks answered by a
  * tool_results block, or the OpenAI-compatible tool_round blocks.
  */
 export function toolStepsOf(blocks: Block[]): ToolStep[] {

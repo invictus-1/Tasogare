@@ -295,7 +295,7 @@ export function pickEngine(releases: Release[], gpu: boolean): { tag: string; ki
 let installing: { done: number; total: number } | null = null
 let engineError: string | null = null
 
-/** Fetches llama.cpp's server from its official GitHub releases and unpacks it beside Twilight's data. */
+/** Fetches llama.cpp's server from its official GitHub releases and unpacks it beside Tasogare's data. */
 export async function installEngine(): Promise<void> {
   if (installing) return
   engineError = null

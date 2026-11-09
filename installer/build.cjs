@@ -1,4 +1,4 @@
-// Builds release/Twilight-Setup-<version>.exe: the animated installer (setup.cpp + ui/index.html)
+// Builds release/Tasogare-Setup-<version>.exe: the animated installer (setup.cpp + ui/index.html)
 // with electron-builder's NSIS installer appended, which it runs silently. `npm run dist` calls
 // this after electron-builder. Needs Visual Studio's C++ tools (any edition with "Desktop
 // development with C++"); the WebView2 SDK is fetched once from nuget.org into installer/.vendor.
@@ -13,8 +13,8 @@ const { homedir } = require('node:os')
 const root = join(__dirname, '..')
 const release = join(root, 'release')
 const { version } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
-const core = join(release, `Twilight-Core-Setup-${version}.exe`)
-const target = join(release, `Twilight-Setup-${version}.exe`)
+const core = join(release, `Tasogare-Core-Setup-${version}.exe`)
+const target = join(release, `Tasogare-Setup-${version}.exe`)
 const work = join(__dirname, '.build')
 
 // The WebView2 SDK, pinned: headers and the static loader, so setup.exe stands alone.
@@ -56,7 +56,7 @@ async function fetchWebView2() {
   execFileSync('tar', ['-xf', pkg, '-C', vendor])
 }
 
-/** The page with Twilight's own fonts inlined, so it looks exactly like the app's welcome. */
+/** The page with Tasogare's own fonts inlined, so it looks exactly like the app's welcome. */
 function page() {
   const font = (file) => readFileSync(join(root, 'node_modules', '@fontsource-variable', file)).toString('base64')
   const faces = [
@@ -86,11 +86,11 @@ function resourceScript() {
     '  BEGIN',
     '    BLOCK "040904B0"',
     '    BEGIN',
-    '      VALUE "FileDescription", "Twilight Setup"',
+    '      VALUE "FileDescription", "Tasogare Setup"',
     `      VALUE "FileVersion", "${version}"`,
-    '      VALUE "ProductName", "Twilight"',
+    '      VALUE "ProductName", "Tasogare"',
     `      VALUE "ProductVersion", "${version}"`,
-    '      VALUE "OriginalFilename", "Twilight-Setup.exe"',
+    '      VALUE "OriginalFilename", "Tasogare-Setup.exe"',
     '    END',
     '  END',
     '  BLOCK "VarFileInfo"',
@@ -144,7 +144,7 @@ function assemble(stub) {
 function writeLatest(file) {
   const bytes = readFileSync(file)
   const sha512 = createHash('sha512').update(bytes).digest('base64')
-  const name = `Twilight-Setup-${version}.exe`
+  const name = `Tasogare-Setup-${version}.exe`
   writeFileSync(
     join(release, 'latest.yml'),
     `version: ${version}\nfiles:\n  - url: ${name}\n    sha512: ${sha512}\n    size: ${bytes.length}\npath: ${name}\nsha512: ${sha512}\nreleaseDate: '${new Date().toISOString()}'\n`
@@ -154,7 +154,7 @@ function writeLatest(file) {
 ;(async () => {
   const bat = vcvars()
   if (!bat) {
-    log('Visual Studio C++ tools not found; publishing the classic installer as Twilight-Setup.')
+    log('Visual Studio C++ tools not found; publishing the classic installer as Tasogare-Setup.')
     copyFileSync(core, target)
   } else {
     await fetchWebView2()
