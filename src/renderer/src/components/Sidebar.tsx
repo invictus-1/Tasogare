@@ -130,6 +130,8 @@ function NameInput({ initial, placeholder, onDone }: { initial: string; placehol
       onKeyDown={(e) => {
         if (e.key === 'Enter') e.currentTarget.blur()
         if (e.key === 'Escape') {
+          // Esc drops the rename and stops there: it isn't also Stop for a reply being written.
+          e.preventDefault()
           e.currentTarget.value = ''
           e.currentTarget.blur()
         }

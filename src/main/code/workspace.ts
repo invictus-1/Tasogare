@@ -32,7 +32,8 @@ export const shown = (root: string, full: string): string => relative(realpathSy
 
 /** Writes inside .git would let the agent rewrite history behind your back. */
 function refuseGitInternals(root: string, full: string): void {
-  if (shown(root, full).split('/').includes('.git')) throw new Error("Tasogare's agent doesn't change files inside .git. Use a git command instead, which asks first.")
+  // Windows reads .GIT and .git as the same folder.
+  if (shown(root, full).toLowerCase().split('/').includes('.git')) throw new Error("Tasogare's agent doesn't change files inside .git. Use a git command instead, which asks first.")
 }
 
 export async function listFiles(root: string, rel = '.', depth = 2): Promise<string> {

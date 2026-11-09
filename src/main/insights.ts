@@ -422,6 +422,11 @@ export function watchFolder(): void {
       clearTimeout(watchTimer)
       watchTimer = setTimeout(() => void scan(), 4000)
     })
+    // A folder removed or unplugged while watched ends the watch; the next folder change sets it up again.
+    watcher.on('error', () => {
+      watcher?.close()
+      watcher = null
+    })
   } catch {
     // The folder may not exist yet; the next folder change or launch sets the watch up.
   }

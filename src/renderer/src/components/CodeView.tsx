@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CodeEntry, CodeMode, CodePending, CodeTask, DiffLine } from '@shared/code'
 import { useCode } from '../codeStore'
+import { focusUnlessTyping } from '../focus'
 import { renderMarkdownLive } from '../markdown'
 import { modelName, useStore } from '../store'
 import { AlertIcon, CheckIcon, CloseIcon, FolderIcon, GlobeIcon, SendIcon, SidebarIcon, StopIcon, UndoIcon } from './Icons'
@@ -141,7 +142,7 @@ function PendingCard({ p }: { p: CodePending }) {
       )}
       {p.kind === 'command' && !p.risk && <p className="field-note">Commands run in the project folder but can reach outside it, and only file edits can be undone.</p>}
       <div className="code-pending-actions">
-        <button className="tw-btn tw-btn-primary tw-btn-sm" autoFocus onClick={() => void respond({ approve: true })}>
+        <button className="tw-btn tw-btn-primary tw-btn-sm" ref={focusUnlessTyping} onClick={() => void respond({ approve: true })}>
           <CheckIcon size={14} />
           {p.kind === 'command' ? 'Run it' : 'Approve'}
         </button>

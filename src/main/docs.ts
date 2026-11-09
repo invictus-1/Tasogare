@@ -131,6 +131,8 @@ export async function listDocs(): Promise<DocEntry[]> {
 
 export async function readDoc(rel: string): Promise<DocContent> {
   const full = resolveInside(rel)
+  // A save of it still on its way lands first, so what's read is what was last written.
+  await saving.get(full)?.catch(() => 0)
   const [text, st] = await Promise.all([fs.readFile(full, 'utf8'), fs.stat(full)])
   return { path: toRel(full), text, mtime: st.mtimeMs }
 }
@@ -138,6 +140,24 @@ export async function readDoc(rel: string): Promise<DocContent> {
 /** Writes to a temporary file beside the target, then renames it over: a crash never leaves half a manuscript. */
 export async function writeDoc(rel: string, text: string): Promise<number> {
   const full = resolveInside(rel)
+  // Two saves of one file would share the temporary name, so the later one waits its turn.
+  const turn = (saving.get(full) ?? Promise.resolve(0)).catch(() => 0).then(() => writeNow(full, text))
+  saving.set(full, turn)
+  const clear = (): void => {
+    if (saving.get(full) === turn) saving.delete(full)
+  }
+  turn.then(clear, clear)
+  return turn
+}
+
+const saving = new Map<string, Promise<number>>()
+
+/** Settles once every save under way has landed (null when there is none): quitting waits for it. */
+export function savesDone(): Promise<unknown> | null {
+  return saving.size ? Promise.allSettled([...saving.values()]) : null
+}
+
+async function writeNow(full: string, text: string): Promise<number> {
   await fs.mkdir(dirname(full), { recursive: true })
   const tmp = join(dirname(full), `.${basename(full)}.twilight-tmp`)
   await fs.writeFile(tmp, text, 'utf8')

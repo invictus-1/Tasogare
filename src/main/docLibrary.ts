@@ -352,7 +352,8 @@ export async function searchLibrary(text: string, count = librarySettings().pass
   }
   const best = [...scores.entries()].sort((a, b) => b[1] - a[1]).slice(0, count).map(([id]) => id)
   const get = db().prepare('SELECT id, source, line, section, text FROM passages WHERE id = ?')
-  return best.map((id) => get.get(id) as LibraryHit)
+  // A passage re-indexed while the search ran is simply not among them.
+  return best.map((id) => get.get(id) as LibraryHit | undefined).filter((hit): hit is LibraryHit => !!hit)
 }
 
 /** Files in the order a reader meets them: by folder and name, with numbers counted (Chapter 2 before Chapter 10). */

@@ -141,7 +141,15 @@ function buildContent(input: JudgeInput, order: JudgeOrder, ttl: string | null):
 // ——— Storage ———
 
 function load(id: string): Judgment | undefined {
-  return db.kvGet<Judgment>(`judgment:${id}`)
+  const j = db.kvGet<Judgment>(`judgment:${id}`)
+  // A run still "streaming" with nothing running it was cut short by a close; it never finishes.
+  if (j && !running.has(id))
+    for (const r of j.runs)
+      if (r.status === 'streaming') {
+        r.status = 'stopped'
+        r.error ??= 'Tasogare closed before this run finished.'
+      }
+  return j
 }
 
 function store(j: Judgment): void {

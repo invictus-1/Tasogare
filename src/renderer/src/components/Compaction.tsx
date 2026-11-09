@@ -39,6 +39,12 @@ const useRunning = (): { id: string; since: number } | null => {
   return running
 }
 
+/** Whether this chat is being compacted now: it holds still until the summary is in. */
+export const useCompacting = (id: string | undefined): boolean => {
+  const run = useRunning()
+  return !!id && run?.id === id
+}
+
 const plainError = (err: unknown): string => (err instanceof Error ? err.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(err))
 
 /**

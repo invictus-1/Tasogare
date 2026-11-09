@@ -644,7 +644,8 @@ export function JudgeView() {
         {draft ? (
           <JudgeForm />
         ) : current ? (
-          <JudgeResult />
+          // Keyed, so a judgment opens on its own first tab with its own names still hidden.
+          <JudgeResult key={current.id} />
         ) : board ? (
           <LeaderboardView />
         ) : (

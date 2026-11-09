@@ -377,7 +377,8 @@ export function send(id: string, text: string): CodeSessionView {
   emit({ kind: 'list' })
   void loop(s, controller.signal).finally(() => {
     live.delete(id)
-    push(s)
+    // Deleted while it ran: saving it now would bring it back.
+    if (sessions.get(id) === s) push(s)
     emit({ kind: 'list' })
   })
   return view(s)
@@ -424,7 +425,14 @@ async function loop(s: Stored, signal: AbortSignal): Promise<void> {
       }
       const results: Block[] = []
       for (const call of result.calls) {
-        const out = signal.aborted ? { content: 'Stopped by the user before this ran.', error: true } : await runTool(s, call, signal)
+        // A reply that ran out of room may have left its last call half written (a file's first
+        // half, say), so that one isn't run; the model is told, and sends it again.
+        const cut = result.cutOff && call === result.calls.at(-1)
+        const out = signal.aborted
+          ? { content: 'Stopped by the user before this ran.', error: true }
+          : cut
+            ? { content: 'The reply ran out of room before this call was complete, so it was not run. Send it again; if it is long, in smaller parts.', error: true }
+            : await runTool(s, call, signal)
         results.push({ type: 'tool_result', tool_use_id: call.id, content: out.content, ...(out.error ? { is_error: true } : {}) })
       }
       s.messages.push({ role: 'user', content: results })

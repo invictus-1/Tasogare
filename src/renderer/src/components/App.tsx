@@ -2,6 +2,7 @@ import { Constellation, WritingGlow } from './Delights'
 import { useExtras } from '../extras'
 import { FindBar } from './FindBar'
 import { lazy, Suspense, useEffect, useState, type ComponentType } from 'react'
+import { leaveField } from '../focus'
 import { useStore } from '../store'
 import { useJudge } from '../judgeStore'
 import { clearStream, handleStreamEvent } from '../stream'
@@ -139,9 +140,14 @@ export function App() {
       const command = commandFor(e)
       if (command) {
         e.preventDefault()
+        // A box that saves when you leave it saves before the shortcut changes the page under it;
+        // if it's still there afterwards and nothing else took the keyboard, it gets it back.
+        const field = leaveField()
         if (s.overlay && command.id !== s.overlay) s.setOverlay(null)
         command.run()
+        if (field) requestAnimationFrame(() => field.isConnected && document.activeElement === document.body && field.focus())
       } else if (e.key === 'Escape') {
+        if (s.overlay || s.settingsOpen) leaveField()
         if (s.overlay) s.setOverlay(null)
         else if (s.settingsOpen) s.setSettingsOpen(false)
         else if (s.mode === 'chat') void s.stop()

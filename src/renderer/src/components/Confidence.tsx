@@ -37,7 +37,7 @@ export function ConfidenceView({ node }: { node: NodeView }) {
       if (!(e.target as Element).closest?.('.conf-pop, .conf-tok')) setOpen(null)
     }
     const esc = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') setOpen(null)
+      if (e.key === 'Escape') (e.preventDefault(), setOpen(null))
     }
     document.addEventListener('mousedown', away)
     document.addEventListener('keydown', esc)

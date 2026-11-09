@@ -28,7 +28,9 @@ export function applyTheme(theme: Theme): Record<string, string> | null {
 /** Switches theme now, remembers it, and has the window's title bar match. */
 export function setTheme(theme: Theme): void {
   // With the theme wipe on (Extras) and motion at Full, the new colours sweep down the window.
-  const wipe = readExtras().themeWipe && !document.documentElement.dataset.motion && 'startViewTransition' in document
+  // Not for the theme already showing (your own, as you drag one of its colours): no sweep per tick.
+  const showing = document.documentElement.dataset.theme ?? 'twilight'
+  const wipe = showing !== theme && readExtras().themeWipe && !document.documentElement.dataset.motion && 'startViewTransition' in document
   let tokens: ReturnType<typeof applyTheme> = null
   // The frame takes the theme's colours once they're in place (a wipe applies them a moment later).
   const frame = (): void => void window.twilight.setWindowTheme(theme, tokens ? { night: tokens['--night'], symbol: tokens['--ink-muted'] } : undefined)

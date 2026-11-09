@@ -6,6 +6,7 @@
 //   npm run release -- --dry   show what would be published
 
 const { execFileSync } = require('node:child_process')
+const { createHash } = require('node:crypto')
 const { copyFileSync, existsSync, readFileSync, readdirSync, writeFileSync, mkdtempSync } = require('node:fs')
 const { join } = require('node:path')
 const { homedir, tmpdir } = require('node:os')
@@ -26,13 +27,18 @@ const fail = (msg) => {
 // The animated installer (installer/build.cjs) and the portable zip; latest.yml carries the installer's hash.
 // Copies from before 1.6 look for an installer named Twilight-Setup-<version>.exe, so the installer
 // goes up under that name too (the same file, so latest.yml's checksum holds for both).
-copyFileSync(join(root, 'release', `Tasogare-Setup-${version}.exe`), join(root, 'release', `Twilight-Setup-${version}.exe`))
+const installer = join(root, 'release', `Tasogare-Setup-${version}.exe`)
+if (!existsSync(installer)) fail(`missing ${installer}; run npm run dist first.`)
+copyFileSync(installer, join(root, 'release', `Twilight-Setup-${version}.exe`))
 const files = [`Tasogare-Setup-${version}.exe`, 'latest.yml', `Tasogare-${version}-x64.zip`, `Twilight-Setup-${version}.exe`].map((f) =>
   join(root, 'release', f)
 )
 for (const f of files) if (!existsSync(f)) fail(`missing ${f}; run npm run dist first.`)
 const yml = readFileSync(join(root, 'release', 'latest.yml'), 'utf8')
 if (!yml.includes(`version: ${version}`)) fail(`release/latest.yml is for another version; run npm run dist again.`)
+// The updater checks its download against this hash, so a latest.yml from another build would
+// make every copy refuse the update.
+if (!yml.includes(createHash('sha512').update(readFileSync(installer)).digest('base64'))) fail(`release/latest.yml doesn't match the installer; run npm run dist again.`)
 
 // The built app must not carry paths from this machine (a home folder holds the user's name).
 const leaks = [homedir(), root].flatMap((p) => [p, p.replace(/\\/g, '/'), p.replace(/\\/g, '\\\\')])

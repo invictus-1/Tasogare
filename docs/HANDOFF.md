@@ -51,6 +51,7 @@ TWILIGHT_E2E=<folder> node_modules/electron/dist/electron.exe .         # ~550 c
 TWILIGHT_E2E=<folder> release/win-unpacked/Tasogare.exe                  # the same against the packaged app
 TWILIGHT_SELFTEST=<folder> node_modules/electron/dist/electron.exe .    # scroll timings on a 450-turn chat
 TWILIGHT_SHOWCASE=<folder> node_modules/electron/dist/electron.exe .    # README screenshots from demo data
+TWILIGHT_SHOWCASE_THEMES=1 TWILIGHT_SHOWCASE=<folder> node_modules/electron/dist/electron.exe .    # the theme tour: six surfaces in every theme
 ```
 
 A release goes: update CHANGELOG and ROADMAP (mark the version's date) → `npm run dist` → e2e against `release/win-unpacked` → commit and push → ask → `npm run release` (it refuses to publish if any built file holds a path from this machine).

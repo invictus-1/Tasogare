@@ -6,6 +6,7 @@ import { useStore } from '../store'
 import { CloseIcon, DocIcon, PaperclipIcon, SendIcon, SlidersIcon, StopIcon } from './Icons'
 import { DocPicker } from './DocPicker'
 import { ModelPicker } from './ModelPicker'
+import { useCompacting } from './Compaction'
 import { DictateButton } from './Dictate'
 import { PromptPicker } from './PromptPicker'
 import { Hint, ToolsMenu } from './ToolsMenu'
@@ -111,6 +112,8 @@ export function Composer() {
   const send = useStore((s) => s.send)
   const stop = useStore((s) => s.stop)
   const currentId = useStore((s) => s.current?.id)
+  // A chat being compacted takes nothing new until its summary is in; what you've typed waits here.
+  const compacting = useCompacting(currentId)
   const choiceCards = useStore((s) => s.current?.settings.choiceCards ?? false)
   const pendingA = useStore((s) => s.current?.settings.pendingInstruction ?? '')
   const pendingB = useStore((s) => s.current?.split?.settings.pendingInstruction ?? '')
@@ -134,7 +137,7 @@ export function Composer() {
 
   const submit = (): void => {
     const value = text.trim()
-    if ((!value && attachments.length === 0) || streaming) return
+    if ((!value && attachments.length === 0) || streaming || compacting) return
     setText('')
     setAttachments([])
     void send(value, attachments)

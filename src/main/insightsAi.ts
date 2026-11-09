@@ -205,6 +205,8 @@ async function job<T>(kind: 'story' | 'focus' | 'notes', scope: string | undefin
   } catch (err) {
     lastError = controller.signal.aborted ? null : (describeAnthropicError(err) ?? (err instanceof Error ? err.message : String(err)))
   } finally {
+    // Parts of a long text still out when one of them failed stop with the job.
+    controller?.abort()
     running = null
     controller = null
     publish()

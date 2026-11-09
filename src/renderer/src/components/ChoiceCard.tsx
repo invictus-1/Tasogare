@@ -115,7 +115,7 @@ export function ChoiceCard({ choices, answer, active }: { choices: ChoiceSet; an
                         }}
                       >
                         <span className="choice-num">{i + 1}</span>
-                        <input name="choice" autoFocus defaultValue={option.label} onKeyDown={(e) => e.key === 'Escape' && setEditing(null)} />
+                        <input name="choice" autoFocus defaultValue={option.label} onKeyDown={(e) => e.key === 'Escape' && (e.preventDefault(), setEditing(null))} />
                         <button className="tw-btn tw-btn-ghost tw-btn-icon" type="submit" aria-label={multi ? 'Use edited choice' : 'Send edited choice'}>
                           {multi ? <CheckIcon size={14} /> : <SendIcon size={14} />}
                         </button>

@@ -90,6 +90,28 @@ if (testDir) prepareSelfTest(testDir)
 // Where the data lives (and a move you asked for, done now, before anything opens it).
 else app.setPath('userData', resolveDataFolder())
 
+// One Tasogare per data folder: two would write over each other's settings and could undo a
+// restore or a move. A second start brings the open window forward instead. Tests and the
+// development build keep their own way of starting.
+const alone = !!testDir || !!devUrl || app.requestSingleInstanceLock()
+if (!alone) app.quit()
+else
+  app.on('second-instance', () => {
+    const win = BrowserWindow.getAllWindows()[0]
+    if (!win) return
+    if (win.isMinimized()) win.restore()
+    win.show()
+    win.focus()
+  })
+
+/** Starts again (after a restore or a move is staged). Leaving this way skips will-quit, so what Tasogare started is ended here. */
+function restart(): void {
+  mcp.closeAll()
+  local.stopEngine()
+  app.relaunch()
+  app.exit(0)
+}
+
 function dataInfo(): DataInfo {
   const err = db.kvGet<{ message: string }>('backups.error')
   return {
@@ -108,8 +130,7 @@ async function startMove(target: string): Promise<string | null> {
   await createBackup('before-move')
   stageMove(target)
   db.kvSet('data.lastRestore', null)
-  app.relaunch()
-  app.exit(0)
+  restart()
   return null
 }
 
@@ -557,8 +578,7 @@ function registerIpc(): void {
     restoreBackup: async (_e, path: string) => {
       if (!(await listBackups()).some((b) => b.path === path)) throw new Error('That backup is gone.')
       await stageRestore(path)
-      app.relaunch()
-      app.exit(0)
+      restart()
     },
     moveData: async (e) => {
       const win = BrowserWindow.fromWebContents(e.sender)
@@ -617,6 +637,7 @@ function registerIpc(): void {
 registerBackgroundScheme()
 
 app.whenReady().then(() => {
+  if (!alone) return
   mark('appReady')
   // A restore you asked for goes in before the database opens.
   const restored = applyPendingRestore(app.getPath('userData'))
@@ -657,10 +678,25 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+}).catch((err: unknown) => {
+  // A start that fails (a database that won't open, say) says why, instead of leaving a
+  // process running with no window.
+  dialog.showErrorBox("Tasogare couldn't start", err instanceof Error ? err.message : String(err))
+  app.exit(1)
 })
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
+})
+
+// A document still being written (the editor's last edits, sent as the window closed) lands first.
+let savesWaited = false
+app.on('before-quit', (e) => {
+  const pending = savesWaited ? null : docs.savesDone()
+  if (!pending) return
+  savesWaited = true
+  e.preventDefault()
+  void pending.finally(() => app.quit())
 })
 
 // MCP servers Tasogare started end with it.

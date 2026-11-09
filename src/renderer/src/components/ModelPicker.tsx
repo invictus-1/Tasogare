@@ -52,7 +52,13 @@ export function ModelPicker({ placement = 'up', scope = 'chat' }: { placement?: 
       {open && (
         <div className={`tw-menu picker-menu picker-${placement}`} role="listbox">
           <div className="picker-search">
-            <input autoFocus placeholder="Filter models" value={filter} onChange={(e) => setFilter(e.target.value)} />
+            <input
+              autoFocus
+              placeholder="Filter models"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              onKeyDown={(e) => e.key === 'Escape' && (e.preventDefault(), setOpen(false))}
+            />
             <button
               className="tw-btn tw-btn-ghost tw-btn-icon"
               aria-label="Refresh model list"

@@ -1,4 +1,5 @@
 import { app, type BrowserWindow } from 'electron'
+import { THEMES } from '@shared/themes'
 import { createServer, type Server, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { mkdirSync, writeFileSync } from 'node:fs'
@@ -279,6 +280,38 @@ async function idle(id: string): Promise<void> {
 
 const wait = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
 
+/** Every theme on the chat, an empty chat, Appearance, Insights and Writing: <theme>-<surface>.png. */
+async function themeTour(win: BrowserWindow, js: (code: string) => Promise<unknown>, shot: (name: string) => Promise<void>, docPath: string): Promise<void> {
+  const only = process.env.TWILIGHT_SHOWCASE_THEMES === '1' ? null : (process.env.TWILIGHT_SHOWCASE_THEMES ?? '').split(',')
+  const surfaces: [string, string][] = [
+    ['chat', `document.querySelector('[data-mode="chat"]').click(); await wait(300);
+      [...document.querySelectorAll('.tw-conv')].find((r) => r.textContent.includes('The lighthouse at Gull Point'))?.click(); await wait(600);
+      const t = document.querySelector('.thread-scroll'); if (t) t.scrollTop = t.scrollHeight`],
+    ['top', `const s = document.querySelector('.thread-scroll'); if (s) s.scrollTop = 0; await wait(300)`],
+    ['settings', `document.querySelector('.rail [data-rail="settings"]').click(); await wait(400);
+      [...document.querySelectorAll('.settings-nav-item')].find((b) => b.textContent.includes('Appearance'))?.click(); await wait(400)`],
+    ['insights', `document.querySelector('.ach-toast [aria-label="Dismiss"]')?.click(); document.querySelector('[data-mode="insights"]').click(); await wait(700)`],
+    ['writing', `document.querySelector('[data-mode="write"]').click(); await wait(400);
+      document.querySelector('.doc-item[data-path=' + JSON.stringify(${JSON.stringify(docPath)}) + ']')?.click(); await wait(700)`]
+  ]
+  for (const theme of THEMES) {
+    if (only && !only.includes(theme.id)) continue
+    await js(`${theme.id === 'twilight' ? 'delete document.documentElement.dataset.theme' : `document.documentElement.dataset.theme = '${theme.id}'`}; await wait(300)`)
+    for (const [name, go] of surfaces) {
+      await js(go)
+      await shot(`${theme.id}-${name}`)
+    }
+    // An empty chat, where the sky is.
+    await js(`document.querySelector('[data-mode="chat"]').click(); await wait(300)`)
+    win.webContents.focus()
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'N', modifiers: ['control'] })
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'N', modifiers: ['control'] })
+    await js(`await wait(1800)`)
+    await shot(`${theme.id}-empty`)
+  }
+  await js(`delete document.documentElement.dataset.theme`)
+}
+
 export function runShowcase(win: BrowserWindow, outDir: string): void {
   mkdirSync(outDir, { recursive: true })
   win.setContentSize(1440, 900)
@@ -404,6 +437,13 @@ export function runShowcase(win: BrowserWindow, outDir: string): void {
         const style = document.createElement('style')
         style.textContent = '.folder-btn, .updates-dev-note { display: none !important; }'
         document.head.appendChild(style)`)
+      // TWILIGHT_SHOWCASE_THEMES=1 photographs every theme instead, on five surfaces, to check them by eye.
+      if (process.env.TWILIGHT_SHOWCASE_THEMES) {
+        await themeTour(win, js, shot, ch1.path)
+        writeFileSync(join(outDir, 'showcase.json'), JSON.stringify({ ok: true }))
+        return
+      }
+
       await js(`[...document.querySelectorAll('.tw-conv')].find((r) => r.textContent.includes('The lighthouse at Gull Point'))?.click(); await wait(600); const t = document.querySelector('.thread'); if (t) t.scrollTop = t.scrollHeight`)
       await shot('chat')
 

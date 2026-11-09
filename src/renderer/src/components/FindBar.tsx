@@ -40,7 +40,10 @@ function findAll(query: string): Range[] {
 }
 
 const paint = (ranges: Range[], current: number): void => {
-  CSS.highlights.set('find', new Highlight(...ranges))
+  // Added one by one: a word found a hundred thousand times is too many to hand over at once.
+  const all = new Highlight()
+  for (const range of ranges) all.add(range)
+  CSS.highlights.set('find', all)
   if (ranges[current]) CSS.highlights.set('find-current', new Highlight(ranges[current]))
   else CSS.highlights.delete('find-current')
 }

@@ -4,6 +4,33 @@ Each version's section becomes its release notes on the releases page (`npm run 
 
 ## Unreleased
 
+**Themes**
+
+- **Themes with more to them:** each theme now has its own still light and texture behind the chat and the sidebar, where before they differed in colour alone. Twilight keeps the last light in its upper corner and a warmth along the bottom; Ultraviolet glows violet with a trace of pink; Phosphor has scan lines and the dark edges of a tube; Nightshade and Midnight have faint stars; Ember glows from below with a few embers; Synthwave has its sun over a grid; Aurora has bands of light under stars; Campfire has firelight and sparks; Moonlit Paper has the grain of paper. Nothing in it moves, so scrolling is as fast as it was. High contrast stays flat, and a backdrop of your own still takes its place.
+- **Details in each theme's colours:** a thin horizon line under the title bar, a bar beside the selected section, a lean towards the tools colour at the corner of your messages, quotes and scene breaks drawn in the theme's colours, a soft halo round the message box while you type, and scroll bars and dropdown arrows tinted to match. Some themes have a touch of their own: Send glows in Ultraviolet, Phosphor, Synthwave, Ember and Campfire, Phosphor's caret is green, and Midnight's title has a faint glow.
+- **The theme picker shows scenes:** each card is a small picture of its theme (Phosphor's prompt, Nightshade's crescent, Midnight's moon, Campfire's fire, Synthwave's sun and grid) instead of three dots of colour.
+- **Skies in every theme, yours too:** the skies on Insights, the Roadmap and the welcome are drawn in each theme's own colours, with the sun in its writing colour, and a theme you build gets all of this from the colours you pick. Dragging a colour in the builder no longer replays the sweep across the window.
+
+**Fixes from a read-through of the whole app**
+
+- **Writing, the last words:** words typed in the moment before opening another document, leaving Writing or closing the window always reach the file, and two saves of one document can no longer overlap and leave the older one on disk.
+- **A chat holds still while it compacts:** sending, regenerating, editing and deleting wait until the summary is in, where before a message sent mid-way could be lost under it. Compacting also sends the chat's own tools, so the cache it was built on is read instead of written again.
+- **Stopping and failing, said plainly:** Stop after a tool has run no longer repeats the text from before the tool; a server that fails part-way through a reply shows its reason instead of ending the reply as if it were finished; and an empty block in a stored reply is no longer sent back to Claude, which refused the whole chat over it.
+- **Where you were reading:** deleting or restoring a message, or switching branch, no longer jumps the chat to the bottom. In a split, deleting everything below a message moves the other side's thread up with it instead of leaving it on messages that are gone.
+- **Escape belongs to what is open:** Escape in a rename, an edit, the model filter or a menu closes that and nothing else; before it could also stop a running reply. A Settings box you were typing in is saved when a shortcut or Escape takes you away from it.
+- **Tool approvals don't take the keyboard:** a tool asking to run no longer pulls the cursor out of the message box, so Enter at the end of a sentence can't answer it by accident. With nothing else focused, the keyboard still lands on Allow once.
+- **Smaller ones:** Find with a great many matches no longer stalls the window; each judgment keeps its own open and closed parts; a judgment cut off by closing Tasogare reads as stopped instead of running for ever; a second click on dictation while it starts no longer leaves the microphone on; and Insights counts words such as "constructor" like any other word.
+
+**Safety**
+
+- **One Tasogare at a time:** opening it a second time brings the open window forward instead of starting a second copy on the same database.
+- **Restoring a backup keeps what you have until the backup is in:** the backup is copied beside your data first and swapped in only when all of it has copied, so a backup that can't be read whole changes nothing. A backup that fails part-way removes what it wrote, a failed scheduled backup tries again in six hours instead of at every start, and an old failure message clears after the next good one.
+- **Updates verify or refuse:** an update whose checksum can't be read is not downloaded at all, where before it was installed unchecked; an installer that fails to start is discarded so the next try fetches a clean one; and a double click can't start two installs. Publishing a release now refuses when the installer and its checksum file don't match.
+- **Starting and restarting:** if Tasogare can't start it says why instead of leaving nothing on screen, and a restart (after a restore or a move of the data folder) stops the local model engine and MCP servers first rather than leaving them behind.
+- **Code agent:** `.git` is left alone however it is spelt, a tool call cut off by the length limit is not run with half its input, and a session deleted while it was working stays deleted.
+- **Models on this PC:** a download that can't be written (a full disk, say) fails with its reason instead of hanging, cancelling and starting a download again keeps the new one in the list, and an engine that can't be started says so.
+- **Motion:** Gentle and Off now also stop the visitors' acts in the sky.
+
 ## 1.6.0
 
 - **Twilight is now 黄昏 (Tasogare):** the same app under a new name. The window, the welcome and the installer show 黄昏, and the Start menu, desktop shortcut and installer files say Tasogare. Your chats, settings, keys, writing and backups stay where they were, and updating from an earlier version works as before. A taskbar pin made for Twilight may need pinning again.

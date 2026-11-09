@@ -37,6 +37,7 @@ Twilight (the default, a dark dusk) has ten sister themes: Ultraviolet, Phosphor
 - **Horizon** marks writing: suggestion insertions, the Ask tool, split pane B, writing badges. On a horizon fill use `on-horizon`.
 - **Status** (`success`, `warning`, `danger`) always travels with a word or an icon — never a bare colored dot.
 - Fills are flat. Gradients are kept for a few celebratory surfaces only: the skies (welcome, Insights, Roadmap, the empty chat), charts and progress bars, and the background gradients a user can put behind the window.
+- **Theme art** is the one standing exception. Each theme paints a still picture of itself behind the chat (`--ground-art`) and behind the rail and sidebar (`--side-art`): light, stars, grain, scan lines. It is quiet enough that text reads as it does on the flat ground, it never moves (it is painted once, so scrolling costs nothing), and a user's backdrop replaces it. High contrast has none. The shared details come from the same three accents in every theme: `--head-line` (the horizon under the title bar), `--accent-run` (the bar beside the selected section), `--user-fill`, `--quote-line`, `--rule-line`, `--halo` and `--thumb`. A new theme defines its art in `themes.css`; a built theme gets it from `customTheme.ts`.
 
 ## Typography
 

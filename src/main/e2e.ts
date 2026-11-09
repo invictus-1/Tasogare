@@ -30,6 +30,7 @@ import { checkTarget, resolveDataFolder, stageMove } from './location'
 import { setImageConfig } from './images'
 import { DECLINED } from '@shared/mcp'
 import { commandRisk, lineDiff } from '@shared/code'
+import { writeText as writeWorkspaceText } from './code/workspace'
 import * as db from './db'
 import * as docs from './docs'
 import { extractChoices } from '@shared/choices'
@@ -470,6 +471,27 @@ function startMockServer(log: LoggedRequest[]): Promise<Server> {
           res.end('data: [DONE]\n\n')
           return
         }
+      }
+      // A reply slow enough to still be running while the window is used; it ends when stopped.
+      if (lastUser.includes('SLOWSTREAM')) {
+        res.writeHead(200, { 'content-type': 'text/event-stream' })
+        for (let i = 0; i < 400 && !res.destroyed; i++) {
+          entry.firstTokenAt ??= Date.now()
+          res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: 'tide ' } }] })}\n\n`)
+          await new Promise((r) => setTimeout(r, 20))
+        }
+        if (!res.destroyed) res.end('data: [DONE]\n\n')
+        return
+      }
+      // A server that answers 200, sends a line that isn't JSON, then reports a failure in the stream.
+      if (lastUser.includes('STREAMERR')) {
+        res.writeHead(200, { 'content-type': 'text/event-stream' })
+        res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: 'The lamps were ' } }] })}\n\n`)
+        entry.firstTokenAt ??= Date.now()
+        res.write('data: not json at all\n\n')
+        res.write(`data: ${JSON.stringify({ error: { message: 'upstream overloaded' } })}\n\n`)
+        res.end()
+        return
       }
       const system = parsed.messages[0]?.content ?? ''
       let reply: string
@@ -2380,7 +2402,7 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
 
       await key('K', ['control'])
       const menu = await js<{ open: boolean; items: number }>(`({ open: !!document.querySelector('.palette'), items: document.querySelectorAll('.palette-item').length })`)
-      win.webContents.insertText('splt')
+      await win.webContents.insertText('splt')
       await new Promise((r) => setTimeout(r, 200))
       const filtered = await js<string[]>(`[...document.querySelectorAll('.palette-item .palette-title')].map((e) => e.textContent)`)
       await key('Escape')
@@ -2390,7 +2412,7 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
       check('Esc closes the command menu', menuClosed)
 
       await key('K', ['control'])
-      win.webContents.insertText('ultraviolet')
+      await win.webContents.insertText('ultraviolet')
       await new Promise((r) => setTimeout(r, 150))
       await key('Return')
       check('running a command from the menu works', (await js<string | undefined>(`document.documentElement.dataset.theme`)) === 'ultraviolet')
@@ -2424,7 +2446,7 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
 
       // Search everything, then open a result at its message.
       await key('F', ['control', 'shift'])
-      win.webContents.insertText('quay')
+      await win.webContents.insertText('quay')
       await new Promise((r) => setTimeout(r, 600))
       const searchUi = await js<{ hits: number; marks: string[] }>(`({ hits: document.querySelectorAll('.search-hit').length, marks: [...document.querySelectorAll('.search-hit mark')].map((m) => m.textContent) })`)
       check('Ctrl+Shift+F searches every chat as you type', searchUi.hits >= 2 && searchUi.marks.every((m) => m.toLowerCase() === 'quay'), searchUi)
@@ -2574,7 +2596,7 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         await new Promise((r) => setTimeout(r, 400))
       })()`)
       await key('K', ['control'])
-      win.webContents.insertText('copy the chat for a game')
+      await win.webContents.insertText('copy the chat for a game')
       await new Promise((r) => setTimeout(r, 150))
       await key('Return')
       await new Promise((r) => setTimeout(r, 200))
@@ -2597,7 +2619,7 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         document.querySelector('[aria-label="Attach a document from the writing folder"]')?.click()
         await wait(200)
       })()`)
-      win.webContents.insertText('game e2e')
+      await win.webContents.insertText('game e2e')
       await new Promise((r) => setTimeout(r, 200))
       await key('Return')
       const pickedDoc = await js<string[]>(`[...document.querySelectorAll('.tw-attach .attach-chip')].map((c) => c.textContent)`)
@@ -3128,7 +3150,7 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
       const defaultsBefore = chat.getDefaults().modelId
       await js(`document.activeElement?.blur()`)
       await key('K', ['control'])
-      win.webContents.insertText('from a persona')
+      await win.webContents.insertText('from a persona')
       await new Promise((r) => setTimeout(r, 200))
       await key('Return')
       const chooser = await js<string[]>(`(async () => {
@@ -3136,7 +3158,7 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         return [...document.querySelectorAll('.persona-chooser .persona-item .palette-title')].map((e) => e.textContent)
       })()`)
       check('"New chat from a persona…" opens a chooser of your personas', chooser.join() === 'Ferryman,Lamplighter', chooser)
-      win.webContents.insertText('lamp')
+      await win.webContents.insertText('lamp')
       await new Promise((r) => setTimeout(r, 200))
       await key('Return')
       const fresh = await js<{ title: string; empty: boolean; choices: string | null }>(`(async () => {
@@ -3150,7 +3172,7 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         return { title: document.querySelector('.chat-title')?.textContent ?? '', empty: !!document.querySelector('.chat .empty'), choices: document.querySelector('.tw-composer [aria-label="Choice cards"]')?.getAttribute('aria-pressed') ?? null }
       })()`)
       const before37 = log.length
-      win.webContents.insertText('Light the way')
+      await win.webContents.insertText('Light the way')
       await key('Return')
       await until(() => log.slice(before37).some((r) => r.messages.at(-1)?.content === 'Light the way'))
       const lampChat = db.listConversations().find((c) => c.title === 'Light the way')
@@ -3204,7 +3226,7 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
       )
       const before37b = log.length
       await js(`document.querySelector('.tw-composer textarea')?.focus()`)
-      win.webContents.insertText('Second light')
+      await win.webContents.insertText('Second light')
       await key('Return')
       await until(() => log.slice(before37b).some((r) => (r.messages.at(-1)?.content ?? '').endsWith('Second light')))
       if (lampChat) await idle(lampChat.id)
@@ -3238,11 +3260,11 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         for (let end = Date.now() + 3000; Date.now() < end && document.querySelectorAll('.prompt-pop .prompt-item').length < 2; ) await wait(25)
         return { items: [...document.querySelectorAll('.prompt-pop .prompt-item .palette-title')].map((e) => e.textContent), fill: false, value: '', closed: false }
       })()`)
-      win.webContents.insertText('describe')
+      await win.webContents.insertText('describe')
       await new Promise((r) => setTimeout(r, 200))
       await key('Return')
       const fillShown = await js<boolean>(`!!document.querySelector('.prompt-pop .prompt-fill textarea') && document.activeElement === document.querySelector('.prompt-pop .prompt-fill textarea')`)
-      win.webContents.insertText('the harbour')
+      await win.webContents.insertText('the harbour')
       await key('Return')
       const afterFill = await js<{ value: string; closed: boolean }>(`({ value: document.querySelector('.tw-composer textarea')?.value ?? '', closed: !document.querySelector('.prompt-pop') })`)
       check('the Prompts popover lists your prompts', promptUi.items.join() === 'Describe a place,Plain ask', promptUi.items)
@@ -3253,11 +3275,11 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
       )
       await js(`document.activeElement?.blur()`)
       await key('K', ['control'])
-      win.webContents.insertText('insert a prompt')
+      await win.webContents.insertText('insert a prompt')
       await new Promise((r) => setTimeout(r, 200))
       await key('Return')
       await js(`(async () => { for (let end = Date.now() + 3000; Date.now() < end && document.querySelectorAll('.prompt-pop .prompt-item').length < 2; ) await new Promise((r) => setTimeout(r, 25)) })()`)
-      win.webContents.insertText('plain')
+      await win.webContents.insertText('plain')
       await new Promise((r) => setTimeout(r, 200))
       await key('Return')
       const plainValue = await js<string>(`document.querySelector('.tw-composer textarea')?.value ?? ''`)
@@ -3462,7 +3484,7 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
 
       await js(`document.activeElement?.blur()`)
       await key('K', ['control'])
-      win.webContents.insertText('usage')
+      await win.webContents.insertText('usage')
       await new Promise((r) => setTimeout(r, 150))
       await key('Return')
       const usageUi = await js<Record<string, unknown>>(`(async () => {
@@ -3902,7 +3924,7 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
       await shot('e2e-split-diff.png')
       await js(`document.activeElement?.blur()`)
       await key('K', ['control'])
-      win.webContents.insertText('differences between')
+      await win.webContents.insertText('differences between')
       await new Promise((r) => setTimeout(r, 200))
       const diffCommand = await js<string | null>(`document.querySelector('.palette-item .palette-title')?.textContent ?? null`)
       await key('Return')
@@ -4201,7 +4223,7 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
       await js(`document.activeElement?.blur()`)
       await key('F', ['control'])
       await new Promise((r) => setTimeout(r, 150))
-      win.webContents.insertText('lamps')
+      await win.webContents.insertText('lamps')
       await new Promise((r) => setTimeout(r, 400))
       const find1 = await js<{ bar: boolean; count: string; marked: number }>(`({ bar: !!document.querySelector('.find-bar'), count: document.querySelector('.find-count')?.textContent ?? '', marked: CSS.highlights.get('find')?.size ?? 0 })`)
       await key('Return')
@@ -4220,7 +4242,7 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
       await key('N', ['control'])
       await new Promise((r) => setTimeout(r, 300))
       await js(`document.querySelector('.tw-composer textarea')?.focus()`)
-      win.webContents.insertText('LONGSTREAM')
+      await win.webContents.insertText('LONGSTREAM')
       await key('Return')
       const streamSel = await js<{ blocks: number; same: boolean; selected: string; streaming: boolean }>(`(async () => {
         const wait = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -4351,7 +4373,7 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
       })()`)
       await key('F', ['control'])
       await new Promise((r) => setTimeout(r, 150))
-      win.webContents.insertText('July')
+      await win.webContents.insertText('July')
       await new Promise((r) => setTimeout(r, 500))
       const findLong = await js<{ count: string; steps: number; unseen: number[]; summaryOpen: boolean; thinkingOpen: number; messageOpen: string }>(`(async () => {
         const wait = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -4535,7 +4557,7 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
       const before42 = log.length
       win.webContents.focus()
       await js(`document.querySelector('.code-view textarea')?.focus()`)
-      win.webContents.insertText('CODEFLOW make it twelve lamps')
+      await win.webContents.insertText('CODEFLOW make it twelve lamps')
       await untilUi(`!document.querySelector('.code-view .tw-send')?.disabled`)
       await js(`document.querySelector('.code-view .tw-send')?.click()`)
       let w42 = await codeWait('pending')
@@ -4645,7 +4667,7 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
       )
       win.webContents.focus()
       await js(`document.querySelector('.code-decline-note')?.focus()`)
-      win.webContents.insertText('Keep the build')
+      await win.webContents.insertText('Keep the build')
       await untilUi(`document.querySelector('.code-decline-note')?.value === 'Keep the build'`)
       await click42('Decline')
       w42 = await codeWait('done')
@@ -4962,7 +4984,7 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
       const uiSend = async (text: string): Promise<void> => {
         win.webContents.focus()
         await js(`document.querySelector('.tw-composer textarea')?.focus()`)
-        win.webContents.insertText(text)
+        await win.webContents.insertText(text)
         await js(`(async () => {
           for (let end = Date.now() + 2000; Date.now() < end && document.querySelector('.tw-composer .tw-send')?.disabled; ) await new Promise((r) => setTimeout(r, 30))
           document.querySelector('.tw-composer .tw-send')?.click()
@@ -5045,6 +5067,29 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
       await idle(c45)
       const gone45 = await js<boolean>(`(async () => { await new Promise((r) => setTimeout(r, 300)); return !document.querySelector('.tool-approval') })()`)
       check('stopping a reply that waits on a tool declines it', chat.view(c45).path.at(-1)!.status === 'stopped' && gone45)
+
+      // The card takes the keyboard only from someone who isn't typing: Enter in the message box
+      // must never answer it.
+      await uiSend('MCPCALL lamp_tools__light_lamp {"n":9}')
+      await waitApproval()
+      const typing45 = await js<string>(`document.activeElement?.tagName ?? ''`)
+      await clickApproval('Decline')
+      await idle(c45)
+      win.webContents.focus()
+      await js(`document.querySelector('.tw-composer textarea')?.focus()`)
+      await win.webContents.insertText('MCPCALL lamp_tools__light_lamp {"n":10}')
+      const handsOff45 = await js<string>(`(async () => {
+        const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+        for (let end = Date.now() + 2000; Date.now() < end && document.querySelector('.tw-composer .tw-send')?.disabled; ) await wait(30)
+        document.querySelector('.tw-composer .tw-send')?.click()
+        // Hands off the keyboard while the reply starts.
+        for (let end = Date.now() + 8000; Date.now() < end && !document.querySelector('.tool-approval'); ) { document.activeElement?.blur(); await wait(10) }
+        await wait(60)
+        return document.activeElement?.textContent?.trim() ?? ''
+      })()`)
+      await clickApproval('Decline')
+      await idle(c45)
+      check('a tool waiting for an answer leaves the keyboard with the message box, and takes it when nothing has it', typing45 === 'TEXTAREA' && handsOff45 === 'Allow once', { typing45, handsOff45 })
 
       // A server at an address, with a header it needs.
       let http45 = mcp.saveServer({ id: '', name: 'Library', kind: 'http', command: '', args: [], cwd: '', url: `http://127.0.0.1:${port}/mcp`, enabled: true, approval: 'allow', allowedTools: [], envKeys: [], headerKeys: [], headers: { 'x-token': 'wrong' } })
@@ -5457,7 +5502,7 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
       check('spelling is checked by default', win.webContents.session.isSpellCheckerEnabled())
       win.webContents.focus()
       await js(`(() => { const t = document.querySelector('.tw-composer textarea'); t.focus(); t.value = ''; t.dispatchEvent(new Event('input', { bubbles: true })); return true })()`)
-      win.webContents.insertText('teh ')
+      await win.webContents.insertText('teh ')
       await new Promise((r) => setTimeout(r, 1500))
       const at47 = await js<{ x: number; y: number }>(`(() => { const r = document.querySelector('.tw-composer textarea').getBoundingClientRect(); return { x: Math.round(r.left + 14), y: Math.round(r.top + 14) } })()`)
       const menu47 = await new Promise<Electron.ContextMenuParams | null>((resolve) => {
@@ -5876,6 +5921,8 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         none56 = String(e)
       }
       check('a check needs at least one document', /Choose at least one document/.test(none56), none56)
+      // The preset is saved when its name box loses focus, which only happens in a window that has it.
+      win.webContents.focus()
       await js(`document.querySelector('.rail-item[data-mode="write"]')?.click()`)
       const ui56 = await js<{ docs: number; tokens: string; result: string; issues: number; presets: string[]; afterPreset: number; summary: string; answer: string }>(`(async () => {
         const wait = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -6422,7 +6469,7 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         document.querySelector('.tw-composer textarea')?.focus()
         return out
       })()`)
-      win.webContents.insertText('Round two at the pier.')
+      await win.webContents.insertText('Round two at the pier.')
       const vote53 = await js<{ ready: boolean; votes: number; reveal: string; blindAfter: boolean }>(`(async () => {
         const wait = (ms) => new Promise((r) => setTimeout(r, ms))
         await wait(100)
@@ -6449,6 +6496,222 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
       })()`)
       check('the Judge leaderboard has the blind arena table, rated from the votes', board53.length === 2 && board53.every((r) => /:\d+-\d+-\d+$/.test(r)), board53)
       await js(`document.querySelector('.rail-item[data-mode="chat"]')?.click()`)
+
+      // 58. Fixes from a read-through of the whole app.
+      // Words that are also JavaScript's own property names count like any other word.
+      const vocab58 = analyzeText('The constructor checked the constructor twice. Then toString, then valueOf.').vocab
+      check('words like "constructor" are counted as words', vocab58['constructor'] === 2 && vocab58['tostring'] === 1 && vocab58['valueof'] === 1, { c: String(vocab58['constructor']), t: String(vocab58['tostring']) })
+
+      // Windows reads .GIT as .git, so the Code agent refuses both.
+      const root58 = join(outDir, 'git-case')
+      await mkdir(join(root58, '.git'), { recursive: true })
+      const gitCase58 = await writeWorkspaceText(root58, '.GIT/config', 'x').then(() => 'written', (e) => String(e))
+      check('the Code agent leaves .git alone however it is spelt', /inside \.git/.test(gitCase58) && !existsSync(join(root58, '.git', 'config')), gitCase58)
+
+      // A backup that can't be copied whole (here its database is a folder) leaves the data as it was.
+      const bad58 = join(outDir, 'bad-backup')
+      await mkdir(join(bad58, 'twilight.db'), { recursive: true })
+      const data58 = join(outDir, 'restore-fail')
+      await mkdir(data58, { recursive: true })
+      await writeFile(join(data58, 'twilight.db'), 'the chats as they were')
+      await writeFile(join(data58, 'twilight.db-wal'), 'their journal')
+      await writeFile(join(data58, 'restore.json'), JSON.stringify({ from: bad58 }))
+      const failed58 = applyPendingRestore(data58)
+      check(
+        "a backup that can't be copied whole changes nothing",
+        failed58 === null &&
+          (await readFile(join(data58, 'twilight.db'), 'utf8')) === 'the chats as they were' &&
+          existsSync(join(data58, 'twilight.db-wal')) &&
+          !existsSync(join(data58, 'twilight.db.restoring')) &&
+          !existsSync(join(data58, 'restore.json')),
+        failed58
+      )
+
+      // While a chat is being compacted it holds still: nothing sent, nothing deleted.
+      const c58 = chat.create(null).id
+      for (const t of ['First light on the quay', 'Second evening']) {
+        chat.send(contents, c58, t)
+        await idle(c58)
+      }
+      const compacting58 = chat.compact(c58)
+      const held58 = [() => chat.send(contents, c58, 'Too soon'), () => chat.deleteMessage(c58, chat.view(c58).path[1].id, 'single')].map((f) => {
+        try {
+          f()
+          return 'ran'
+        } catch (e) {
+          return String(e)
+        }
+      })
+      await compacting58
+      check('a chat being compacted takes no message and no deletion until the summary is in', held58.every((r) => /compacting/i.test(r)) && !!chat.view(c58).path.at(-1)?.compaction, held58)
+
+      // Deleting everything below a message takes the split's thread up with it.
+      const s58 = chat.create(null).id
+      for (const t of ['one', 'two']) {
+        chat.send(contents, s58, t)
+        await idle(s58)
+      }
+      const [, sa58, su58] = chat.view(s58).path
+      chat.cloneIntoSplit(s58)
+      const split58 = chat.deleteMessage(s58, su58.id, 'below').split
+      check("deleting everything below a message moves the split's thread up to what is left", split58?.path.at(-1)?.id === sa58.id, split58?.path.map((n) => n.role))
+
+      // A server that answers 200 and then fails inside the stream.
+      const e58 = chat.create(null).id
+      chat.send(contents, e58, 'STREAMERR lamps')
+      await idle(e58)
+      const err58 = chat.view(e58).path.at(-1)!
+      check('a failure reported inside a stream ends the reply with its reason', err58.status === 'error' && /upstream overloaded/.test(err58.error ?? ''), { status: err58.status, error: err58.error, text: err58.text })
+
+      const empty58 = JSON.stringify(
+        toMessages([
+          cRow('user', 'First light', [{ type: 'text', text: 'First light' }]),
+          cRow('assistant', 'Rowan rowed.', [{ type: 'text', text: '' }, { type: 'text', text: 'Rowan rowed.' }]),
+          cRow('user', 'Next evening', [{ type: 'text', text: 'Next evening' }])
+        ])
+      )
+      check('an empty text block stored in a reply is not sent back', !empty58.includes('"text":""') && empty58.includes('Rowan rowed.'), empty58.slice(0, 300))
+
+      // In the window. Deleting a message leaves the chat where you were reading.
+      const t58 = chat.create(null).id
+      for (const t of ['LONGSTREAM one', 'LONGSTREAM two']) {
+        chat.send(contents, t58, t)
+        await idle(t58)
+      }
+      db.updateConversation(t58, { started: 1, title: 'Reading spot' })
+      await reloadUi()
+      const jump58 = await js<{ before: number; after: number; tall: boolean; left: number }>(`(async () => {
+        const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+        document.querySelector('.rail-item[data-mode="chat"]')?.click()
+        await wait(200)
+        ;[...document.querySelectorAll('.tw-conv')].find((r) => r.querySelector('.tw-conv-title')?.textContent === 'Reading spot')?.click()
+        for (let end = Date.now() + 3000; Date.now() < end && document.querySelectorAll('.thread-scroll .tw-msg-ai').length < 2; ) await wait(25)
+        await wait(300)
+        const el = document.querySelector('.thread-scroll')
+        el.scrollTop = 0
+        await wait(200)
+        const before = el.scrollTop
+        const count = () => document.querySelectorAll('.thread-scroll .msg').length
+        const had = count()
+        document.querySelector('.thread-scroll [aria-label="Delete this message"]')?.click()
+        for (let end = Date.now() + 3000; Date.now() < end && count() === had; ) await wait(25)
+        await wait(300)
+        return { before, after: el.scrollTop, tall: el.scrollHeight > el.clientHeight + 200, left: count() }
+      })()`)
+      check('deleting a message leaves the chat where you were reading', jump58.tall && jump58.left === 3 && jump58.after < 80, jump58)
+
+      // Escape belongs to what is open: in the model filter it closes the menu and the reply runs on.
+      await uiSend('SLOWSTREAM tide')
+      await until(() => chat.isRunning(t58) && log.at(-1)?.firstTokenAt !== undefined, 5000)
+      const opened58 = await js<boolean>(`(async () => {
+        const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+        document.querySelector('.tw-composer .picker > button')?.click()
+        for (let end = Date.now() + 2000; Date.now() < end && !document.activeElement?.closest('.picker-search'); ) await wait(25)
+        return !!document.activeElement?.closest('.picker-search')
+      })()`)
+      await key('Escape')
+      const shut58 = await js<boolean>(`!document.querySelector('.picker-menu')`)
+      const running58 = chat.isRunning(t58)
+      check('Escape in the model filter closes the menu and leaves the reply running', opened58 && shut58 && running58, { opened58, shut58, running58 })
+      await key('Escape')
+      await until(() => !chat.isRunning(t58), 3000)
+      const stopped58 = chat.view(t58).path.at(-1)!.status
+      if (chat.isRunning(t58)) chat.stop(t58)
+      await idle(t58)
+      check('Escape with nothing else open still stops the reply', stopped58 === 'stopped', stopped58)
+
+      // A Settings box saves when you leave it; Escape closing Settings counts as leaving.
+      const was58 = chat.compactionSettings().instructions
+      await key(',', ['control'])
+      const typed58 = await js<boolean>(`(async () => {
+        const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+        ;[...document.querySelectorAll('.settings-nav-item')].find((b) => b.textContent.startsWith('General'))?.click()
+        await wait(250)
+        const box = [...document.querySelectorAll('label.field')].find((l) => l.querySelector('.field-label')?.textContent === 'Summary instructions')?.querySelector('textarea')
+        if (!box) return false
+        box.focus()
+        box.value = 'Keep every name and every lamp.'
+        return document.activeElement === box
+      })()`)
+      await key('Escape')
+      await new Promise((r) => setTimeout(r, 250))
+      const closed58 = await js<boolean>(`!document.querySelector('.settings-nav')`)
+      const saved58 = chat.compactionSettings().instructions
+      chat.setCompactionSettings({ instructions: was58 })
+      check('a Settings box you were typing in is saved when Escape closes Settings', typed58 && closed58 && saved58 === 'Keep every name and every lamp.', { typed58, closed58, saved58 })
+
+      // The last words typed reach the file even inside the pause before a save: on opening
+      // another document, leaving Writing, and closing the window.
+      const page58 = await docs.createDoc('Last words')
+      const other58 = await docs.createDoc('Other page')
+      await docs.writeDoc(page58.path, 'The lamps were lit.')
+      await docs.writeDoc(other58.path, 'Another page.')
+      await reloadUi()
+      // Opens the page, types at its end and leaves at once; returns what the editor held on opening.
+      const typeThenLeave58 = (words: string, leave: string): Promise<string | null> =>
+        js(`(async () => {
+          const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+          const ready = () => window.__twilightEditor?.dom.isConnected && window.__twilightEditor.state.doc.toString().startsWith('The lamps were lit.')
+          document.querySelector('.rail [data-mode="write"]')?.click()
+          await wait(250)
+          if (!ready()) document.querySelector('.doc-item[data-path=${JSON.stringify(page58.path)}]')?.click()
+          for (let end = Date.now() + 4000; Date.now() < end && !ready(); ) await wait(20)
+          if (!ready()) return null
+          const v = window.__twilightEditor
+          const held = v.state.doc.toString()
+          v.dispatch({ changes: { from: v.state.doc.length, insert: ${JSON.stringify(words)} } })
+          ${leave}
+          return held
+        })()`)
+      const onDisk58 = async (): Promise<string> => {
+        await new Promise((r) => setTimeout(r, 250))
+        return (await docs.readDoc(page58.path)).text
+      }
+      const held58a = await typeThenLeave58(' Wren came back.', `document.querySelector('.doc-item[data-path=${JSON.stringify(other58.path)}]')?.click()`)
+      const disk58a = await onDisk58()
+      const held58b = await typeThenLeave58(' Rowan waved.', `document.querySelector('.rail-item[data-mode="chat"]')?.click()`)
+      const disk58b = await onDisk58()
+      const held58c = await typeThenLeave58(' The tide turned.', `window.dispatchEvent(new Event('beforeunload'))`)
+      const disk58c = await onDisk58()
+      check(
+        'the last words typed reach the file on opening another document, leaving Writing and closing the window',
+        held58a === 'The lamps were lit.' && disk58a.endsWith('Wren came back.') && disk58b.endsWith('Wren came back. Rowan waved.') && disk58c.endsWith('Rowan waved. The tide turned.'),
+        { held58a, disk58a, disk58b, disk58c }
+      )
+      check('coming back to a document shows the words typed before leaving', held58b === 'The lamps were lit. Wren came back.' && held58c === 'The lamps were lit. Wren came back. Rowan waved.', { held58b, held58c })
+      await new Promise((r) => setTimeout(r, 800))
+      await js(`document.querySelector('.rail-item[data-mode="chat"]')?.click()`)
+      await new Promise((r) => setTimeout(r, 300))
+
+      // Every theme brings its own ground, rail and chevron, and the chat is drawn over that ground.
+      // High contrast is the exception: it keeps its flat black.
+      const art58 = await js<Record<string, { ground: boolean; side: boolean; chevron: boolean; drawn: boolean }>>(`(async () => {
+        const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+        const root = document.documentElement
+        const was = root.dataset.theme
+        const out = {}
+        for (const id of ${JSON.stringify(THEMES.map((t) => t.id))}) {
+          if (id === 'twilight') delete root.dataset.theme
+          else root.dataset.theme = id
+          await wait(60)
+          const s = getComputedStyle(root)
+          const chat = document.querySelector('.chat')
+          out[id] = {
+            ground: s.getPropertyValue('--ground-art').includes('gradient'),
+            side: s.getPropertyValue('--side-art').trim().length > 0,
+            chevron: s.getPropertyValue('--chevron').trim().startsWith('url('),
+            drawn: !!chat && /gradient|url/.test(getComputedStyle(chat).backgroundImage)
+          }
+        }
+        if (was) root.dataset.theme = was
+        else delete root.dataset.theme
+        return out
+      })()`)
+      check(
+        'every theme has its own ground, rail and chevron, drawn behind the chat; High contrast stays flat',
+        Object.keys(art58).length === THEMES.length && Object.entries(art58).every(([id, t]) => t.chevron && (id === 'contrast' ? !t.ground && !t.side && !t.drawn : t.ground && t.side && t.drawn)),
+        art58
+      )
 
       check('the page logged no errors', consoleErrors.length === 0, consoleErrors.slice(0, 5))
     } catch (err) {

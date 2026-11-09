@@ -170,6 +170,8 @@ What's shipped, what's next, and ideas not yet committed to. Tasogare shows this
 
 ## Next
 - [~] **Your feedback on 1.0** · Core — fixes from real use
+- [~] **Themes with more to them** · Core — done, in the next release: each theme's own still light and texture behind the chat and sidebar, details in its colours, scenes in the theme picker, and skies in every theme
+- [~] **Fixes from a read-through** · Core — done, in the next release: the last words typed always reach the file, a chat holds still while it compacts, Escape belongs to what is open, restores and updates verify before they change anything, and one Tasogare at a time
 
 ## Later
 - [ ] **The road to 2.0** · Core — 1.0 is the foundation; everything after it is extras and experiments, kept if they earn it. The proposed theme: Tasogare knows your story

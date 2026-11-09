@@ -1,6 +1,44 @@
 /* Themes beyond the default Twilight: the same tokens with other values, chosen in Settings →
    General → Appearance. Contrast follows the design system: text tokens hold 4.5:1 on every
-   ground they're used on; control borders and focus hold 3:1. */
+   ground they're used on; control borders and focus hold 3:1.
+
+   Each theme also carries its art as tokens, which the base rules in app.css read:
+   --ground-art lies over the main surface, --side-art over the rail and the sidebar, and
+   --primary-fill fills the primary button and Send. All of it is still: nothing here moves, so
+   nothing here costs a frame. A backdrop of your own (Settings) replaces the ground and side art,
+   and High contrast carries none of it. */
+
+/* Details every theme shares, drawn from its own accents. */
+:root {
+  /* The line under the title bar is a horizon: the three accents, faint, fading out at both ends. */
+  --head-line: linear-gradient(90deg, var(--line) 0%, color-mix(in srgb, var(--iris) 55%, var(--line)) 26%, color-mix(in srgb, var(--dusk) 55%, var(--line)) 50%, color-mix(in srgb, var(--horizon) 50%, var(--line)) 74%, var(--line) 100%);
+  /* The bar beside the selected section runs from actions to tools. */
+  --accent-run: linear-gradient(180deg, var(--iris), var(--dusk));
+  /* Your messages lean a little towards the tools colour at one corner. */
+  --user-fill: linear-gradient(135deg, transparent 30%, color-mix(in srgb, var(--dusk-soft) 70%, transparent) 100%);
+  /* Quotes take the writing colour; a scene break is a rule that fades at both ends. */
+  --quote-line: color-mix(in srgb, var(--horizon) 50%, var(--line-strong));
+  --rule-line: linear-gradient(90deg, transparent, var(--line) 18%, color-mix(in srgb, var(--horizon) 55%, var(--line)) 50%, var(--line) 82%, transparent);
+  /* The composer's halo while you type, and the scrollbar's tint. */
+  --halo: color-mix(in srgb, var(--iris) 14%, transparent);
+  --thumb: color-mix(in srgb, var(--iris) 20%, var(--line));
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a90c4' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+}
+::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--iris) 30%, var(--line-strong)); }
+.tw-composer { transition: border-color 160ms ease, box-shadow 160ms ease; }
+@media (prefers-reduced-motion: reduce) { .tw-composer { transition: none; } }
+
+/* Twilight, the default: dusk light from the upper right, and the horizon's warmth from below. */
+:root[data-theme] .rm-sun, :root[data-theme] .wl-sun { background: radial-gradient(circle at 50% 40%, color-mix(in srgb, #fff 55%, var(--horizon)) 0%, var(--horizon) 45%, color-mix(in srgb, var(--horizon) 45%, var(--dusk)) 100%); box-shadow: 0 0 90px 20px color-mix(in srgb, var(--horizon) 25%, transparent); }
+:root[data-theme] .wl-sun { box-shadow: 0 0 140px 40px color-mix(in srgb, var(--horizon) 20%, transparent); }
+:root:not([data-theme]) {
+  --primary-fill: linear-gradient(90deg, #9497ff, #b3a0ff);
+  --primary-line: transparent;
+  --ground-art:
+    radial-gradient(1100px 520px at 85% -12%, #20255c 0%, transparent 62%),
+    radial-gradient(1200px 360px at 30% 114%, #3a243480 0%, transparent 65%);
+  --side-art: linear-gradient(180deg, #10132c, transparent 40%);
+}
 
 /* Ultraviolet: near-black violet, violet for actions, magenta for tools, pink for writing. */
 :root[data-theme='ultraviolet'] {
@@ -14,6 +52,7 @@
   --ink: #f4ecff;
   --ink-muted: #c2b3dc;
   --ink-faint: #9c8dba;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239c8dba' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   --iris: #b07cff;
   --iris-soft: #2c1a4d;
   --on-iris: #0c0614;
@@ -25,20 +64,15 @@
   --selection: #b07cff47;
   --shadow-lg: 0 12px 32px -4px #000000c0, 0 0 0 1px #3a2458;
   --focus-ring: 0 0 0 2px #130a1f, 0 0 0 4px #b07cff;
+  --primary-fill: linear-gradient(90deg, #9b5cff, #f07cff);
+  --primary-line: transparent;
+  --ground-art:
+    radial-gradient(1100px 520px at 85% -12%, #2a1245 0%, transparent 62%),
+    radial-gradient(900px 420px at 0% 108%, #3a174580 0%, transparent 60%),
+    radial-gradient(700px 260px at 62% 104%, #ff8fc80d 0%, transparent 70%);
+  --side-art: linear-gradient(180deg, #120821, transparent 40%);
 }
 
-/* Its one flourish: the glow and the violet-to-magenta primary actions. */
-:root[data-theme='ultraviolet'] .tw-btn-primary,
-:root[data-theme='ultraviolet'] .tw-send {
-  background: linear-gradient(90deg, #9b5cff, #f07cff);
-  border-color: transparent;
-}
-:root[data-theme='ultraviolet'] .chat {
-  background: radial-gradient(1100px 520px at 85% -12%, #2a1245 0%, transparent 62%), var(--surface);
-}
-:root[data-theme='ultraviolet'] .sidebar {
-  background: linear-gradient(180deg, #120821, var(--night) 40%);
-}
 
 /* Phosphor: black and green, an old terminal's glow. Green for actions, lime for tools, cyan for writing. */
 :root[data-theme='phosphor'] {
@@ -52,6 +86,7 @@
   --ink: #e3ffe9;
   --ink-muted: #9fd1ae;
   --ink-faint: #74a886;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2374a886' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   --iris: #3dff8f;
   --iris-soft: #0f2f1c;
   --on-iris: #021006;
@@ -64,17 +99,13 @@
   --selection: #3dff8f40;
   --shadow-lg: 0 12px 32px -4px #000000d0, 0 0 0 1px #1f3a29;
   --focus-ring: 0 0 0 2px #070c09, 0 0 0 4px #3dff8f;
-}
-:root[data-theme='phosphor'] .tw-btn-primary,
-:root[data-theme='phosphor'] .tw-send {
-  background: linear-gradient(90deg, #22d36f, #b6ff5c);
-  border-color: transparent;
-}
-:root[data-theme='phosphor'] .chat {
-  background: radial-gradient(1100px 520px at 85% -12%, #0d3320 0%, transparent 62%), var(--surface);
-}
-:root[data-theme='phosphor'] .sidebar {
-  background: linear-gradient(180deg, #06140c, var(--night) 40%);
+  --primary-fill: linear-gradient(90deg, #22d36f, #b6ff5c);
+  --primary-line: transparent;
+  --ground-art:
+    repeating-linear-gradient(0deg, #3dff8f07 0 1px, transparent 1px 4px),
+    radial-gradient(120% 95% at 50% 45%, transparent 58%, #00000078 100%),
+    radial-gradient(1100px 520px at 85% -12%, #0d3320 0%, transparent 62%);
+  --side-art: repeating-linear-gradient(0deg, #3dff8f05 0 1px, transparent 1px 4px), linear-gradient(180deg, #06140c, transparent 40%);
 }
 /* Its flourish: headings glow faintly, the way phosphor does. */
 :root[data-theme='phosphor'] .t-display,
@@ -94,6 +125,7 @@
   --ink: #f1edff;
   --ink-muted: #bdb2de;
   --ink-faint: #958ab8;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23958ab8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   --iris: #a78bfa;
   --iris-soft: #2a2050;
   --on-iris: #07050b;
@@ -105,17 +137,13 @@
   --selection: #a78bfa47;
   --shadow-lg: 0 12px 32px -4px #000000d0, 0 0 0 1px #2f2450;
   --focus-ring: 0 0 0 2px #0c0912, 0 0 0 4px #a78bfa;
-}
-:root[data-theme='nightshade'] .tw-btn-primary,
-:root[data-theme='nightshade'] .tw-send {
-  background: linear-gradient(90deg, #7c5cff, #c084fc);
-  border-color: transparent;
-}
-:root[data-theme='nightshade'] .chat {
-  background: radial-gradient(1100px 520px at 85% -12%, #241446 0%, transparent 62%), var(--surface);
-}
-:root[data-theme='nightshade'] .sidebar {
-  background: linear-gradient(180deg, #110a20, var(--night) 40%);
+  --primary-fill: linear-gradient(90deg, #7c5cff, #c084fc);
+  --primary-line: transparent;
+  --ground-art:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='320'%3E%3Ccircle cx='339.17' cy='78.32' r='0.58' fill='%23e0b3ff' opacity='0.26'/%3E%3Ccircle cx='344.33' cy='227.91' r='0.4' fill='%23f1edff' opacity='0.13'/%3E%3Ccircle cx='288.21' cy='112.45' r='0.52' fill='%23a78bfa' opacity='0.29'/%3E%3Ccircle cx='428.93' cy='51.75' r='0.63' fill='%23e0b3ff' opacity='0.16'/%3E%3Ccircle cx='176.71' cy='8.58' r='0.48' fill='%23f1edff' opacity='0.25'/%3E%3Ccircle cx='81.59' cy='102.87' r='0.58' fill='%23a78bfa' opacity='0.24'/%3E%3Ccircle cx='540.32' cy='51.35' r='0.72' fill='%23e0b3ff' opacity='0.33'/%3E%3Ccircle cx='398.79' cy='28.78' r='0.43' fill='%23f1edff' opacity='0.14'/%3E%3Ccircle cx='625.71' cy='170.47' r='0.44' fill='%23a78bfa' opacity='0.1'/%3E%3Ccircle cx='222.22' cy='171.75' r='0.55' fill='%23e0b3ff' opacity='0.18'/%3E%3Ccircle cx='91.66' cy='224.95' r='0.76' fill='%23f1edff' opacity='0.17'/%3E%3Ccircle cx='16.27' cy='43.05' r='0.4' fill='%23a78bfa' opacity='0.36'/%3E%3Ccircle cx='336.71' cy='73.79' r='0.44' fill='%23e0b3ff' opacity='0.24'/%3E%3Ccircle cx='56.9' cy='167.26' r='0.61' fill='%23f1edff' opacity='0.09'/%3E%3Ccircle cx='406.27' cy='58.31' r='0.88' fill='%23a78bfa' opacity='0.23'/%3E%3Ccircle cx='225.86' cy='64.43' r='0.4' fill='%23e0b3ff' opacity='0.31'/%3E%3Ccircle cx='486.06' cy='51.61' r='0.45' fill='%23f1edff' opacity='0.27'/%3E%3Ccircle cx='539.14' cy='34.83' r='0.41' fill='%23a78bfa' opacity='0.16'/%3E%3Ccircle cx='399.13' cy='121.36' r='0.41' fill='%23e0b3ff' opacity='0.18'/%3E%3Ccircle cx='599.87' cy='41.4' r='0.76' fill='%23f1edff' opacity='0.3'/%3E%3Ccircle cx='588.02' cy='49.42' r='0.57' fill='%23a78bfa' opacity='0.24'/%3E%3Ccircle cx='329.28' cy='26.96' r='0.4' fill='%23e0b3ff' opacity='0.39'/%3E%3Ccircle cx='261.21' cy='25.82' r='0.41' fill='%23f1edff' opacity='0.15'/%3E%3Ccircle cx='348.49' cy='172.5' r='0.53' fill='%23a78bfa' opacity='0.1'/%3E%3Ccircle cx='398.11' cy='94.59' r='0.79' fill='%23e0b3ff' opacity='0.34'/%3E%3Ccircle cx='386.4' cy='108.77' r='0.56' fill='%23f1edff' opacity='0.21'/%3E%3Ccircle cx='417.11' cy='2.25' r='0.61' fill='%23a78bfa' opacity='0.46'/%3E%3Ccircle cx='86.45' cy='156.13' r='0.41' fill='%23e0b3ff' opacity='0.21'/%3E%3Ccircle cx='219.83' cy='301.53' r='0.83' fill='%23f1edff' opacity='0.06'/%3E%3Ccircle cx='418.45' cy='180.17' r='0.4' fill='%23a78bfa' opacity='0.12'/%3E%3Ccircle cx='315.12' cy='135.43' r='0.6' fill='%23e0b3ff' opacity='0.14'/%3E%3Ccircle cx='201.55' cy='159.64' r='0.4' fill='%23f1edff' opacity='0.19'/%3E%3Ccircle cx='115.88' cy='42.16' r='0.73' fill='%23a78bfa' opacity='0.39'/%3E%3Ccircle cx='3.23' cy='175.19' r='0.49' fill='%23e0b3ff' opacity='0.23'/%3E%3Ccircle cx='448.17' cy='98.02' r='0.6' fill='%23f1edff' opacity='0.1'/%3E%3Ccircle cx='314.37' cy='73.41' r='0.41' fill='%23a78bfa' opacity='0.32'/%3E%3Ccircle cx='54.26' cy='0.99' r='0.9' fill='%23e0b3ff' opacity='0.33'/%3E%3Ccircle cx='534.26' cy='153.1' r='0.82' fill='%23f1edff' opacity='0.27'/%3E%3Ccircle cx='107.79' cy='0.61' r='0.58' fill='%23a78bfa' opacity='0.26'/%3E%3Ccircle cx='341.08' cy='51.07' r='0.4' fill='%23e0b3ff' opacity='0.14'/%3E%3C/svg%3E") 0 var(--titlebar) / 640px 320px repeat-x,
+    radial-gradient(1100px 520px at 85% -12%, #241446 0%, transparent 62%),
+    radial-gradient(900px 460px at 6% 110%, #2e1d3d99 0%, transparent 62%);
+  --side-art: linear-gradient(180deg, #110a20, transparent 40%);
 }
 
 /* Ember: black and red, with orange and gold. Danger turns rose so it never reads as the accent. */
@@ -130,6 +158,7 @@
   --ink: #fff0ec;
   --ink-muted: #e0b8b0;
   --ink-faint: #b98d86;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23b98d86' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   --iris: #ff5a4f;
   --iris-soft: #3d1414;
   --on-iris: #0a0505;
@@ -143,17 +172,13 @@
   --selection: #ff5a4f47;
   --shadow-lg: 0 12px 32px -4px #000000d0, 0 0 0 1px #4a2020;
   --focus-ring: 0 0 0 2px #120909, 0 0 0 4px #ff5a4f;
-}
-:root[data-theme='ember'] .tw-btn-primary,
-:root[data-theme='ember'] .tw-send {
-  background: linear-gradient(90deg, #ff3b30, #ff9a4d);
-  border-color: transparent;
-}
-:root[data-theme='ember'] .chat {
-  background: radial-gradient(1100px 520px at 85% -12%, #3d0e0e 0%, transparent 62%), var(--surface);
-}
-:root[data-theme='ember'] .sidebar {
-  background: linear-gradient(180deg, #1a0808, var(--night) 40%);
+  --primary-fill: linear-gradient(90deg, #ff3b30, #ff9a4d);
+  --primary-line: transparent;
+  --ground-art:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='520' height='300'%3E%3Ccircle cx='35.52' cy='298.74' r='0.9' fill='%23ff9a4d' opacity='0.41'/%3E%3Ccircle cx='111.42' cy='277.55' r='0.76' fill='%23ffcf5c' opacity='0.62'/%3E%3Ccircle cx='4.65' cy='106.7' r='1' fill='%23ff5a4f' opacity='0.12'/%3E%3Ccircle cx='512.44' cy='298.93' r='1.2' fill='%23ff9a4d' opacity='0.48'/%3E%3Ccircle cx='28.77' cy='149.29' r='0.7' fill='%23ffcf5c' opacity='0.25'/%3E%3Ccircle cx='110.75' cy='9.85' r='1.22' fill='%23ff5a4f' opacity='0.06'/%3E%3Ccircle cx='407.22' cy='293.36' r='0.52' fill='%23ff9a4d' opacity='0.56'/%3E%3Ccircle cx='264.51' cy='269.27' r='1.39' fill='%23ffcf5c' opacity='0.52'/%3E%3Ccircle cx='474.78' cy='67.65' r='0.92' fill='%23ff5a4f' opacity='0.15'/%3E%3Ccircle cx='112.96' cy='164.15' r='0.6' fill='%23ff9a4d' opacity='0.24'/%3E%3Ccircle cx='494.96' cy='67.22' r='1.16' fill='%23ffcf5c' opacity='0.13'/%3E%3Ccircle cx='471.76' cy='278.45' r='0.54' fill='%23ff5a4f' opacity='0.41'/%3E%3Ccircle cx='83.81' cy='119.25' r='0.96' fill='%23ff9a4d' opacity='0.23'/%3E%3Ccircle cx='2.6' cy='132.78' r='0.84' fill='%23ffcf5c' opacity='0.2'/%3E%3Ccircle cx='188.26' cy='144.64' r='0.59' fill='%23ff5a4f' opacity='0.13'/%3E%3Ccircle cx='105.04' cy='299.99' r='0.92' fill='%23ff9a4d' opacity='0.32'/%3E%3Ccircle cx='487.43' cy='215.94' r='0.98' fill='%23ffcf5c' opacity='0.24'/%3E%3Ccircle cx='380.56' cy='294.7' r='0.8' fill='%23ff5a4f' opacity='0.4'/%3E%3Ccircle cx='431.86' cy='299.35' r='1.04' fill='%23ff9a4d' opacity='0.63'/%3E%3Ccircle cx='12.1' cy='164.97' r='0.53' fill='%23ffcf5c' opacity='0.27'/%3E%3Ccircle cx='113.65' cy='196.08' r='0.67' fill='%23ff5a4f' opacity='0.23'/%3E%3Ccircle cx='289' cy='289.12' r='1.49' fill='%23ff9a4d' opacity='0.28'/%3E%3Ccircle cx='255.5' cy='165.56' r='0.51' fill='%23ffcf5c' opacity='0.34'/%3E%3Ccircle cx='353.57' cy='214.38' r='1.46' fill='%23ff5a4f' opacity='0.41'/%3E%3Ccircle cx='98.12' cy='97' r='0.5' fill='%23ff9a4d' opacity='0.18'/%3E%3Ccircle cx='305.63' cy='199.63' r='0.99' fill='%23ffcf5c' opacity='0.35'/%3E%3C/svg%3E") bottom / 520px 300px repeat-x,
+    radial-gradient(1200px 360px at 50% 118%, #5a150c 0%, transparent 64%),
+    radial-gradient(1100px 520px at 85% -12%, #3d0e0e 0%, transparent 62%);
+  --side-art: linear-gradient(180deg, #1a0808, transparent 40%);
 }
 
 /* Midnight: near-black navy, ice blue for actions, soft violet for tools, ice cyan for writing. */
@@ -168,6 +193,7 @@
   --ink: #e8ecf6;
   --ink-muted: #a3adc4;
   --ink-faint: #7f8aa5;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237f8aa5' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   --iris: #7aa2ff;
   --iris-soft: #16223f;
   --on-iris: #05070d;
@@ -179,6 +205,13 @@
   --selection: #7aa2ff40;
   --shadow-lg: 0 12px 32px -4px #000000d0, 0 0 0 1px #1f2840;
   --focus-ring: 0 0 0 2px #0a0d16, 0 0 0 4px #7aa2ff;
+  --primary-fill: linear-gradient(90deg, #7aa2ff, #b39dff);
+  --primary-line: transparent;
+  --ground-art:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='320'%3E%3Ccircle cx='494.56' cy='146.7' r='0.42' fill='%23e8ecf6' opacity='0.21'/%3E%3Ccircle cx='378.99' cy='1.81' r='0.66' fill='%237fd6e8' opacity='0.28'/%3E%3Ccircle cx='146.83' cy='259.86' r='0.7' fill='%23b9c8ff' opacity='0.12'/%3E%3Ccircle cx='8.85' cy='133.96' r='0.51' fill='%23e8ecf6' opacity='0.15'/%3E%3Ccircle cx='184.39' cy='254.42' r='0.69' fill='%237fd6e8' opacity='0.13'/%3E%3Ccircle cx='12.17' cy='17.94' r='0.71' fill='%23b9c8ff' opacity='0.2'/%3E%3Ccircle cx='78.89' cy='20.88' r='0.51' fill='%23e8ecf6' opacity='0.43'/%3E%3Ccircle cx='51.8' cy='16.76' r='0.76' fill='%237fd6e8' opacity='0.23'/%3E%3Ccircle cx='630.87' cy='48.59' r='0.44' fill='%23b9c8ff' opacity='0.23'/%3E%3Ccircle cx='556.3' cy='12.97' r='0.66' fill='%23e8ecf6' opacity='0.41'/%3E%3Ccircle cx='515.24' cy='78.31' r='0.61' fill='%237fd6e8' opacity='0.15'/%3E%3Ccircle cx='369.68' cy='123.73' r='0.45' fill='%23b9c8ff' opacity='0.26'/%3E%3Ccircle cx='5.2' cy='113.1' r='0.83' fill='%23e8ecf6' opacity='0.18'/%3E%3Ccircle cx='559.75' cy='35.32' r='0.43' fill='%237fd6e8' opacity='0.18'/%3E%3Ccircle cx='178.49' cy='218.39' r='0.9' fill='%23b9c8ff' opacity='0.06'/%3E%3Ccircle cx='485.44' cy='35.52' r='0.45' fill='%23e8ecf6' opacity='0.32'/%3E%3Ccircle cx='51.16' cy='1.46' r='0.67' fill='%237fd6e8' opacity='0.31'/%3E%3Ccircle cx='595.23' cy='17.92' r='0.4' fill='%23b9c8ff' opacity='0.36'/%3E%3Ccircle cx='182.54' cy='289.79' r='0.54' fill='%23e8ecf6' opacity='0.1'/%3E%3Ccircle cx='370.49' cy='225.69' r='0.86' fill='%237fd6e8' opacity='0.15'/%3E%3Ccircle cx='70.34' cy='87.8' r='0.44' fill='%23b9c8ff' opacity='0.24'/%3E%3Ccircle cx='161.35' cy='6.38' r='0.69' fill='%23e8ecf6' opacity='0.18'/%3E%3Ccircle cx='209.08' cy='1.59' r='0.72' fill='%237fd6e8' opacity='0.34'/%3E%3Ccircle cx='62.47' cy='49.84' r='0.44' fill='%23b9c8ff' opacity='0.39'/%3E%3Ccircle cx='449.78' cy='30.49' r='0.68' fill='%23e8ecf6' opacity='0.16'/%3E%3Ccircle cx='596.3' cy='191.71' r='0.58' fill='%237fd6e8' opacity='0.09'/%3E%3Ccircle cx='257.91' cy='37.83' r='0.4' fill='%23b9c8ff' opacity='0.25'/%3E%3Ccircle cx='199.21' cy='267.25' r='0.69' fill='%23e8ecf6' opacity='0.05'/%3E%3Ccircle cx='64.42' cy='209.01' r='0.53' fill='%237fd6e8' opacity='0.19'/%3E%3Ccircle cx='381.75' cy='12.04' r='0.41' fill='%23b9c8ff' opacity='0.25'/%3E%3Ccircle cx='162.69' cy='135.19' r='0.63' fill='%23e8ecf6' opacity='0.14'/%3E%3Ccircle cx='630.19' cy='17.9' r='0.61' fill='%237fd6e8' opacity='0.27'/%3E%3Ccircle cx='24.75' cy='171.14' r='0.59' fill='%23b9c8ff' opacity='0.19'/%3E%3Ccircle cx='92.58' cy='0.08' r='0.46' fill='%23e8ecf6' opacity='0.25'/%3E%3Ccircle cx='607.26' cy='126.33' r='0.58' fill='%237fd6e8' opacity='0.28'/%3E%3Ccircle cx='181.4' cy='186.55' r='0.4' fill='%23b9c8ff' opacity='0.1'/%3E%3Ccircle cx='145.3' cy='0.4' r='0.8' fill='%23e8ecf6' opacity='0.28'/%3E%3Ccircle cx='497.42' cy='0.41' r='0.57' fill='%237fd6e8' opacity='0.23'/%3E%3Ccircle cx='495.72' cy='253.09' r='0.87' fill='%23b9c8ff' opacity='0.07'/%3E%3Ccircle cx='515.19' cy='20.85' r='0.44' fill='%23e8ecf6' opacity='0.22'/%3E%3Ccircle cx='2.51' cy='182.73' r='0.62' fill='%237fd6e8' opacity='0.16'/%3E%3Ccircle cx='155.62' cy='20.56' r='0.62' fill='%23b9c8ff' opacity='0.38'/%3E%3Ccircle cx='387.36' cy='96.23' r='0.63' fill='%23e8ecf6' opacity='0.21'/%3E%3Ccircle cx='127.52' cy='97.9' r='0.41' fill='%237fd6e8' opacity='0.19'/%3E%3Ccircle cx='40.25' cy='73.42' r='0.59' fill='%23b9c8ff' opacity='0.23'/%3E%3Ccircle cx='245.82' cy='64.16' r='0.53' fill='%23e8ecf6' opacity='0.21'/%3E%3Ccircle cx='278.37' cy='17.76' r='0.54' fill='%237fd6e8' opacity='0.33'/%3E%3Ccircle cx='156.95' cy='37.19' r='0.71' fill='%23b9c8ff' opacity='0.14'/%3E%3Ccircle cx='441.37' cy='38.9' r='0.41' fill='%23e8ecf6' opacity='0.16'/%3E%3Ccircle cx='51.68' cy='314.84' r='0.53' fill='%237fd6e8' opacity='0.05'/%3E%3C/svg%3E") 0 var(--titlebar) / 640px 320px repeat-x,
+    radial-gradient(560px 560px at 88% -10%, #1c2b58 0%, transparent 62%),
+    radial-gradient(1500px 620px at 40% -22%, #0f1630 0%, transparent 70%);
+  --side-art: linear-gradient(180deg, #0b1124, transparent 45%);
 }
 
 /* Synthwave: hot pink, cyan and a yellow sun on deep purple, with a horizon grid. */
@@ -193,6 +226,7 @@
   --ink: #fff0ff;
   --ink-muted: #e0b8f2;
   --ink-faint: #b78fd0;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23b78fd0' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   --iris: #ff2e97;
   --iris-soft: #3d0a3d;
   --on-iris: #0d0221;
@@ -204,18 +238,15 @@
   --selection: #ff2e9750;
   --shadow-lg: 0 12px 32px -4px #000000d0, 0 0 0 1px #4a1a6a;
   --focus-ring: 0 0 0 2px #140433, 0 0 0 4px #2de2e6;
-}
-:root[data-theme='synthwave'] .tw-btn-primary,
-:root[data-theme='synthwave'] .tw-send {
-  background: linear-gradient(90deg, #ff2e97, #ff8a3d);
-  border-color: transparent;
-}
-:root[data-theme='synthwave'] .chat {
-  background:
-    repeating-linear-gradient(90deg, transparent 0 59px, #ff2e9714 59px 60px) bottom / 100% 140px no-repeat,
-    repeating-linear-gradient(0deg, transparent 0 27px, #ff2e9714 27px 28px) bottom / 100% 140px no-repeat,
-    linear-gradient(180deg, transparent calc(100% - 180px), #ff2e9712 100%),
-    var(--surface);
+  --primary-fill: linear-gradient(90deg, #ff2e97, #ff8a3d);
+  --primary-line: transparent;
+  --ground-art:
+    radial-gradient(460px 190px at 50% 100%, #ffd31926 0%, #ff2e971f 48%, transparent 76%),
+    linear-gradient(0deg, transparent 0, var(--surface) 140px, transparent 140px),
+    repeating-linear-gradient(90deg, transparent 0 59px, #ff2e9726 59px 60px) bottom / 100% 140px no-repeat,
+    repeating-linear-gradient(0deg, transparent 0 27px, #ff2e9726 27px 28px) bottom / 100% 140px no-repeat,
+    radial-gradient(1000px 460px at 85% -12%, #3d0a3d 0%, transparent 62%);
+  --side-art: linear-gradient(180deg, #1a0540, transparent 40%);
 }
 :root[data-theme='synthwave'] .t-display,
 :root[data-theme='synthwave'] .chat-title {
@@ -234,6 +265,7 @@
   --ink: #e6fff8;
   --ink-muted: #a7d9cc;
   --ink-faint: #7fb3a6;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237fb3a6' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   --iris: #4cf2c2;
   --iris-soft: #0e3a30;
   --on-iris: #03100f;
@@ -245,14 +277,16 @@
   --selection: #4cf2c240;
   --shadow-lg: 0 12px 32px -4px #000000d0, 0 0 0 1px #1a4038;
   --focus-ring: 0 0 0 2px #071816, 0 0 0 4px #4cf2c2;
-}
-:root[data-theme='aurora'] .tw-btn-primary,
-:root[data-theme='aurora'] .tw-send {
-  background: linear-gradient(90deg, #2bd6a3, #9d7bff);
-  border-color: transparent;
-}
-:root[data-theme='aurora'] .chat {
-  background: radial-gradient(900px 380px at 15% -10%, #12503f 0%, transparent 60%), radial-gradient(800px 360px at 90% -12%, #2a1f5c 0%, transparent 60%), var(--surface);
+  --primary-fill: linear-gradient(90deg, #2bd6a3, #9d7bff);
+  --primary-line: transparent;
+  --ground-art:
+    radial-gradient(ellipse 46% 64px at 30% 96px, #4cf2c21c 0%, transparent 100%),
+    radial-gradient(ellipse 38% 52px at 66% 168px, #5ec8ff14 0%, transparent 100%),
+    radial-gradient(ellipse 42% 70px at 82% 70px, #9d7bff1f 0%, transparent 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='320'%3E%3Ccircle cx='535.01' cy='138.99' r='0.68' fill='%23e6fff8' opacity='0.1'/%3E%3Ccircle cx='221.2' cy='50.92' r='0.4' fill='%23a7d9cc' opacity='0.38'/%3E%3Ccircle cx='424.69' cy='206.89' r='0.45' fill='%23e6fff8' opacity='0.17'/%3E%3Ccircle cx='269.99' cy='99.26' r='0.66' fill='%23a7d9cc' opacity='0.11'/%3E%3Ccircle cx='486.61' cy='157.7' r='0.76' fill='%23e6fff8' opacity='0.14'/%3E%3Ccircle cx='533.24' cy='244.49' r='0.7' fill='%23a7d9cc' opacity='0.15'/%3E%3Ccircle cx='419.21' cy='291.78' r='0.6' fill='%23e6fff8' opacity='0.04'/%3E%3Ccircle cx='114.86' cy='8.03' r='0.65' fill='%23a7d9cc' opacity='0.22'/%3E%3Ccircle cx='431.17' cy='21.68' r='0.61' fill='%23e6fff8' opacity='0.43'/%3E%3Ccircle cx='533.74' cy='210.16' r='0.79' fill='%23a7d9cc' opacity='0.11'/%3E%3Ccircle cx='239.36' cy='42.79' r='0.4' fill='%23e6fff8' opacity='0.36'/%3E%3Ccircle cx='260.07' cy='0.01' r='0.4' fill='%23a7d9cc' opacity='0.28'/%3E%3Ccircle cx='623.41' cy='248.81' r='0.61' fill='%23e6fff8' opacity='0.14'/%3E%3Ccircle cx='246.86' cy='87.1' r='0.41' fill='%23a7d9cc' opacity='0.35'/%3E%3Ccircle cx='616.09' cy='162.87' r='0.73' fill='%23e6fff8' opacity='0.13'/%3E%3Ccircle cx='261.16' cy='200.25' r='0.78' fill='%23a7d9cc' opacity='0.19'/%3E%3Ccircle cx='302.14' cy='269.3' r='0.47' fill='%23e6fff8' opacity='0.13'/%3E%3Ccircle cx='497.66' cy='13.83' r='0.47' fill='%23a7d9cc' opacity='0.38'/%3E%3Ccircle cx='593.07' cy='3.05' r='0.41' fill='%23e6fff8' opacity='0.4'/%3E%3Ccircle cx='597.9' cy='85.43' r='0.52' fill='%23a7d9cc' opacity='0.22'/%3E%3Ccircle cx='212.12' cy='68.93' r='0.41' fill='%23e6fff8' opacity='0.27'/%3E%3Ccircle cx='330.26' cy='63.93' r='0.53' fill='%23a7d9cc' opacity='0.27'/%3E%3Ccircle cx='342.92' cy='8.98' r='0.78' fill='%23e6fff8' opacity='0.28'/%3E%3Ccircle cx='512.78' cy='60.89' r='0.57' fill='%23a7d9cc' opacity='0.15'/%3E%3Ccircle cx='115.73' cy='30.63' r='0.82' fill='%23e6fff8' opacity='0.24'/%3E%3Ccircle cx='212.83' cy='0.2' r='0.59' fill='%23a7d9cc' opacity='0.28'/%3E%3C/svg%3E") 0 var(--titlebar) / 640px 320px repeat-x,
+    radial-gradient(900px 380px at 15% -10%, #12503f 0%, transparent 60%),
+    radial-gradient(800px 360px at 90% -12%, #2a1f5c 0%, transparent 60%);
+  --side-art: linear-gradient(180deg, #082420, transparent 40%);
 }
 
 /* Campfire: warm amber and gold, with embers glowing from below. */
@@ -267,6 +301,7 @@
   --ink: #fff3e6;
   --ink-muted: #e3c3a2;
   --ink-faint: #b8987a;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23b8987a' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   --iris: #ff9f43;
   --iris-soft: #3d2410;
   --on-iris: #110b07;
@@ -278,14 +313,13 @@
   --selection: #ff9f4347;
   --shadow-lg: 0 12px 32px -4px #000000d0, 0 0 0 1px #4a3220;
   --focus-ring: 0 0 0 2px #18100a, 0 0 0 4px #ff9f43;
-}
-:root[data-theme='campfire'] .tw-btn-primary,
-:root[data-theme='campfire'] .tw-send {
-  background: linear-gradient(90deg, #ff7a2f, #ffcf6e);
-  border-color: transparent;
-}
-:root[data-theme='campfire'] .chat {
-  background: radial-gradient(1000px 420px at 50% 115%, #5a2a0e 0%, transparent 62%), var(--surface);
+  --primary-fill: linear-gradient(90deg, #ff7a2f, #ffcf6e);
+  --primary-line: transparent;
+  --ground-art:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='520' height='300'%3E%3Ccircle cx='264.6' cy='93' r='0.9' fill='%23ffcf6e' opacity='0.15'/%3E%3Ccircle cx='255.78' cy='92.46' r='1.34' fill='%23ff9f43' opacity='0.13'/%3E%3Ccircle cx='368.94' cy='299.58' r='1.19' fill='%23ff6b4a' opacity='0.42'/%3E%3Ccircle cx='497.47' cy='274.65' r='0.67' fill='%23ffcf6e' opacity='0.33'/%3E%3Ccircle cx='370.93' cy='286.11' r='1.16' fill='%23ff9f43' opacity='0.39'/%3E%3Ccircle cx='281.06' cy='285.74' r='0.55' fill='%23ff6b4a' opacity='0.41'/%3E%3Ccircle cx='248.72' cy='296.14' r='0.59' fill='%23ffcf6e' opacity='0.29'/%3E%3Ccircle cx='93.34' cy='93.07' r='0.5' fill='%23ff9f43' opacity='0.16'/%3E%3Ccircle cx='259.07' cy='244.66' r='1.07' fill='%23ff6b4a' opacity='0.29'/%3E%3Ccircle cx='237.99' cy='159.71' r='0.81' fill='%23ffcf6e' opacity='0.17'/%3E%3Ccircle cx='372.77' cy='293.29' r='0.79' fill='%23ff9f43' opacity='0.38'/%3E%3Ccircle cx='370.89' cy='78.01' r='0.55' fill='%23ff6b4a' opacity='0.08'/%3E%3Ccircle cx='0.56' cy='289.34' r='0.73' fill='%23ffcf6e' opacity='0.34'/%3E%3Ccircle cx='65.69' cy='220.03' r='0.66' fill='%23ff9f43' opacity='0.44'/%3E%3Ccircle cx='203.51' cy='135.06' r='1.19' fill='%23ff6b4a' opacity='0.13'/%3E%3Ccircle cx='293.53' cy='292.56' r='1.33' fill='%23ffcf6e' opacity='0.64'/%3E%3Ccircle cx='501.04' cy='208.2' r='0.58' fill='%23ff9f43' opacity='0.34'/%3E%3Ccircle cx='315.76' cy='282.27' r='0.58' fill='%23ff6b4a' opacity='0.36'/%3E%3Ccircle cx='327.44' cy='50.84' r='0.58' fill='%23ffcf6e' opacity='0.07'/%3E%3Ccircle cx='184.72' cy='24.6' r='1.03' fill='%23ff9f43' opacity='0.06'/%3E%3Ccircle cx='319.62' cy='266.59' r='0.58' fill='%23ff6b4a' opacity='0.54'/%3E%3Ccircle cx='316.94' cy='170.79' r='1.28' fill='%23ffcf6e' opacity='0.15'/%3E%3Ccircle cx='141.94' cy='44.46' r='0.77' fill='%23ff9f43' opacity='0.06'/%3E%3Ccircle cx='317.06' cy='52.64' r='0.57' fill='%23ff6b4a' opacity='0.11'/%3E%3Ccircle cx='325.23' cy='283.43' r='0.8' fill='%23ffcf6e' opacity='0.33'/%3E%3Ccircle cx='444.38' cy='285.69' r='0.6' fill='%23ff9f43' opacity='0.28'/%3E%3Ccircle cx='259.49' cy='16.59' r='1.27' fill='%23ff6b4a' opacity='0.09'/%3E%3Ccircle cx='378.51' cy='244.65' r='0.53' fill='%23ffcf6e' opacity='0.29'/%3E%3Ccircle cx='498.36' cy='285.12' r='1.48' fill='%23ff9f43' opacity='0.33'/%3E%3Ccircle cx='279.18' cy='298.72' r='0.74' fill='%23ff6b4a' opacity='0.62'/%3E%3C/svg%3E") bottom / 520px 300px repeat-x,
+    radial-gradient(1000px 420px at 50% 115%, #5a2a0e 0%, transparent 62%),
+    radial-gradient(130% 100% at 50% 62%, transparent 55%, #0a060399 100%);
+  --side-art: linear-gradient(0deg, #2a180a, transparent 36%);
 }
 
 /* Moonlit Paper: the light theme. Warm paper, dark ink, and accents deep enough to read on it
@@ -302,6 +336,7 @@
   --ink: #1d1b31;
   --ink-muted: #4a4666;
   --ink-faint: #5f5b7d;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235f5b7d' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   --iris: #4146c8;
   --iris-soft: #e2e2fa;
   --on-iris: #ffffff;
@@ -319,6 +354,13 @@
   --shadow-sm: 0 1px 2px #1d1b3324;
   --shadow-lg: 0 12px 32px -6px #1d1b3333, 0 0 0 1px #dcd7e5;
   --focus-ring: 0 0 0 2px #f8f6f1, 0 0 0 4px #4146c8;
+  --primary-fill: linear-gradient(90deg, #4146c8, #6a40c2);
+  --primary-line: transparent;
+  --ground-art:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n' x='0' y='0' width='100%' height='100%'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .11  0 0 0 0 .1  0 0 0 0 .19  .16 0 0 0 -.045'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E"),
+    radial-gradient(1100px 520px at 85% -12%, #e9e4f8 0%, transparent 62%),
+    radial-gradient(1200px 380px at 40% 114%, #fbe9dc 0%, transparent 64%);
+  --side-art: linear-gradient(180deg, #e6e2f1, transparent 40%);
 }
 :root[data-theme='moonlit'] .ins-hero, :root[data-theme='moonlit'] .rm-hero { background: linear-gradient(180deg, #e7e2f6 0%, #f2e5ef 55%, #fbe1cf 100%); }
 :root[data-theme='moonlit'] .rm-band, :root[data-theme='moonlit'] .wl-band { background: #f8f6f1; }
@@ -328,7 +370,7 @@
 /* The sun at dawn: soft peach, not the deep orange the text uses. */
 :root[data-theme='moonlit'] .rm-sun, :root[data-theme='moonlit'] .wl-sun, :root[data-theme='moonlit'] .empty-sun { background: radial-gradient(circle at 50% 40%, #fff1e2 0%, #fbcfa6 45%, #f2a77a 100%); }
 /* Stars by day: faint ink, not white. */
-:root[data-theme='moonlit'] .wl-star { background: #7140bf; }
+:root[data-theme='moonlit'] .wl-star, :root[data-theme='moonlit'] .empty-star { background: #7140bf; }
 
 /* High contrast: black and white, yellow for actions, strong lines and a thick focus ring. */
 :root[data-theme='contrast'] {
@@ -342,6 +384,7 @@
   --ink: #ffffff;
   --ink-muted: #e6e6e6;
   --ink-faint: #cfcfcf;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23cfcfcf' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   --iris: #ffd60a;
   --iris-soft: #332b00;
   --on-iris: #000000;
@@ -357,9 +400,27 @@
   --selection: #ffd60a66;
   --shadow-lg: 0 0 0 2px #ffffff;
   --focus-ring: 0 0 0 3px #000000, 0 0 0 6px #ffd60a;
+  --head-line: none;
+  --accent-run: var(--iris);
+  --user-fill: none;
+  --quote-line: var(--line-strong);
+  --rule-line: var(--line-strong);
+  --halo: transparent;
+  --thumb: var(--line);
 }
 :root[data-theme='contrast'] .tw-msg-user { border: 1px solid var(--line-strong); }
 :root[data-theme='contrast'] .tw-composer { border-width: 2px; }
+
+/* Signatures: touches that belong to one theme. Send keeps its focus ring, so the glows stand down for it. */
+:root[data-theme='ultraviolet'] .chat-title { text-shadow: 0 0 14px #b07cff55; }
+:root[data-theme='ultraviolet'] .tw-send:not(:focus-visible):not(:disabled) { box-shadow: 0 0 16px #c77cff59; }
+:root[data-theme='phosphor'] .tw-send:not(:focus-visible):not(:disabled) { box-shadow: 0 0 14px #3dff8f4d; }
+:root[data-theme='phosphor'] :is(textarea, input) { caret-color: var(--iris); }
+:root[data-theme='synthwave'] .tw-send:not(:focus-visible):not(:disabled) { box-shadow: 0 0 16px #ff2e9766; }
+:root[data-theme='ember'] .tw-send:not(:focus-visible):not(:disabled), :root[data-theme='campfire'] .tw-send:not(:focus-visible):not(:disabled) { box-shadow: 0 0 14px color-mix(in srgb, var(--iris) 30%, transparent); }
+:root[data-theme='midnight'] .chat-title, :root[data-theme='midnight'] .t-display { text-shadow: 0 0 18px #7aa2ff40; }
+/* Moonlit Paper: the halo and tints are ink on paper, so they sit lighter. */
+:root[data-theme='moonlit'] { --halo: color-mix(in srgb, var(--iris) 10%, transparent); --thumb: color-mix(in srgb, var(--iris) 14%, #c9c3d8); }
 
 /* The skies on Insights, the Roadmap and the welcome, in each theme's colours. */
 :root[data-theme='midnight'] .ins-hero, :root[data-theme='midnight'] .rm-hero { background: linear-gradient(180deg, #05070d 0%, #0f1630 55%, #1d2350 100%); }
@@ -397,7 +458,23 @@
 .theme-option { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; padding: var(--space-2); border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; text-align: left; }
 .theme-option[aria-pressed='true'] { border-color: var(--iris); box-shadow: 0 0 0 1px var(--iris); }
 .theme-option:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-.theme-swatch { height: 72px; border-radius: var(--radius-sm); display: flex; align-items: flex-end; gap: 6px; padding: 10px; }
-.theme-swatch span { width: 18px; height: 18px; border-radius: 50%; }
+/* Each card is a small scene in the theme's own colours (set on the swatch as --sw-*): its sky, its
+   sun going down on the right, and its ground under a horizon line, with the three accents on it. */
+.theme-swatch { position: relative; overflow: hidden; height: 72px; border-radius: var(--radius-sm); display: flex; align-items: flex-end; gap: 6px; padding: 7px 10px; }
+.theme-swatch span { position: relative; z-index: 1; width: 16px; height: 16px; border-radius: 50%; }
+.theme-swatch::before { content: ''; position: absolute; right: 22px; bottom: 16px; width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(180deg, var(--sw-c), var(--sw-a)); box-shadow: 0 0 18px color-mix(in srgb, var(--sw-c) 45%, transparent); }
+.theme-swatch::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 30px; background: linear-gradient(90deg, var(--sw-a), var(--sw-b), var(--sw-c)) top / 100% 1px no-repeat, var(--sw-ground); }
+[data-theme-id='twilight'] .theme-swatch::before { background: linear-gradient(180deg, #ffd9b8, #ff9f7a); box-shadow: 0 0 18px #ffb48a66; }
+[data-theme-id='phosphor'] .theme-swatch::before { content: '>_'; right: auto; left: 10px; top: 8px; bottom: auto; width: auto; height: auto; border-radius: 0; background: none; box-shadow: none; font: 600 13px/16px var(--font-mono); color: #3dff8f; text-shadow: 0 0 10px #3dff8f99; }
+[data-theme-id='nightshade'] .theme-swatch::before { right: 24px; bottom: 36px; width: 20px; height: 20px; background: none; box-shadow: inset -5px 3px 0 #e0b3ff; }
+[data-theme-id='midnight'] .theme-swatch::before { right: 26px; bottom: 40px; width: 16px; height: 16px; background: #e8ecf6; box-shadow: 0 0 16px #7aa2ffb0; }
+[data-theme-id='ember'] .theme-swatch::before { right: calc(50% - 45px); bottom: 12px; width: 90px; height: 36px; background: radial-gradient(closest-side, #ffcf5c 0%, #ff5a4f 40%, transparent 100%); box-shadow: none; }
+[data-theme-id='campfire'] .theme-swatch::before { right: calc(50% - 26px); bottom: 6px; width: 52px; height: 52px; background: radial-gradient(closest-side, #fff0c2 0%, #ffcf6e 22%, #ff7a2f 52%, transparent 100%); box-shadow: none; }
+[data-theme-id='synthwave'] .theme-swatch::before { right: calc(50% - 20px); bottom: 12px; width: 40px; height: 40px; background: linear-gradient(180deg, #ffd319, #ff2e97 60%); box-shadow: 0 0 20px #ff2e9780; -webkit-mask-image: linear-gradient(180deg, #000 0 26%, transparent 26% 30%, #000 30% 37%, transparent 37% 42%, #000 42%); mask-image: linear-gradient(180deg, #000 0 26%, transparent 26% 30%, #000 30% 37%, transparent 37% 42%, #000 42%); }
+[data-theme-id='synthwave'] .theme-swatch::after { background: linear-gradient(90deg, #ff2e97, #2de2e6, #ffd319) top / 100% 1px no-repeat, repeating-linear-gradient(90deg, transparent 0 13px, #ff2e9740 13px 14px), repeating-linear-gradient(0deg, transparent 0 9px, #ff2e9740 9px 10px), var(--sw-ground); }
+[data-theme-id='aurora'] .theme-swatch::before { display: none; }
+[data-theme-id='moonlit'] .theme-swatch::before { background: radial-gradient(circle at 50% 40%, #fff1e2 0%, #fbcfa6 45%, #f2a77a 100%); box-shadow: 0 0 18px #f2a77a66; }
+[data-theme-id='contrast'] .theme-swatch::before { display: none; }
+[data-theme-id='contrast'] .theme-swatch::after { background: linear-gradient(#fff, #fff) top / 100% 1px no-repeat, #000; }
 .theme-option b { font-size: 13px; font-weight: 600; }
 .theme-option small { font-size: 12px; color: var(--ink-faint); }

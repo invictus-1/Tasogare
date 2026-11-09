@@ -60,11 +60,14 @@ const NOT_NAMES = new Set(
   )
 )
 
+/** A bag of counts with nothing inherited, so words like "constructor" start from nothing like any other. */
+const tally = (): Record<string, number> => Object.create(null) as Record<string, number>
+
 export function analyzeText(raw: string, characters: TrackedCharacter[] = []): DocAnalysis {
   const text = prose(raw.replace(/\r\n?/g, '\n'))
   const result: DocAnalysis = {
     words: 0, paragraphs: 0, sentences: 0, sentenceWords: 0, longestSentence: 0,
-    dialogueWords: 0, adverbs: 0, vocab: {}, names: {}, mentions: {}, pairs: {}
+    dialogueWords: 0, adverbs: 0, vocab: tally(), names: tally(), mentions: tally(), pairs: tally()
   }
   const patterns = characters.map((c) => ({
     name: c.name,

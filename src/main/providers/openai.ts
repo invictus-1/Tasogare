@@ -290,7 +290,9 @@ export const openaiProvider: Provider = {
             if (!line.startsWith('data:')) continue
             const data = line.slice(5).trim()
             if (data === '[DONE]') continue
-            const chunk = JSON.parse(data) as {
+            // A line that isn't JSON (a proxy's keep-alive, a cut-off frame) is passed over.
+            let chunk: {
+              error?: { message?: string } | string
               choices?: {
                 delta?: {
                   content?: string
@@ -306,6 +308,13 @@ export const openaiProvider: Provider = {
               }[]
               usage?: { prompt_tokens?: number; completion_tokens?: number; prompt_tokens_details?: { cached_tokens?: number }; cost?: number }
             }
+            try {
+              chunk = JSON.parse(data)
+            } catch {
+              continue
+            }
+            // Some servers answer 200 and then report a failure inside the stream.
+            if (chunk.error) throw new Error(`${req.config.name} stopped the reply: ${(typeof chunk.error === 'string' ? chunk.error : chunk.error.message) || 'no reason given'}`.slice(0, 400))
             const delta = chunk.choices?.[0]?.delta
             if (settings.confidence && !rounds.length) tokens.push(...readLogprobs(chunk.choices?.[0]?.logprobs?.content))
             // "length": it hit the max output tokens mid-thought, so the reply can offer Continue.

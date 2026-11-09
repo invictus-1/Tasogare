@@ -29,6 +29,8 @@ export interface StepResult {
   usage: { input: number; output: number; cacheRead: number; cacheWrite: number }
   /** Set when the model stopped early (out of tokens, refused). */
   error?: string
+  /** It ran out of room mid-reply, so its last tool call may be only part of what it meant. */
+  cutOff?: boolean
 }
 
 export interface StepRequest {
@@ -103,7 +105,8 @@ async function stepAnthropic(req: StepRequest): Promise<StepResult> {
     text: textOf(content),
     calls: callsOf(content),
     usage,
-    error: stop === 'max_tokens' ? 'The reply ran out of room before it finished.' : stop === 'refusal' ? 'The model declined to continue.' : undefined
+    error: stop === 'max_tokens' ? 'The reply ran out of room before it finished.' : stop === 'refusal' ? 'The model declined to continue.' : undefined,
+    cutOff: stop === 'max_tokens'
   }
 }
 
@@ -214,5 +217,5 @@ async function stepOpenAI(req: StepRequest): Promise<StepResult> {
     return { type: 'tool_use', id: c.id || `call_${i}`, name: c.name, input, raw: c.raw }
   })
   const content: Block[] = [...(text ? [{ type: 'text', text }] : []), ...made]
-  return { content, text, calls: callsOf(content), usage, error: finish === 'length' ? 'The reply ran out of room before it finished.' : undefined }
+  return { content, text, calls: callsOf(content), usage, error: finish === 'length' ? 'The reply ran out of room before it finished.' : undefined, cutOff: finish === 'length' }
 }

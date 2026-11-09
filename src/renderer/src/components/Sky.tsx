@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { clockTime, seasonFor, weatherFor, type Weather } from '@shared/sky'
 import { useExtras, type Horizon, type SkyTime } from '../extras'
+import { useMotion } from '../look'
 import { actFor, PeekingPlatypus, peeksBehind } from './SkyActs'
 import { HorizonScene, Meteors } from './Horizons'
 import balloon from '../assets/sky/balloon.webp'
@@ -102,6 +103,8 @@ function useEasterEgg(watching: boolean, horizon: Horizon): { name: Egg; ducking
       clearTimeout(quiet)
       window.removeEventListener('pointermove', stir)
       window.removeEventListener('keydown', stir)
+      // A visitor out when the watch ends (motion turned down, another scene) leaves with it.
+      setEgg(null)
     }
   }, [watching, horizon])
   return egg
@@ -163,7 +166,9 @@ function SkyEgg({ name, spotted, horizon }: { name: Egg; spotted: boolean; horiz
 export function EmptySky({ watch = false, session = false }: { watch?: boolean; session?: boolean }) {
   const extras = useExtras()
   const time = useSkyTime()
-  const egg = useEasterEgg(watch && extras.easterEggs, extras.horizon)
+  // Visitors and their acts are movement: none under Gentle or Off.
+  const motion = useMotion()
+  const egg = useEasterEgg(watch && extras.easterEggs && motion === 'full', extras.horizon)
   const eggKey = egg?.name
   // Acts, and the peeking platypus, play in front of the scene; the rest cross the sky behind it.
   const peekBehind = egg?.name === 'platypus' && peeksBehind(extras.horizon)

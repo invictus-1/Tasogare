@@ -189,8 +189,9 @@ export async function downloadModel(repo: string, variant: HubVariant): Promise<
     if (engine) await restartEngine()
     await showModel(name)
   } catch (err) {
-    if (controller.signal.aborted) downloads.delete(key)
-    else job.error = (err as Error).message
+    // Cancelled and started again, the entry is the new download's by now.
+    if (!controller.signal.aborted) job.error = (err as Error).message
+    else if (downloads.get(key) === job) downloads.delete(key)
   }
   announce()
 }
@@ -212,14 +213,32 @@ export async function fetchTo(url: string, dest: string, signal: AbortSignal, pr
   const resumed = res.status === 206
   if (have && !resumed) progress(-have)
   const out = createWriteStream(part, { flags: resumed ? 'a' : 'w' })
+  // A disk that fills, or a file that can't be written, fails this download with its reason.
+  const failed: { error?: Error } = {}
+  out.on('error', (err) => (failed.error = err))
   try {
     for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>) {
-      if (!out.write(chunk)) await new Promise<void>((r) => out.once('drain', () => r()))
+      if (failed.error) throw failed.error
+      if (!out.write(chunk))
+        await new Promise<void>((r) => {
+          const go = (): void => {
+            out.off('drain', go)
+            out.off('error', go)
+            r()
+          }
+          out.once('drain', go)
+          out.once('error', go)
+        })
       progress(chunk.byteLength)
     }
   } finally {
-    await new Promise<void>((r) => out.end(() => r()))
+    await new Promise<void>((r) => {
+      if (out.destroyed) return r()
+      out.once('close', () => r())
+      out.end()
+    })
   }
+  if (failed.error) throw failed.error
   await fs.rename(part, dest)
 }
 
@@ -382,6 +401,14 @@ export async function startEngine(): Promise<void> {
     const keep = (d: Buffer): void => void (lastOutput = (lastOutput + d.toString()).slice(-4000))
     child.stdout?.on('data', keep)
     child.stderr?.on('data', keep)
+    // A program that can't be run at all (moved, blocked) reports here rather than exiting.
+    child.on('error', (err) => {
+      if (engine !== child) return
+      engine = null
+      port = null
+      engineError = `llama.cpp couldn't start: ${err.message}`
+      announce()
+    })
     child.on('exit', (code) => {
       if (engine !== child) return
       engine = null

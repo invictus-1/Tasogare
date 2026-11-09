@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog } from 'electron'
-import { cpSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { cp, mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises'
+import { cpSync, existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { cp, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import Database from 'better-sqlite3'
 import type { BackupInfo, BackupSettings } from '@shared/backups'
@@ -78,17 +78,25 @@ export async function createBackup(reason: BackupInfo['reason']): Promise<Backup
   let dir = join(root, `Tasogare ${stamp(now)}`)
   for (let n = 2; existsSync(dir); n++) dir = join(root, `Tasogare ${stamp(now)} (${n})`)
   await mkdir(dir, { recursive: true })
-  await backupDatabase(join(dir, DB))
-  for (const f of FOLDERS) {
-    const from = join(app.getPath('userData'), f)
-    if (existsSync(from)) await cp(from, join(dir, f), { recursive: true })
+  let info: Omit<BackupInfo, 'path' | 'bytes'>
+  try {
+    await backupDatabase(join(dir, DB))
+    for (const f of FOLDERS) {
+      const from = join(app.getPath('userData'), f)
+      if (existsSync(from)) await cp(from, join(dir, f), { recursive: true })
+    }
+    await writeFile(join(dir, SETTINGS), JSON.stringify(await windowSettings(), null, 2))
+    const counts = new Database(join(dir, DB), { readonly: true })
+    const chats = (counts.prepare('SELECT COUNT(*) AS n FROM conversations').get() as { n: number }).n
+    counts.close()
+    info = { name: dir.split(/[\\/]/).pop()!, createdAt: now.getTime(), reason, version: app.getVersion(), chats }
+    await writeFile(join(dir, MANIFEST), JSON.stringify(info, null, 2))
+  } catch (err) {
+    // A backup that stopped part way (a full disk, a drive unplugged) isn't one; the folder
+    // this call made goes again, so they don't pile up.
+    await rm(dir, { recursive: true, force: true }).catch(() => undefined)
+    throw err
   }
-  await writeFile(join(dir, SETTINGS), JSON.stringify(await windowSettings(), null, 2))
-  const counts = new Database(join(dir, DB), { readonly: true })
-  const chats = (counts.prepare('SELECT COUNT(*) AS n FROM conversations').get() as { n: number }).n
-  counts.close()
-  const info: Omit<BackupInfo, 'path' | 'bytes'> = { name: dir.split(/[\\/]/).pop()!, createdAt: now.getTime(), reason, version: app.getVersion(), chats }
-  await writeFile(join(dir, MANIFEST), JSON.stringify(info, null, 2))
   if (reason === 'scheduled') kvSet('backups.last', now.getTime())
   return { ...info, path: dir, bytes: await folderSize(dir) }
 }
@@ -132,11 +140,21 @@ export function backupDue(settings: BackupSettings, last: number | undefined, no
 
 /** Checks now and then; a due backup runs a minute after start, so it never slows opening. */
 export function startBackupSchedule(): void {
+  // After a failure the next try waits six hours rather than one.
+  let failedAt = 0
   const check = (): void => {
+    if (Date.now() - failedAt < 6 * 60 * 60 * 1000) return
     if (!backupDue(backupSettings(), kvGet<number>('backups.last'), Date.now())) return
     void createBackup('scheduled')
-      .then(() => pruneBackups())
-      .catch((err) => kvSet('backups.error', { at: Date.now(), message: (err as Error).message }))
+      .then(() => {
+        kvSet('backups.error', null)
+        // The backup is made by now; old ones that can't go to the Recycle Bin simply stay.
+        return pruneBackups().catch(() => undefined)
+      })
+      .catch((err) => {
+        failedAt = Date.now()
+        kvSet('backups.error', { at: failedAt, message: (err as Error).message })
+      })
   }
   setTimeout(check, 60_000).unref()
   setInterval(check, 60 * 60 * 1000).unref()
@@ -162,15 +180,32 @@ export async function stageRestore(backupPath: string): Promise<void> {
 export function applyPendingRestore(dataDir: string): string | null {
   const pending = join(dataDir, PENDING)
   if (!existsSync(pending)) return null
-  const { from } = JSON.parse(readFileSync(pending, 'utf8')) as { from: string }
+  let from = ''
+  try {
+    from = (JSON.parse(readFileSync(pending, 'utf8')) as { from?: string }).from ?? ''
+  } catch {
+    // A note that can't be read is dropped, so a start never trips over it twice.
+  }
   rmSync(pending, { force: true })
-  if (!existsSync(join(from, DB))) return null
+  if (!from || !existsSync(join(from, DB))) return null
+  // The backup is copied in beside what's there, under spare names, and swapped in only once
+  // all of it has copied: a backup that can't be read whole changes nothing.
+  const spare = (f: string): string => join(dataDir, `${f}.restoring`)
+  const folders = FOLDERS.filter((f) => existsSync(join(from, f)))
+  try {
+    for (const f of [DB, ...FOLDERS]) rmSync(spare(f), { recursive: true, force: true })
+    cpSync(join(from, DB), spare(DB))
+    for (const f of folders) cpSync(join(from, f), spare(f), { recursive: true })
+  } catch {
+    for (const f of [DB, ...FOLDERS]) rmSync(spare(f), { recursive: true, force: true })
+    return null
+  }
   // The database's write-ahead files belong to the copy being replaced.
   for (const f of [DB, `${DB}-wal`, `${DB}-shm`]) rmSync(join(dataDir, f), { force: true })
-  cpSync(join(from, DB), join(dataDir, DB))
+  renameSync(spare(DB), join(dataDir, DB))
   for (const f of FOLDERS) {
     rmSync(join(dataDir, f), { recursive: true, force: true })
-    if (existsSync(join(from, f))) cpSync(join(from, f), join(dataDir, f), { recursive: true })
+    if (folders.includes(f)) renameSync(spare(f), join(dataDir, f))
   }
   if (existsSync(join(from, SETTINGS))) writeFileSync(join(dataDir, LOCAL), readFileSync(join(from, SETTINGS)))
   return from.split(/[\\/]/).pop() ?? null

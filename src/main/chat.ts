@@ -235,6 +235,7 @@ export function send(
   let conv = db.getConversation(id)
   const targets = panes(target, conv)
   if (targets.some((p) => isRunning(id, p))) throw new Error('A reply is still streaming in this chat.')
+  notCompacting(id)
   if (!conv.started) {
     db.updateConversation(id, { started: 1, title: titleFrom(text || attachments[0]?.name || 'New chat') })
     conv = db.getConversation(id)
@@ -307,6 +308,7 @@ export function send(
 /** A new reply as another version: to a reply's message, or straight to a message of yours. */
 export function regenerate(contents: WebContents, id: string, nodeId: string, pane: Pane = 'a'): ConversationView {
   if (isRunning(id, pane)) throw new Error('A reply is still streaming in this pane.')
+  notCompacting(id)
   const node = db.loadNodes(id).get(nodeId)
   const userId = node?.role === 'user' ? node.id : node?.parent_id
   if (!userId) throw new Error('Nothing to regenerate.')
@@ -328,6 +330,7 @@ export function replyConfidence(id: string, nodeId: string): ReplyConfidence | n
  */
 export function branchFromWord(contents: WebContents, id: string, nodeId: string, prefix: string): ConversationView {
   if (isRunning(id, 'a')) throw new Error('A reply is still streaming in this chat.')
+  notCompacting(id)
   const node = db.loadNodes(id).get(nodeId)
   if (node?.role !== 'assistant' || !node.parent_id) throw new Error('Pick a word in a reply.')
   const settings = settingsFor(db.getConversation(id), 'a')
@@ -343,6 +346,7 @@ export function branchFromWord(contents: WebContents, id: string, nodeId: string
  */
 export function drafts(contents: WebContents, id: string, nodeId: string, count: number, prompts?: string[]): ConversationView {
   if (isRunning(id, 'a')) throw new Error('A reply is still streaming in this chat.')
+  notCompacting(id)
   const nodes = db.loadNodes(id)
   const node = nodes.get(nodeId)
   const user = node?.role === 'user' ? node : node?.parent_id ? nodes.get(node.parent_id) : undefined
@@ -389,6 +393,7 @@ export function versions(id: string, userNodeId: string): NodeView[] {
 
 export function deleteMessage(id: string, nodeId: string, kind: 'single' | 'below', pane: Pane = 'a'): ConversationView {
   if (isRunning(id)) throw new Error('Wait for the reply to finish (or stop it) before deleting.')
+  notCompacting(id)
   const conv = db.getConversation(id)
   const nodes = db.loadNodes(id)
   const node = nodes.get(nodeId)
@@ -412,7 +417,12 @@ export function deleteMessage(id: string, nodeId: string, kind: 'single' | 'belo
     else db.clearActiveChild(parentId)
   }
   const split = splitOf(conv)
-  if (split && !after.has(split.leafId)) setSplit(id, { ...split, leafId: parentId })
+  // Only the removed message is marked; what hung under it is still listed, but no longer reached.
+  const reached = (leaf: string): boolean => {
+    for (let n = after.get(leaf); n; n = n.parent_id ? after.get(n.parent_id) : undefined) if (!n.parent_id) return true
+    return false
+  }
+  if (split && !reached(split.leafId)) setSplit(id, { ...split, leafId: parentId })
   return view(id)
 }
 
@@ -451,6 +461,7 @@ export function viewDeletion(id: string, deletionId: string): ConversationView['
 
 export function restoreDeletion(id: string, deletionId: string, pane: Pane = 'a'): ConversationView {
   if (isRunning(id)) throw new Error('Wait for the reply to finish before restoring.')
+  notCompacting(id)
   const d = db.getDeletion(deletionId)
   if (!d || d.conversation_id !== id || d.restored_at) return view(id)
   const all = db.loadAllNodes(id)
@@ -500,6 +511,7 @@ function userVersion(id: string, node: db.NodeRow, text: string, pane: Pane, act
 
 export function editMessage(contents: WebContents, id: string, nodeId: string, text: string, pane: Pane = 'a', send = true): ConversationView {
   if (isRunning(id, pane)) throw new Error('Wait for the reply to finish before editing.')
+  notCompacting(id)
   const nodes = db.loadNodes(id)
   const node = nodes.get(nodeId)
   if (!node?.parent_id || (node.role !== 'user' && node.role !== 'assistant')) throw new Error("That message can't be edited.")
@@ -890,16 +902,8 @@ function generate(
         settings.messageLimit
       )
       const config = getProvider(settings.providerId)
-      // MCP tools from the servers on for this chat, then pictures; a server that won't connect
-      // fails the reply with its reason.
-      const mcpTools = settings.mcpServers.length ? await chatTools(settings.mcpServers) : []
-      // The library tool goes to models that can call tools (Claude, or one its provider lists with tools).
-      const toolsOk = config.kind === 'anthropic' || !!modelInfo(settings.providerId, settings.modelId)?.capabilities?.includes('Tools')
-      const clientTools: ClientToolDef[] = [
-        ...mcpTools.map(({ name, description, input_schema }) => ({ name, description, input_schema })),
-        ...(settings.imageGen && imageConfig() ? [IMAGE_TOOL_DEF] : []),
-        ...(settings.library && toolsOk && librarySettings().folders.length ? [LIBRARY_TOOL] : [])
-      ]
+      // A server that won't connect fails the reply with its reason.
+      const { mcpTools, clientTools } = await toolsFor(settings)
       const requestedAt = Date.now()
       let firstTokenAt = 0
       // How long it thought: from the request to the reply's first words (or its end).
@@ -1066,7 +1070,32 @@ function carriedBlocks(history: db.NodeRow[]): CarriedBlock[] {
  * With Claude it's the API's own compaction; with other models, the model writes a summary.
  */
 // Compactions under way, by chat, so Cancel can stop one.
+/**
+ * The tools Tasogare runs itself for a chat, in the order every request lists them: MCP tools
+ * from the servers on for it, then pictures, then the library. One list for replies and for
+ * compacting, since the prompt cache starts with the tool list.
+ */
+async function toolsFor(settings: ChatSettings): Promise<{ mcpTools: ChatTool[]; clientTools: ClientToolDef[] }> {
+  const mcpTools = settings.mcpServers.length ? await chatTools(settings.mcpServers) : []
+  // The library tool goes to models that can call tools (Claude, or one its provider lists with tools).
+  const toolsOk = getProvider(settings.providerId).kind === 'anthropic' || !!modelInfo(settings.providerId, settings.modelId)?.capabilities?.includes('Tools')
+  const clientTools: ClientToolDef[] = [
+    ...mcpTools.map(({ name, description, input_schema }) => ({ name, description, input_schema })),
+    ...(settings.imageGen && imageConfig() ? [IMAGE_TOOL_DEF] : []),
+    ...(settings.library && toolsOk && librarySettings().folders.length ? [LIBRARY_TOOL] : [])
+  ]
+  return { mcpTools, clientTools }
+}
+
 const compacting = new Map<string, AbortController>()
+
+/**
+ * A chat holds still while it is compacted: the summary goes under the newest reply, so a
+ * message sent meanwhile would be left on a branch beside it.
+ */
+function notCompacting(id: string): void {
+  if (compacting.has(id)) throw new Error('Wait for compacting to finish (or stop it) first.')
+}
 export function cancelCompaction(id: string): void {
   compacting.get(id)?.abort()
 }
@@ -1111,7 +1140,10 @@ async function compactNow(id: string, pane: Pane, signal: AbortSignal): Promise<
   // What it cost, kept on the summary so Usage counts it like any reply.
   let usage: Usage
   if (config.kind === 'anthropic') {
-    ;({ block, text, usage } = await compactAnthropic({ config, apiKey, system, history, settings, options, instructions: cfg.instructions, signal }))
+    // The chat's own tools go along, so the request begins as the chat's replies did and reads
+    // what they cached. With a server that won't connect, the summary is written without them.
+    const { clientTools } = await toolsFor(settings).catch(() => ({ clientTools: [] as ClientToolDef[] }))
+    ;({ block, text, usage } = await compactAnthropic({ config, apiKey, system, history, settings, options, clientTools, instructions: cfg.instructions, signal }))
   } else {
     // The model writes it, as a reply to one more message that asks for it (never stored).
     const ask = cfg.instructions.trim() || LOCAL_SUMMARY

@@ -7,6 +7,7 @@ import type { GeneratedImage, ToolApproval, ToolStep } from '@shared/mcp'
 import { domainOf } from '@shared/webTools'
 import { renderMarkdown, renderMarkdownLive } from '../markdown'
 import { usePane } from '../pane'
+import { focusUnlessTyping } from '../focus'
 import { EarlierPrompt } from './ChatTop'
 import { CompactionMarker } from './Compaction'
 import { toggleBookmark, useBookmarks } from '../bookmarks'
@@ -52,7 +53,8 @@ function EditBox({ node, onDone }: { node: NodeView; onDone: () => void }) {
         rows={Math.min(16, Math.max(3, text.split('\n').length + 1))}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Escape') onDone()
+          // Esc leaves the edit and stops there: it isn't also Stop for a reply being written.
+          if (e.key === 'Escape') (e.preventDefault(), onDone())
           if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) save()
         }}
       />
@@ -407,7 +409,7 @@ function ApprovalCard({ approval }: { approval: ToolApproval }) {
       </div>
       <pre className="tool-approval-input">{approval.input}</pre>
       <div className="tool-approval-actions">
-        <button className="tw-btn tw-btn-primary tw-btn-sm" autoFocus disabled={sent} onClick={() => answer(true)}>
+        <button className="tw-btn tw-btn-primary tw-btn-sm" ref={focusUnlessTyping} disabled={sent} onClick={() => answer(true)}>
           Allow once
         </button>
         <button className="tw-btn tw-btn-sm" disabled={sent} title={`Run ${approval.tool} without asking from now on (Settings → Tools)`} onClick={() => answer(true, true)}>
@@ -769,14 +771,21 @@ export const Message = memo(
     if (node.compaction) return <CompactionMarker node={node} />
     return node.role === 'user' ? <UserMessage node={node} waiting={isLast} /> : <AssistantMessage node={node} next={next} isLast={isLast} />
   },
-  (a, b) =>
-    a.node.id === b.node.id &&
-    a.node.status === b.node.status &&
-    a.node.text === b.node.text &&
-    a.node.siblingIndex === b.node.siblingIndex &&
-    a.node.siblingCount === b.node.siblingCount &&
-    a.node.usage === b.node.usage &&
-    a.isLast === b.isLast &&
-    a.next?.id === b.next?.id &&
-    a.next?.text === b.next?.text
+  (a, b) => sameNode(a.node, b.node) && a.isLast === b.isLast && a.next?.id === b.next?.id && a.next?.text === b.next?.text
 )
+
+/**
+ * Whether two views of a message show the same thing. Every update to a chat brings every message
+ * as a fresh object, so the parts that are objects themselves (usage, tool steps, pictures) are
+ * compared by what they hold: otherwise each update would redraw the whole chat.
+ */
+function sameNode(a: NodeView, b: NodeView): boolean {
+  if (a === b) return true
+  const x = a as unknown as Record<string, unknown>
+  const y = b as unknown as Record<string, unknown>
+  for (const k of new Set([...Object.keys(x), ...Object.keys(y)])) {
+    if (x[k] === y[k]) continue
+    if (typeof x[k] !== 'object' || typeof y[k] !== 'object' || JSON.stringify(x[k]) !== JSON.stringify(y[k])) return false
+  }
+  return true
+}

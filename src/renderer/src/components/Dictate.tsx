@@ -13,6 +13,8 @@ export function DictateButton({ onText }: { onText: (text: string) => void }) {
   const [phase, setPhase] = useState<'idle' | 'recording' | 'working'>('idle')
   const [secs, setSecs] = useState(0)
   const rec = useRef<Recording | null>(null)
+  // A second press while the microphone is still opening would open it twice.
+  const opening = useRef(false)
   useEffect(() => () => rec.current?.cancel(), [])
   useEffect(() => {
     if (phase !== 'recording') return
@@ -38,13 +40,17 @@ export function DictateButton({ onText }: { onText: (text: string) => void }) {
       }
       return
     }
-    const state = await window.twilight.voiceState()
-    if (!state.whisper || !state.model) return useStore.getState().setSettingsOpen(true, 'voice')
+    if (opening.current) return
+    opening.current = true
     try {
+      const state = await window.twilight.voiceState()
+      if (!state.whisper || !state.model) return useStore.getState().setSettingsOpen(true, 'voice')
       rec.current = await record()
       setPhase('recording')
     } catch (err) {
       fail(err, 'The microphone could not be opened: ')
+    } finally {
+      opening.current = false
     }
   }
 

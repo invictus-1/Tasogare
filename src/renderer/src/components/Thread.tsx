@@ -161,12 +161,17 @@ export function Thread() {
     return () => cancelIdleCallback(handle)
   }, [count])
 
-  // Scroll to a newly sent message (not on opening: that's the place it was left, above).
-  const opened = useRef(false)
+  // Scroll to a newly sent message (not on opening: that's the place it was left, above). Only
+  // when the chat grew by a message of yours or a reply being written: deleting, restoring and
+  // stepping to another version change its length too, and leave you where you are.
+  const before = useRef(-1)
+  const sent = !!streamingId || last?.role === 'user'
   useEffect(() => {
-    if (!opened.current) return void (opened.current = true)
+    const grew = before.current >= 0 && count > before.current
+    before.current = count
     const el = scroller.current
-    if (el) el.scrollTop = el.scrollHeight
+    if (grew && sent && el) el.scrollTop = el.scrollHeight
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [count])
 
   // A search result: bring its message to the middle and light it up for a moment. Twice, since

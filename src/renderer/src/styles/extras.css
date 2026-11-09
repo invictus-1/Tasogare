@@ -102,7 +102,7 @@
 
 /* —— The rail's highlight glides to the section you pick —— */
 .rail-glide { display: none; }
-:root[data-fx-gliding-rail] .rail-glide { display: block; position: absolute; left: 0; top: 0; width: 3px; height: 20px; border-radius: 0 3px 3px 0; background: var(--iris); transition: transform 240ms cubic-bezier(.3, .8, .2, 1); pointer-events: none; }
+:root[data-fx-gliding-rail] .rail-glide { display: block; position: absolute; left: 0; top: 0; width: 3px; height: 20px; border-radius: 0 3px 3px 0; background: var(--accent-run, var(--iris)); transition: transform 240ms cubic-bezier(.3, .8, .2, 1); pointer-events: none; }
 :root[data-fx-gliding-rail] .rail-item[aria-selected='true']::before { display: none; }
 
 /* —— Small touches —— */

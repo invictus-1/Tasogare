@@ -86,6 +86,12 @@ export function customTokens(input: CustomTheme): Record<string, string> {
     const [ah, as] = toHsl(hex)
     return toHex([ah, Math.min(as, 55), l + 13])
   }
+  // The lit edge of the welcome's sky: the accent's hue, a step brighter than its soft fill.
+  const glow = (hex: string): string => {
+    const [ah, as] = toHsl(hex)
+    return toHex([ah, Math.min(as, 55), l + 22])
+  }
+  const faint = text(h, 22, 62)
   return {
     '--night': night,
     '--surface': surface,
@@ -96,7 +102,7 @@ export function customTokens(input: CustomTheme): Record<string, string> {
     '--line-strong': readable(toHex([h, s * 0.6, l + 34]), grounds, 3),
     '--ink': text(h, 40, 95),
     '--ink-muted': text(h, 30, 76),
-    '--ink-faint': text(h, 22, 62),
+    '--ink-faint': faint,
     '--iris': iris,
     '--iris-soft': soft(iris),
     '--on-iris': contrast(night, iris) >= 4.5 ? night : '#ffffff',
@@ -107,7 +113,15 @@ export function customTokens(input: CustomTheme): Record<string, string> {
     '--on-horizon': contrast(night, horizon) >= 4.5 ? night : '#ffffff',
     '--selection': `${iris}47`,
     '--shadow-lg': `0 12px 32px -4px #000000c0, 0 0 0 1px ${toHex([h, s, l + 14])}`,
-    '--focus-ring': `0 0 0 2px ${surface}, 0 0 0 4px ${iris}`
+    '--focus-ring': `0 0 0 2px ${surface}, 0 0 0 4px ${iris}`,
+    // The same shape of art the built-in themes carry: a glow in the actions colour from the upper
+    // right, the writing colour's warmth from below, and a tinted top to the sidebar.
+    '--ground-art': `radial-gradient(1100px 520px at 85% -12%, ${soft(iris)} 0%, transparent 62%), radial-gradient(1200px 360px at 30% 114%, ${soft(horizon)}80 0%, transparent 65%)`,
+    '--side-art': `linear-gradient(180deg, ${surface}, transparent 40%)`,
+    // The skies on Insights, the Roadmap and the welcome, and the dropdown chevron, in its colours.
+    '--hero-sky': `linear-gradient(180deg, ${overlay} 0%, ${soft(iris)} 55%, ${soft(horizon)} 100%)`,
+    '--welcome-sky': `linear-gradient(180deg, ${toHex([h, s, Math.max(l - 5, 1)])} 0%, ${night} 30%, ${soft(iris)} 62%, ${soft(horizon)} 86%, ${glow(horizon)} 100%)`,
+    '--chevron': `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23${faint.slice(1)}' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`
   }
 }
 

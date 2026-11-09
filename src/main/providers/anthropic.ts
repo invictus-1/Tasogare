@@ -141,7 +141,7 @@ export function toMessages(history: NodeRow[], serverTools: ReadonlySet<string> 
       // Replay Claude's own blocks unchanged (thinking blocks included) so the prefix and any
       // preserved thinking stay valid. Other providers store plain text blocks.
       content = node.content
-        ? keepServerTools((JSON.parse(node.content) as Block[]).filter((b) => REPLAYED.has(b.type)), serverTools)
+        ? keepServerTools((JSON.parse(node.content) as Block[]).filter((b) => REPLAYED.has(b.type) && !(b.type === 'text' && !b.text)), serverTools)
         : textBlocks(node)
       if (node.status !== 'done') content = content.filter((b) => b.type === 'text')
       if (!content.length) continue
@@ -377,6 +377,8 @@ async function generateAnthropic(req: GenerateRequest): Promise<GenerateResult> 
   const content: Block[] = []
   const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, webSearches: 0 }
   let text = ''
+  // How much of `text` the finished rounds' own blocks already hold.
+  let settled = 0
   let thinking = ''
   // Text after a tool call starts a new paragraph, as replyText() joins it.
   let broke = false
@@ -434,10 +436,12 @@ async function generateAnthropic(req: GenerateRequest): Promise<GenerateResult> 
     } catch (err) {
       if (req.signal.aborted) {
         // The rounds already run stay with the reply (shown under it); a stopped reply replays as text.
+        // The rounds before this one are in `content` with their words; only what came since is added.
+        const rest = text.slice(settled).replace(/^\n+/, '')
         return {
           text,
           thinking: thinking || undefined,
-          content: content.length ? [...content, ...(text ? [{ type: 'text', text }] : [])] : text ? [{ type: 'text', text }] : null,
+          content: content.length ? [...content, ...(rest ? [{ type: 'text', text: rest }] : [])] : text ? [{ type: 'text', text }] : null,
           usage: { input: usage.input, output: usage.output, cacheRead: usage.cacheRead, cacheWrite: usage.cacheWrite, ms: Date.now() - started },
           modelId: finalModel
         }
@@ -446,6 +450,7 @@ async function generateAnthropic(req: GenerateRequest): Promise<GenerateResult> 
     }
     const final = await stream.finalMessage()
     content.push(...(final.content as unknown as Block[]))
+    settled = text.length
     finalModel = final.model
     const u = final.usage
     usage.input += u.input_tokens
@@ -508,6 +513,8 @@ export async function compactAnthropic(req: {
   history: NodeRow[]
   settings: ChatSettings
   options?: ModelOptions
+  /** The tools the chat's replies list, so this request starts the same way and reads their cache. */
+  clientTools?: ClientToolDef[]
   instructions: string
   /** Stops it (Cancel beside Compacting…). */
   signal?: AbortSignal

@@ -24,6 +24,8 @@ let releases: ReleaseInfo[] = []
 let checking = false
 let error: string | null = null
 let downloading: UpdateState['downloading'] = null
+// From the click to the installer starting (or failing), so a second click can't start another.
+let installing = false
 const listeners = new Set<WebContents>()
 let testMode = false
 let testInstalled: string | null = null
@@ -169,7 +171,14 @@ async function download(release: ReleaseInfo): Promise<string> {
   const target = installerPath(release.version)
   if (existsSync(target)) return target
   if (!release.installer) throw new Error(`Release ${release.version} has no installer attached.`)
-  const expected = release.checksumUrl ? /^sha512:\s*(\S+)\s*$/m.exec(await (await fetch(release.checksumUrl)).text())?.[1] : undefined
+  // A release that lists a checksum is only installed against it: one that can't be fetched or
+  // read stops here, rather than letting the download through unchecked.
+  let expected: string | undefined
+  if (release.checksumUrl) {
+    const yml = await fetch(release.checksumUrl, { signal: AbortSignal.timeout(30_000) }).catch(() => null)
+    expected = yml?.ok ? /^sha512:\s*(\S+)\s*$/m.exec(await yml.text())?.[1] : undefined
+    if (!expected) throw new Error("The release's checksum couldn't be read, so nothing was downloaded. Try again in a moment.")
+  }
   await mkdir(updatesFolder(), { recursive: true })
   const res = await fetch(release.installer.url)
   if (!res.ok || !res.body) throw new Error(`Download failed (${res.status}).`)
@@ -210,7 +219,8 @@ async function prune(folder: string, pattern: RegExp, keep: number, protect?: st
 export async function install(version: string): Promise<UpdateState> {
   const release = releases.find((r) => r.version === version)
   if (!release) throw new Error('Check for updates first.')
-  if (downloading) throw new Error('A download is already running.')
+  if (downloading || installing) throw new Error('A download is already running.')
+  installing = true
   error = null
   try {
     const file = await download(release)
@@ -227,13 +237,22 @@ export async function install(version: string): Promise<UpdateState> {
     // An installed copy updates quietly and starts again by itself; a portable copy gets the
     // installer's usual pages.
     const installed = ['Uninstall Tasogare.exe', 'Uninstall Twilight.exe'].some((f) => existsSync(join(dirname(app.getPath('exe')), f)))
-    spawn(file, installed ? ['/S', '--updated', '--force-run'] : [], { detached: true, stdio: 'ignore' }).unref()
+    await new Promise<void>((started, failed) => {
+      const child = spawn(file, installed ? ['/S', '--updated', '--force-run'] : [], { detached: true, stdio: 'ignore' })
+      child.once('spawn', () => started())
+      // An installer that won't run (blocked, or damaged on disk) is removed, so the next try downloads it afresh.
+      child.once('error', (err) => {
+        void rm(file, { force: true }).finally(() => failed(new Error(`The installer couldn't start: ${err.message}`)))
+      })
+      child.unref()
+    })
     setTimeout(() => app.quit(), 300)
     return state()
   } catch (err) {
     error = err instanceof Error ? err.message : String(err)
     throw err
   } finally {
+    installing = false
     downloading = null
     broadcast()
   }

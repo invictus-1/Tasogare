@@ -138,15 +138,27 @@ export function Editor({ docPath }: { docPath: string }) {
     setToolbar({ top: Math.max(8, start.top - rect.top - 48), left: Math.max(16, Math.min(start.left - rect.left, rect.width - 660)) })
   }
 
+  // Whether the editor holds words the file doesn't have yet.
+  const dirty = useRef(false)
+
   const save = async (view: EditorView): Promise<void> => {
     window.clearTimeout(saveTimer.current)
     const text = view.state.doc.toString()
-    useWriting.getState().setStatus('saving')
+    // The status line belongs to the document on screen: a save that outlives its editor (another
+    // document was opened, or you left Writing) says nothing about the one shown now.
+    const shown = (): boolean => useWriting.getState().open?.path === docPath
+    if (shown()) useWriting.getState().setStatus('saving')
     try {
       const mtime = await window.twilight.writeDoc(docPath, text)
-      if (viewRef.current === view && view.state.doc.toString() === text) useWriting.getState().markSaved(mtime, text)
+      const w = useWriting.getState()
+      if (viewRef.current === view) {
+        // Typed since: the save already waiting answers for those words.
+        if (view.state.doc.toString() !== text) return
+        dirty.current = false
+        if (shown()) w.markSaved(mtime, text)
+      } else if (shown() && w.open?.text === text && w.status === 'saving') w.markSaved(mtime, text)
     } catch {
-      useWriting.getState().setStatus('error')
+      if (shown()) useWriting.getState().setStatus('error')
     }
   }
 
@@ -179,6 +191,7 @@ export function Editor({ docPath }: { docPath: string }) {
           twilightEditorTheme,
           EditorView.updateListener.of((u) => {
             if (u.docChanged) {
+              dirty.current = true
               useWriting.getState().setStatus('unsaved')
               window.clearTimeout(saveTimer.current)
               saveTimer.current = window.setTimeout(() => void save(u.view), SAVE_DELAY)
@@ -207,9 +220,23 @@ export function Editor({ docPath }: { docPath: string }) {
     view.scrollDOM.addEventListener('scroll', onScroll, { passive: true })
     view.focus()
     if (location.hash === '#e2e') (window as unknown as { __twilightEditor: EditorView }).__twilightEditor = view
+    // Closing the window inside the pause before a save: the words go to the file as it closes,
+    // and the app waits for them before it quits.
+    const flush = (): void => {
+      if (dirty.current) void window.twilight.writeDoc(docPath, view.state.doc.toString())
+    }
+    window.addEventListener('beforeunload', flush)
     return () => {
-      // Flush an unsaved edit before the editor goes away.
-      if (useWriting.getState().status === 'unsaved') void save(view)
+      window.removeEventListener('beforeunload', flush)
+      // Words the file doesn't have yet are written now. If this document is still the open one
+      // (you went to another tab), the store takes them too, so coming back shows what you wrote.
+      if (dirty.current) {
+        const w = useWriting.getState()
+        if (w.open?.path === docPath) useWriting.setState({ open: { ...w.open, text: view.state.doc.toString() } })
+        void save(view)
+      }
+      window.clearTimeout(saveTimer.current)
+      window.clearTimeout(wordTimer.current)
       savedEdits.set(docPath, { text: view.state.doc.toString(), edits: view.state.field(editsField) })
       window.clearTimeout(appliedTimer.current)
       view.scrollDOM.removeEventListener('scroll', onScroll)

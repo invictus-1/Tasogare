@@ -68,14 +68,18 @@ export function ToolsMenu() {
     const close = (e: MouseEvent): void => {
       if (!box.current?.contains(e.target as Node)) setOpen(false)
     }
+    // Esc closes the menu and stops there (heard first, on the way down): it isn't also Stop for
+    // a reply being written.
     const esc = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') setOpen(false)
+      if (e.key !== 'Escape') return
+      e.preventDefault()
+      setOpen(false)
     }
     window.addEventListener('mousedown', close)
-    window.addEventListener('keydown', esc)
+    window.addEventListener('keydown', esc, true)
     return () => {
       window.removeEventListener('mousedown', close)
-      window.removeEventListener('keydown', esc)
+      window.removeEventListener('keydown', esc, true)
     }
   }, [open])
   if (!settings) return null
