@@ -4,6 +4,9 @@ What's shipped, what's next, and ideas not yet committed to. Tasogare shows this
 
 ## Shipped
 
+### 1.6.2 · November 2026
+- [x] **The sky by itself** · Chat — the Chats button shows the scene with nothing of a chat and makes none, and New chat brings the greeting and the message box in with a short ease
+
 ### 1.6.1 · November 2026
 - [x] **The Code agent, locked down** · Core — what it reads is information and never orders, a wider check on commands, edits that run by themselves always ask, key files kept out of searches and asked about before a read, and folders it won't open
 - [x] **Whole chat reads the cache** · Chat — changing a passage with the whole chat sends what your next message would, and the switch is marked when the provider's cache has run out
@@ -177,7 +180,6 @@ What's shipped, what's next, and ideas not yet committed to. Tasogare shows this
 - [x] **Installer** · Core — Windows installer and portable zip, with Tasogare artwork
 
 ## Next
-- [~] **The sky by itself** · Chat — done, in the next release: the Chats button shows the scene with nothing of a chat and makes none, and New chat brings the greeting and the message box in with a short ease
 - [~] **Your feedback on 1.0** · Core — fixes from real use
 
 ## Later

@@ -2,7 +2,7 @@
 
 Each version's section becomes its release notes on the releases page (`npm run release`), and Tasogare shows them in Settings > Updates.
 
-## Unreleased
+## 1.6.2
 
 - **The sky by itself:** the Chats button now shows the scene and nothing else: no greeting, no message box, and no chat made, so there is no empty chat to delete afterwards. New chat (the + in the sidebar, Ctrl+N, or the button in the header when the sidebar is closed) brings the greeting, the message box and the header's buttons in with a short ease; Gentle motion fades them in and Off shows them at once. A chat picked from the list opens as before, and Settings > General can still have the button go back to the last chat instead.
 
