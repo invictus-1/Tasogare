@@ -211,16 +211,23 @@ export function reindex(): Promise<void> {
 async function readFolders(): Promise<void> {
   const { folders } = librarySettings()
   const found = new Map<string, string>()
+  // A folder that can't be read just now (a drive asleep, a share offline) keeps what was indexed
+  // from it; reading it as emptied would drop its passages and embed them all again later.
+  const away = new Set<string>()
   for (const folder of folders) {
     const files: string[] = []
+    if (!(await fs.readdir(folder).then(() => true, () => false))) {
+      away.add(folder)
+      continue
+    }
     await walk(folder, files)
     for (const f of files) found.set(f, folder)
   }
-  const known = new Map((db().prepare('SELECT path, mtime, size FROM files').all() as { path: string; mtime: number; size: number }[]).map((r) => [r.path, r]))
+  const known = new Map((db().prepare('SELECT path, folder, mtime, size FROM files').all() as { path: string; folder: string; mtime: number; size: number }[]).map((r) => [r.path, r]))
   const drop = db().prepare('DELETE FROM passages WHERE path = ?')
   const dropFile = db().prepare('DELETE FROM files WHERE path = ?')
-  for (const path of known.keys()) {
-    if (found.has(path)) continue
+  for (const [path, file] of known) {
+    if (found.has(path) || away.has(file.folder)) continue
     db().transaction(() => {
       drop.run(path)
       dropFile.run(path)
@@ -239,7 +246,9 @@ async function readFolders(): Promise<void> {
     }
     const had = known.get(path)
     if (had && had.mtime === info.mtimeMs && had.size === info.size) continue
-    const text = await fs.readFile(path, 'utf8').catch(() => '')
+    // A file that can't be read just now (open in a program that locks it) is left as it was and tried again next time.
+    const text = await fs.readFile(path, 'utf8').catch(() => null)
+    if (text === null) continue
     const source = `${basename(folder)}/${relative(folder, path).replace(/\\/g, '/')}`
     db().transaction(() => {
       drop.run(path)

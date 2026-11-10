@@ -4,6 +4,14 @@ What's shipped, what's next, and ideas not yet committed to. Tasogare shows this
 
 ## Shipped
 
+### 1.6.1 · November 2026
+- [x] **The Code agent, locked down** · Core — what it reads is information and never orders, a wider check on commands, edits that run by themselves always ask, key files kept out of searches and asked about before a read, and folders it won't open
+- [x] **Whole chat reads the cache** · Chat — changing a passage with the whole chat sends what your next message would, and the switch is marked when the provider's cache has run out
+- [x] **A data folder that has gone missing** · Core — asks whether to try again, go back to the standard folder or quit, and a move shows its progress
+- [x] **Moonlit Paper's sky** · Core — the scenes, weather and pixel city drawn in ink for the light theme
+- [x] **Themes with more to them** · Core — each theme's own still light and texture behind the chat and sidebar, details in its colours, scenes in the theme picker, and skies in every theme
+- [x] **Fixes from a read-through** · Core — the last words typed always reach the file, a chat holds still while it compacts, Escape belongs to what is open, restores and updates verify before they change anything, and one Tasogare at a time
+
 ### 1.6.0 · November 2026
 - [x] **Twilight is now 黄昏 (Tasogare)** · Core — the same app under a new name: 黄昏 in the window, the welcome and the installer, Tasogare in files and shortcuts, with your data and updates carried over
 
@@ -170,8 +178,6 @@ What's shipped, what's next, and ideas not yet committed to. Tasogare shows this
 
 ## Next
 - [~] **Your feedback on 1.0** · Core — fixes from real use
-- [~] **Themes with more to them** · Core — done, in the next release: each theme's own still light and texture behind the chat and sidebar, details in its colours, scenes in the theme picker, and skies in every theme
-- [~] **Fixes from a read-through** · Core — done, in the next release: the last words typed always reach the file, a chat holds still while it compacts, Escape belongs to what is open, restores and updates verify before they change anything, and one Tasogare at a time
 
 ## Later
 - [ ] **The road to 2.0** · Core — 1.0 is the foundation; everything after it is extras and experiments, kept if they earn it. The proposed theme: Tasogare knows your story

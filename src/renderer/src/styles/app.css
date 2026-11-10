@@ -1426,6 +1426,7 @@ div.continuity-target { padding: var(--space-2) var(--space-3); border-radius: v
 .code-pending > .code-diff, .code-pending > .code-command { border-top: 1px solid var(--line); }
 .code-pending-head { padding: var(--space-2) var(--space-3); font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 .code-pending-head code { font-family: var(--font-mono); font-weight: 400; font-size: 12px; color: var(--ink-muted); }
+.code-command { white-space: pre-wrap; overflow-wrap: anywhere; }
 .code-pending > .field-note, .code-risk { margin: 0; padding: var(--space-2) var(--space-3) 0; }
 .code-risky { border-color: var(--danger); }
 .code-risk { display: flex; align-items: flex-start; gap: var(--space-2); color: var(--danger); font-size: 13px; }
@@ -1750,6 +1751,7 @@ input[type='checkbox']:not(.switch input):disabled { opacity: 0.5; cursor: defau
 .passage-tools .passage-note:hover { color: var(--ink); }
 .passage-tools .passage-context { gap: var(--space-1); color: var(--ink-muted) !important; }
 .passage-tools .passage-context[aria-pressed="true"] { color: var(--iris) !important; background: color-mix(in srgb, var(--iris) 14%, transparent); }
+.passage-lapsed { width: 6px; height: 6px; border-radius: 50%; background: var(--horizon); flex: none; }
 .passage-working { padding: 0 var(--space-2); height: var(--control-sm); display: inline-flex; align-items: center; gap: var(--space-2); }
 .passage-row { display: flex; align-items: center; gap: var(--space-1); flex-wrap: wrap; }
 .passage-tools .seltool-ask input.passage-ask { width: 360px; }

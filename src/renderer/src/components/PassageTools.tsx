@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { locatePassage } from '@shared/passage'
 import { usePane } from '../pane'
-import { paneOf, useStore } from '../store'
+import { optionsFor, paneOf, useStore } from '../store'
 import { CloseIcon, PenIcon, SpeechIcon } from './Icons'
 
 // Quick asks, in the editor's spirit; anything else goes in the box.
@@ -19,6 +19,27 @@ const readWithChat = (): boolean => {
   } catch {
     return true
   }
+}
+
+// When each thread last sent its whole chat for a passage: that reads the cache too, which keeps it alive.
+const lastSent = new Map<string, number>()
+
+/**
+ * Why sending the whole chat would pay full price for it, when it would: the provider's side of the
+ * cache. Claude keeps a chat cached for five minutes (or an hour) after it was last read, and not at
+ * all with caching off. Null while the cache should still be there, and for servers that keep their own.
+ */
+function cacheLapse(key: string): string | null {
+  const { current, models, providers } = useStore.getState()
+  if (!current) return null
+  const [, pane] = key.split('\n') as [string, 'a' | 'b']
+  const { path, settings } = paneOf(current, pane)
+  if (!optionsFor(models, providers, settings.providerId, settings.modelId).caching) return null
+  if (!settings.caching) return 'Prompt caching is off for this chat, so the whole chat is sent at full price.'
+  const last = Math.max(path.at(-1)?.createdAt ?? 0, lastSent.get(key) ?? 0)
+  const hour = settings.cacheTtl === '1h'
+  if (!last || Date.now() - last < (hour ? 60 : 5) * 60_000) return null
+  return `This chat's cache has lapsed: the provider keeps it for ${hour ? 'an hour' : '5 minutes'} after the last reply, so the whole chat is sent at full price this once.`
 }
 
 type Picked = { nodeId: string; source: string; start: number; end: number; top: number; left: number }
@@ -141,6 +162,7 @@ export function PassageTools({ scroller }: { scroller: React.RefObject<HTMLDivEl
     const id = useStore.getState().current?.id
     if (!id || !instruction.trim() || !passage) return
     const mine = ++runs.current
+    if (withChat) lastSent.set(`${id}\n${pane}`, Date.now())
     setUsedChat(withChat)
     setBusy(true)
     setError(null)
@@ -188,6 +210,7 @@ export function PassageTools({ scroller }: { scroller: React.RefObject<HTMLDivEl
     el.addEventListener('pointercancel', done)
   }
   const rewrite = QUICK[0]
+  const lapse = withChat ? cacheLapse(`${useStore.getState().current?.id}\n${pane}`) : null
   const at = spot ?? { top: picked.top, left: picked.left }
 
   // Drawn on the page itself: the chat's area keeps its opening animation's end, which makes
@@ -262,7 +285,13 @@ export function PassageTools({ scroller }: { scroller: React.RefObject<HTMLDivEl
             <button
               className="tw-btn tw-btn-ghost tw-btn-sm passage-context"
               aria-pressed={withChat}
-              title={withChat ? "The model sees the whole chat, read from its cache (the request isn't added to the chat). Click to send the passage alone." : 'The model sees the passage alone. Click to send the whole chat with it.'}
+              title={
+                !withChat
+                  ? 'The model sees the passage alone. Click to send the whole chat with it.'
+                  : lapse
+                    ? `${lapse} Click to send the passage alone.`
+                    : "The model sees the whole chat, read from its cache (the request isn't added to the chat). Click to send the passage alone."
+              }
               onClick={() => {
                 setWithChat(!withChat)
                 try {
@@ -274,6 +303,8 @@ export function PassageTools({ scroller }: { scroller: React.RefObject<HTMLDivEl
             >
               <SpeechIcon size={13} />
               {withChat ? 'Whole chat' : 'Passage only'}
+              {/* A small mark, no words: the cache this would read has lapsed (the title says why). */}
+              {lapse && <span className="passage-lapsed" aria-hidden="true" />}
             </button>
           </>
         )

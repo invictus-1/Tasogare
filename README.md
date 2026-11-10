@@ -87,9 +87,10 @@ Point Tasogare at the folders you write in, and with **Document library** on, ea
 
 Open a project folder and give the agent a task: it lists, reads and searches files, edits them, runs commands, and asks you when it's unsure. It's built so nothing gets lost:
 
-- **Every edit is shown as a diff and waits for you,** unless you let edits through for a session. Commands always ask, and ones that could delete or overwrite things are flagged and can never be allowed for good.
+- **Every edit is shown as a diff and waits for you,** unless you let edits through for a session. Commands always ask, and ones that could delete or overwrite things, reach the network, fetch a package or touch keys are flagged with the reason and can never be allowed for good.
+- **What it reads is information, not orders.** Only your own messages tell the agent what to do. Invisible characters are taken out of what it reads and shows, files that hold keys are kept out of searches and ask before a read, and edits to files that run by themselves (editor tasks, CI, git hooks, npm scripts) ask every time. No check makes running commands safe, so read a command before you approve it.
 - **Plan mode** has it look around and write a plan first; nothing changes until you press **Run this plan**.
-- **Every change is snapshotted.** Undo puts back the last one, Undo all every one, and **Rewind to here** goes back to before any of your messages. Deleted files go to the Recycle Bin, and the agent can't reach outside its folder or touch `.git`.
+- **Every change is snapshotted.** Undo puts back the last one, Undo all every one, and **Rewind to here** goes back to before any of your messages. Deleted files go to the Recycle Bin, and the agent can't reach outside its folder, follow a link out of it, touch `.git`, or be opened on a whole drive or your user folder.
 - It keeps a task list you can follow, reads your project's `AGENTS.md`, `CLAUDE.md` or `TWILIGHT.md`, and can search the web with Claude.
 
 ### The Judge
@@ -206,7 +207,7 @@ Caching is a prefix match, so requests are built to be the previous request plus
 
 After `npm run build`, each runs the real app in a throwaway profile and never touches your data:
 
-- `TWILIGHT_E2E=<folder> npx electron .` starts a fake OpenAI-compatible model server (plus fake MCP and embedding servers) and drives the app through every feature, writing `e2e.json` (713 checks) and screenshots.
+- `TWILIGHT_E2E=<folder> npx electron .` starts a fake OpenAI-compatible model server (plus fake MCP and embedding servers) and drives the app through every feature, writing `e2e.json` (757 checks) and screenshots.
 - `node scripts/bench.cjs <label>` times startup, opening screens, memory and scrolling on the packaged app.
 - `TWILIGHT_SELFTEST=<folder> npx electron .` scrolls a ~350k-token chat one step per frame and writes frame timings.
 - `TWILIGHT_SHOWCASE=<folder> npx electron .` fills a profile with an invented story and captures the screenshots in `docs/screenshots/`.

@@ -16,6 +16,16 @@ md.use(taskLists, { enabled: false })
 const escapeHtml = (s: string): string =>
   s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
 
+// A link's words can say one place and lead to another, so hovering shows the address itself,
+// never a title the text chose for it.
+md.renderer.rules.link_open = (tokens, idx, options, _env, self) => {
+  const token = tokens[idx]
+  const href = token.attrGet('href') ?? ''
+  token.attrs = (token.attrs ?? []).filter(([name]) => name !== 'title')
+  if (/^https?:/i.test(href)) token.attrSet('title', href)
+  return self.renderToken(tokens, idx, options)
+}
+
 md.renderer.rules.fence = (tokens, idx) => {
   const token = tokens[idx]
   const lang = token.info.trim().split(/\s+/)[0] ?? ''
@@ -63,6 +73,8 @@ function clean(node: Element): void {
       if (!keep) child.removeAttribute(attr.name)
     }
     if (tag === 'input') child.setAttribute('disabled', '')
+    // The same for a link written as HTML: its title is its address.
+    if (tag === 'a' && /^https?:/i.test(child.getAttribute('href') ?? '')) child.setAttribute('title', child.getAttribute('href')!)
     clean(child)
   }
 }

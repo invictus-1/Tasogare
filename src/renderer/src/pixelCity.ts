@@ -29,6 +29,7 @@ const mix = (a: RGB, b: RGB, t: number): RGB => [0, 1, 2].map((i) => Math.round(
 const MAGENTA: RGB = [255, 63, 190]
 const CYAN: RGB = [63, 232, 255]
 const BLACK: RGB = [0, 0, 0]
+const light = (c: RGB): number => c[0] * 0.3 + c[1] * 0.6 + c[2] * 0.1
 
 /** The theme's colours as the sky has them (any CSS colour, read back through a 1×1 canvas). */
 export function readPalette(el: Element): Palette {
@@ -82,6 +83,9 @@ export function paintCity(canvas: HTMLCanvasElement, w: number, h: number, hy: n
   const pick = <T,>(list: T[]): T => list[Math.floor(rand() * list.length)]
   const neon: RGB[] = [mix(p.iris, MAGENTA, 0.45), mix(p.ink, CYAN, 0.65), mix(p.horizon, MAGENTA, 0.2), mix(p.iris, CYAN, 0.35)]
   const day = time === 'day'
+  // On a light theme the city is an ink wash: far towers pale, near ones deep, windows lit in paper.
+  const paper = light(p.night) > light(p.ink)
+  const dark = paper ? p.ink : BLACK
   const layout: CityLayout = { w, h, signs: [], lights: [] }
   // Each sign casts a streak of its colour down the wet street.
   const glows: { x: number; w: number; c: RGB }[] = []
@@ -123,7 +127,7 @@ export function paintCity(canvas: HTMLCanvasElement, w: number, h: number, hy: n
         const sx = rand() < 0.5 ? x + 1 : x + bw - 3
         const sy = top + 2 + Math.round(rand() * Math.max(1, bh - sh - 4))
         const c = pick(neon)
-        rect(sx - 1, sy - 1, 4, sh + 2, mix(o.body, BLACK, 0.3))
+        rect(sx - 1, sy - 1, 4, sh + 2, mix(o.body, dark, 0.3))
         for (let yy = 0; yy < sh; yy++) if (yy % 3 !== 2) rect(sx, sy + yy, 2, 1, c, 0.95)
         layout.signs.push({ x: sx, y: sy, w: 2, h: sh, color: css(c) })
         glows.push({ x: sx, w: 2, c })
@@ -137,7 +141,7 @@ export function paintCity(canvas: HTMLCanvasElement, w: number, h: number, hy: n
         if (by > 2) {
           const [c1, c2] = [pick(neon), pick(neon)]
           rect(bx + Math.floor(bbw / 2), by + bbh, 1, 3, o.body)
-          rect(bx - 1, by - 1, bbw + 2, bbh + 2, mix(o.body, BLACK, 0.4))
+          rect(bx - 1, by - 1, bbw + 2, bbh + 2, mix(o.body, dark, 0.4))
           for (let yy = 0; yy < bbh; yy++) rect(bx, by + yy, bbw, 1, mix(c1, c2, yy / Math.max(1, bbh - 1)), 0.9)
           layout.signs.push({ x: bx, y: by, w: bbw, h: bbh, color: css(c1) })
           glows.push({ x: bx + 1, w: Math.max(1, bbw - 2), c: c1 })
@@ -151,14 +155,14 @@ export function paintCity(canvas: HTMLCanvasElement, w: number, h: number, hy: n
     for (let y = from; y < to; y++) rect(0, y, w, 1, c, a * ((y - from) / Math.max(1, to - from)))
   }
 
-  layer({ min: 4, max: 12, lo: 0.4, hi: 0.95, body: mix(p.night, p.dusk, day ? 0.6 : 0.42), rim: 0.12, lit: 0.05, windows: [mix(p.horizon, p.ink, 0.5)], signs: 0.05, boards: 0, aerials: 0.35 })
+  layer({ min: 4, max: 12, lo: 0.4, hi: 0.95, body: mix(p.night, p.dusk, paper ? 0.2 : day ? 0.6 : 0.42), rim: 0.12, lit: 0.05, windows: [mix(p.horizon, p.ink, 0.5)], signs: 0.05, boards: 0, aerials: 0.35 })
   haze(Math.round(hy * 0.3), hy, p.dusk, 0.35)
-  layer({ min: 6, max: 15, lo: 0.25, hi: 0.68, body: mix(p.night, p.surface, 0.3), rim: 0.18, lit: 0.16, windows: [mix(p.horizon, p.ink, 0.35), mix(p.ink, CYAN, 0.3), p.ink], signs: 0.4, boards: 0.12, aerials: 0.25 })
+  layer({ min: 6, max: 15, lo: 0.25, hi: 0.68, body: paper ? mix(p.night, p.dusk, 0.42) : mix(p.night, p.surface, 0.3), rim: 0.18, lit: 0.16, windows: paper ? [p.surface, mix(p.surface, p.horizon, 0.3), mix(p.surface, CYAN, 0.4)] : [mix(p.horizon, p.ink, 0.35), mix(p.ink, CYAN, 0.3), p.ink], signs: 0.4, boards: 0.12, aerials: 0.25 })
   haze(Math.round(hy * 0.6), hy, p.night, 0.3)
-  layer({ min: 8, max: 18, lo: 0.1, hi: 0.36, body: mix(p.night, BLACK, 0.35), rim: 0.22, lit: 0.1, windows: [mix(p.horizon, p.ink, 0.25), mix(p.iris, p.ink, 0.4)], signs: 0.3, boards: 0.3, aerials: 0.1 })
+  layer({ min: 8, max: 18, lo: 0.1, hi: 0.36, body: paper ? mix(mix(p.night, p.dusk, 0.64), p.ink, 0.18) : mix(p.night, BLACK, 0.35), rim: 0.22, lit: 0.1, windows: paper ? [p.surface, mix(p.surface, p.horizon, 0.3)] : [mix(p.horizon, p.ink, 0.25), mix(p.iris, p.ink, 0.4)], signs: 0.3, boards: 0.3, aerials: 0.1 })
 
   // The street: a neon edge at the horizon, then the city mirrored on wet ground in broken rows.
-  const ground = mix(p.night, BLACK, 0.4)
+  const ground = paper ? mix(p.night, p.dusk, 0.3) : mix(p.night, BLACK, 0.4)
   rect(0, hy, w, h - hy, ground)
   ctx.save()
   ctx.globalAlpha = 0.32

@@ -40,7 +40,8 @@ const MOMENTS = process.env.TWILIGHT_ACTS_AT ? process.env.TWILIGHT_ACTS_AT.spli
 
 export function runActShots(win: BrowserWindow, outDir: string): void {
   mkdirSync(outDir, { recursive: true })
-  // TWILIGHT_ACTS_SIZE (like 2560x1400) looks at a larger window.
+  // TWILIGHT_ACTS_SIZE (like 2560x1400) looks at a larger window; TWILIGHT_ACTS_THEME and
+  // TWILIGHT_ACTS_SKY (dawn, day, dusk, night) look at the acts in another theme or hour.
   const [w, h] = (process.env.TWILIGHT_ACTS_SIZE ?? '1600x900').split('x').map(Number)
   win.setContentSize(w, h)
   // Your own mouse passing over the window would clear the sky and restart an act mid-capture.
@@ -51,7 +52,7 @@ export function runActShots(win: BrowserWindow, outDir: string): void {
     const wait = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
     for (const [egg, horizon, ms] of ACTS) {
       if (only && !only.includes(`${egg}:${horizon}`)) continue
-      await js(`localStorage.setItem('twilight.extras', JSON.stringify({ ...JSON.parse(localStorage.getItem('twilight.extras') || '{}'), horizon: '${horizon}', easterEggs: true, sky: 'dusk' })); localStorage.setItem('twilight.e2eEgg', '${egg}'); localStorage.setItem('twilight.e2eWeather', '${process.env.TWILIGHT_ACTS_WEATHER ?? ''}')`)
+      await js(`localStorage.setItem('twilight.extras', JSON.stringify({ ...JSON.parse(localStorage.getItem('twilight.extras') || '{}'), horizon: '${horizon}', easterEggs: true, sky: '${process.env.TWILIGHT_ACTS_SKY ?? 'dusk'}' })); ${process.env.TWILIGHT_ACTS_THEME ? `localStorage.setItem('twilight.theme', '${process.env.TWILIGHT_ACTS_THEME}'); ` : ''}localStorage.setItem('twilight.e2eEgg', '${egg}'); localStorage.setItem('twilight.e2eWeather', '${process.env.TWILIGHT_ACTS_WEATHER ?? ''}')`)
       win.webContents.reload()
       await new Promise((r) => win.webContents.once('did-finish-load', () => r(null)))
       // The visitor comes after the quiet spell (1.2 s in test runs); then each moment in turn.

@@ -85,6 +85,8 @@ let backdrop: Backdrop = read('twilight.backdrop', DEFAULT)
 let motion: Motion = (() => {
   try {
     const m = localStorage.getItem('twilight.motion')
+    // Until you choose, Windows' own setting decides: animation effects turned off there means Gentle here.
+    if (m === null && typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) return 'reduced'
     return m === 'reduced' || m === 'off' ? m : 'full'
   } catch {
     return 'full'

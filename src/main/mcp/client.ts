@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process'
+import { TASKKILL } from '../winTools'
 import { homedir } from 'node:os'
 
 // A small Model Context Protocol client: JSON-RPC 2.0 to a program Tasogare starts (one message
@@ -106,7 +107,7 @@ export class McpClient {
     if (this.child && this.child.exitCode === null) {
       this.child.stdin?.end()
       // Programs started through cmd.exe leave their own children; end the whole tree.
-      if (process.platform === 'win32' && this.child.pid) spawn('taskkill', ['/pid', String(this.child.pid), '/T', '/F'], { windowsHide: true })
+      if (process.platform === 'win32' && this.child.pid) spawn(TASKKILL, ['/pid', String(this.child.pid), '/T', '/F'], { windowsHide: true })
       else this.child.kill()
     }
     if (this.options.kind === 'http' && this.session) {

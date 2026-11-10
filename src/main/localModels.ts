@@ -4,6 +4,7 @@ import { createWriteStream, promises as fs } from 'node:fs'
 import { createServer } from 'node:net'
 import { cpus, totalmem } from 'node:os'
 import { basename, dirname, join, relative } from 'node:path'
+import { REG, TAR } from './winTools'
 import { fitFor, hasOptions, isSidecar, moeOf, quantOf, serverId, shardBase, THIS_PC, type Hardware, type HubModel, type HubVariant, type LoadedModel, type LocalDownload, type LocalModel, type LocalState, type LocalModelOptions } from '@shared/localModels'
 import { kvGet, kvSet } from './db'
 import { getProviders, saveProvider } from './providers'
@@ -41,7 +42,7 @@ export const modelsFolder = (): string => settings().folder ?? join(app.getPath(
 
 let hardwareCache: Promise<Hardware> | null = null
 
-const reg = (args: string[]): Promise<string> => new Promise((resolve) => execFile('reg', ['query', ...args], { windowsHide: true, maxBuffer: 1024 * 1024 }, (err, out) => resolve(err ? '' : out)))
+const reg = (args: string[]): Promise<string> => new Promise((resolve) => execFile(REG, ['query', ...args], { windowsHide: true, maxBuffer: 1024 * 1024 }, (err, out) => resolve(err ? '' : out)))
 
 /**
  * Memory, and the graphics card with the most memory (Windows keeps its true size in the
@@ -209,9 +210,17 @@ export async function fetchTo(url: string, dest: string, signal: AbortSignal, pr
   const have = (await fs.stat(part).catch(() => null))?.size ?? 0
   if (have) progress(have)
   const res = await fetch(url, { signal, headers: have ? { range: `bytes=${have}-` } : {} })
+  // The part on disk is already as long as the file (or longer): it can't be picked up, so it starts over.
+  if (res.status === 416 && have) {
+    await fs.rm(part, { force: true })
+    progress(-have)
+    return fetchTo(url, dest, signal, progress)
+  }
   if (!res.ok || !res.body) throw new Error(res.status === 401 || res.status === 403 ? 'This model needs a Hugging Face account and accepted terms; download it on huggingface.co instead.' : `The download failed: ${res.status}.`)
   const resumed = res.status === 206
   if (have && !resumed) progress(-have)
+  // How long the whole file should be, when the server says (and isn't sending it compressed).
+  const whole = res.headers.get('content-encoding') ? NaN : resumed ? Number(/\/(\d+)$/.exec(res.headers.get('content-range') ?? '')?.[1]) : Number(res.headers.get('content-length') ?? NaN)
   const out = createWriteStream(part, { flags: resumed ? 'a' : 'w' })
   // A disk that fills, or a file that can't be written, fails this download with its reason.
   const failed: { error?: Error } = {}
@@ -239,6 +248,9 @@ export async function fetchTo(url: string, dest: string, signal: AbortSignal, pr
     })
   }
   if (failed.error) throw failed.error
+  // A connection that drops can end the stream quietly; a short file would load as a broken model.
+  const got = (await fs.stat(part)).size
+  if (whole > 0 && got !== whole) throw new Error(got < whole ? 'The download ended early. Start it again and it picks up where it left off.' : "The download didn't match the file's size. Start it again.")
   await fs.rename(part, dest)
 }
 
@@ -332,7 +344,7 @@ export async function installEngine(): Promise<void> {
       announceSoon()
     })
     // Windows' own tar unpacks zip files.
-    await new Promise<void>((resolve, reject) => execFile('tar', ['-xf', zip, '-C', dir], { windowsHide: true }, (err) => (err ? reject(err) : resolve())))
+    await new Promise<void>((resolve, reject) => execFile(TAR, ['-xf', zip, '-C', dir], { windowsHide: true }, (err) => (err ? reject(err) : resolve())))
     await fs.unlink(zip).catch(() => undefined)
     const exe = await findFile(dir, 'llama-server.exe')
     if (!exe) throw new Error("The llama.cpp download didn't hold llama-server.exe.")
@@ -446,6 +458,8 @@ export function stopEngine(): void {
 
 async function restartEngine(): Promise<void> {
   stopEngine()
+  // A start still under way sees the stop and gives up; wait for that, or the new start is turned away and nothing runs.
+  for (let end = Date.now() + 10_000; starting && Date.now() < end; ) await new Promise((r) => setTimeout(r, 50))
   await new Promise((r) => setTimeout(r, 300))
   await startEngine()
 }

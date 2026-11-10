@@ -19,6 +19,8 @@ interface Live {
 
 const live = new Map<string, Live>()
 const connecting = new Map<string, Promise<Live>>()
+/** Counts up each time a server is disconnected, so a connection still being made can tell it is out of date. */
+const turn = new Map<string, number>()
 const status = new Map<string, McpServerStatus>()
 
 export function servers(): McpServer[] {
@@ -44,6 +46,8 @@ function disconnect(id: string): void {
   live.get(id)?.client.close()
   live.delete(id)
   connecting.delete(id)
+  // A connection still being made for this server is out of date from here.
+  turn.set(id, (turn.get(id) ?? 0) + 1)
 }
 
 /** Saves a server (new when its id is empty); a changed server reconnects when next used. */
@@ -123,15 +127,19 @@ async function connect(server: McpServer): Promise<Live> {
   if (pending) return pending
   const attempt = (async (): Promise<Live> => {
     setStatus({ id: server.id, state: 'connecting', tools: statusOf(server.id).tools })
+    const mine = turn.get(server.id) ?? 0
+    let client: McpClient | null = null
     try {
       const secrets = (kind: 'env' | 'header', keys: string[]): Record<string, string> =>
         Object.fromEntries(keys.map((k) => [k, getSecret(secretName(server.id, kind, k)) ?? '']))
-      const client = await McpClient.connect(
+      client = await McpClient.connect(
         server.kind === 'stdio'
           ? { kind: 'stdio', command: server.command, args: server.args, cwd: server.cwd, env: secrets('env', server.envKeys) }
           : { kind: 'http', url: server.url, headers: secrets('header', server.headerKeys) }
       )
       const tools = await client.listTools()
+      // Changed or removed while it was connecting: this connection is nobody's now.
+      if ((turn.get(server.id) ?? 0) !== mine) throw new Error('it was changed while connecting')
       const entry = { client, tools }
       live.set(server.id, entry)
       setStatus({
@@ -142,10 +150,12 @@ async function connect(server: McpServer): Promise<Live> {
       })
       return entry
     } catch (err) {
-      setStatus({ id: server.id, state: 'error', error: (err as Error).message, tools: [] })
+      // A server that connected and then failed (its tool list, say) is closed, not left running unseen.
+      client?.close()
+      if ((turn.get(server.id) ?? 0) === mine) setStatus({ id: server.id, state: 'error', error: (err as Error).message, tools: [] })
       throw new Error(`The MCP server ${server.name} couldn't connect: ${(err as Error).message}`)
     } finally {
-      connecting.delete(server.id)
+      if ((turn.get(server.id) ?? 0) === mine) connecting.delete(server.id)
     }
   })()
   connecting.set(server.id, attempt)

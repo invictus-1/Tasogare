@@ -2,7 +2,43 @@
 
 Each version's section becomes its release notes on the releases page (`npm run release`), and Tasogare shows them in Settings > Updates.
 
-## Unreleased
+## 1.6.1
+
+**The Code agent, locked down**
+
+The agent reads files, command output and web pages that someone else wrote, and any of them can hold text written to steer it. This release is about what happens then.
+
+- **What it reads is information, not orders:** the agent is told that only your own messages say what to do, and a project's `AGENTS.md` reaches it fenced off as notes rather than as rules. Invisible characters, which can hide instructions in a file or a page, are taken out of what it reads from your files and from commands, and out of what it shows you; a command or a file name holding them is turned away rather than run.
+- **A wider check on commands:** a command is now flagged when it reaches the network, downloads and runs a package (`npm install`, or `npx` with a tool the project doesn't have), touches keys, passwords or the clipboard, starts another shell or program, hides what it runs, changes Windows or how git runs, publishes, steps outside the project folder, or is too long to read at a glance. A flagged command says why, always asks, and can't be allowed for good. A folder whose git hooks or settings would run a program says so before a git command.
+- **Edits that run by themselves always ask:** files that tools run or load unasked (editor tasks, CI workflows, git hooks, npm scripts), the notes an agent reads, and files that hold keys ask every time with a warning, even after Approve all edits.
+- **Keys stay put:** files that hold keys or passwords (`.env`, private keys, credentials) are left out of searches, and reading one asks first and says that what the agent reads is sent to the model. Once it has read one, web search turns off for that session, since a search can carry text out. Commands are no longer given environment values that look like keys, tokens or passwords; if a build needs one, set it in the command.
+- **A command you always allow asks again** after the agent has changed files without asking, because it may now run them.
+- **Folders and names:** the agent won't open a whole drive, your user folder, Desktop, Documents or Downloads themselves, Windows, or where Tasogare and other programs keep their data. Links are listed as links and never followed out of the folder, a file that is a hard link to one outside is written as a new file, and names Windows reads differently from how they look (streams, device names, trailing dots) are refused.
+- **Windows' own tools by their full path:** PowerShell and the other Windows tools Tasogare uses are run from the Windows folder, so a program of the same name in a project can't stand in for them. Commands still running when Tasogare closes are stopped.
+- A session begun before this version gets the new rules with its next message.
+
+No check makes running commands safe: a command you approve can do whatever you can, so read it first. These changes are there so that what you approve is what you see.
+
+**Whole chat and the cache**
+
+- **Changing a passage with the whole chat reads the cache again:** the request now sends the same tools, system prompt and history as your next message would, so the chat is read from the provider's cache instead of paid for in full. Before, a chat with choice cards or other tools missed the cache every time.
+- **A mark when the cache has run out:** a provider keeps a chat's cache for 5 minutes (or an hour) after its last reply. Once that has passed, or when caching is off for the chat, the Whole chat switch shows a dot and says the chat will be sent at full price.
+
+**Your data folder**
+
+- **A moved folder that isn't there:** if your data lives somewhere else and that folder is missing at start (a drive unplugged, say), Tasogare asks whether to try again, go back to the standard folder, or quit. Before, it started in the standard folder without a word. A move you asked for shows its progress in a window instead of nothing, and one that fails says so and changes nothing.
+
+**Moonlit Paper**
+
+- **A sky drawn for paper:** on the light theme the scenes, the moon, rain, snow and shooting stars are drawn in ink and lavender so they show on the page, and the pixel city is an ink wash with windows lit in paper.
+
+**Smaller ones**
+
+- A link in a reply shows where it goes when you point at it.
+- A library folder that can't be read just now (a drive asleep) keeps its passages instead of being indexed again later, and a file that is locked is left as it was.
+- A model download that ends early is no longer taken for the whole file; starting it again picks up where it stopped.
+- Until you choose a Motion setting, Windows' own animation setting decides: effects off there means Gentle here.
+- Restarting the local model engine while it is still starting no longer leaves nothing running, and an MCP server changed or removed while it connects is closed rather than left behind.
 
 **Themes**
 

@@ -3,6 +3,7 @@ import { execFile, spawn } from 'node:child_process'
 import { promises as fs } from 'node:fs'
 import { cpus } from 'node:os'
 import { join } from 'node:path'
+import { POWERSHELL, REG, TAR } from './winTools'
 import { cleanTranscript, VOICE_MODELS, type VoiceState } from '@shared/voice'
 import { kvGet, kvSet } from './db'
 import { fetchTo, findFile, getJson } from './localModels'
@@ -38,7 +39,7 @@ const modelsDir = (): string => join(voiceDir(), 'models')
 /** Runs a one-line PowerShell script (sent on its standard input) and returns what it printed. */
 function powershell(script: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', '-'], { windowsHide: true })
+    const child = spawn(POWERSHELL, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', '-'], { windowsHide: true })
     let out = ''
     let err = ''
     child.stdout.on('data', (d: Buffer) => (out += d.toString('utf8')))
@@ -54,7 +55,7 @@ const quote = (s: string): string => `'${s.replace(/'/g, "''")}'`
 /** The names under one of the registry's voice lists, as System.Speech shows them. */
 const registryVoices = (key: string): Promise<string[]> =>
   new Promise((resolve) =>
-    execFile('reg', ['query', key, '/s', '/v', 'Name'], { windowsHide: true, timeout: 10_000 }, (err, out) =>
+    execFile(REG, ['query', key, '/s', '/v', 'Name'], { windowsHide: true, timeout: 10_000 }, (err, out) =>
       resolve(err ? [] : [...out.matchAll(/^\s+Name\s+REG_SZ\s+(.+?)\s*$/gm)].map((m) => m[1]))
     )
   )
@@ -146,7 +147,7 @@ export async function installWhisper(): Promise<void> {
       announceSoon()
     })
     // Windows' own tar unpacks zip files.
-    await new Promise<void>((resolve, reject) => execFile('tar', ['-xf', zip, '-C', dir], { windowsHide: true }, (err) => (err ? reject(err) : resolve())))
+    await new Promise<void>((resolve, reject) => execFile(TAR, ['-xf', zip, '-C', dir], { windowsHide: true }, (err) => (err ? reject(err) : resolve())))
     await fs.unlink(zip).catch(() => undefined)
     const exe = await findFile(dir, 'whisper-cli.exe')
     if (!exe) throw new Error("The whisper.cpp download didn't hold whisper-cli.exe.")

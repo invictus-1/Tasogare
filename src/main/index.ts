@@ -54,7 +54,8 @@ import { parseScoutCases, scout, testScout } from './scout'
 import * as local from './localModels'
 import type { HubVariant, LocalModelOptions } from '@shared/localModels'
 import type { LibrarySettings } from '@shared/docLibrary'
-import { checkTarget, isMoved, lastLocationChange, resolveDataFolder, stageMove, standardFolder } from './location'
+import { checkTarget, isMoved, lastLocationChange, stageMove, standardFolder, startFolder } from './location'
+import { settle } from './settle'
 import { toRecycleBin } from './code/workspace'
 import type { BackupSettings, DataInfo } from '@shared/backups'
 import * as mcp from './mcp'
@@ -86,9 +87,12 @@ if (testDir) {
   app.commandLine.appendSwitch('disable-renderer-backgrounding')
   app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion,IntensiveWakeUpThrottling')
 }
+// Where the data lives. A move you asked for, or a moved folder that isn't there now, is settled
+// first with a window on screen (settle.ts); until then the app keeps its own files out of both.
+const start = testDir ? null : startFolder()
+const settling = !!start && (!!start.move || !!start.missing)
 if (testDir) prepareSelfTest(testDir)
-// Where the data lives (and a move you asked for, done now, before anything opens it).
-else app.setPath('userData', resolveDataFolder())
+else app.setPath('userData', settling ? join(app.getPath('temp'), 'Tasogare-start') : start!.folder)
 
 // One Tasogare per data folder: two would write over each other's settings and could undo a
 // restore or a move. A second start brings the open window forward instead. Tests and the
@@ -106,6 +110,7 @@ else
 
 /** Starts again (after a restore or a move is staged). Leaving this way skips will-quit, so what Tasogare started is ended here. */
 function restart(): void {
+  code.stopAll()
   mcp.closeAll()
   local.stopEngine()
   app.relaunch()
@@ -638,6 +643,7 @@ registerBackgroundScheme()
 
 app.whenReady().then(() => {
   if (!alone) return
+  if (settling) return void settle()
   mark('appReady')
   // A restore you asked for goes in before the database opens.
   const restored = applyPendingRestore(app.getPath('userData'))
@@ -699,5 +705,8 @@ app.on('before-quit', (e) => {
   void pending.finally(() => app.quit())
 })
 
-// MCP servers Tasogare started end with it.
-app.on('will-quit', () => mcp.closeAll())
+// MCP servers and the agent's commands end with Tasogare.
+app.on('will-quit', () => {
+  code.stopAll()
+  mcp.closeAll()
+})

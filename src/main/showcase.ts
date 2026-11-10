@@ -529,7 +529,7 @@ export function runShowcase(win: BrowserWindow, outDir: string): void {
       await shot('library')
 
       // The Code tab: a small fix in a demo project, as the agent left it.
-      const project = join(app.getPath('userData'), 'lighthouse-log')
+      const project = join(app.getPath('userData'), '..', 'lighthouse-log')
       mkdirSync(project, { recursive: true })
       const before = "import { lamps } from './lamps'\n\nexport function logEntry(night: string): string {\n  return `${night}: lit eight lamps on the bridge`\n}\n"
       const after = "import { lamps } from './lamps'\n\nexport function logEntry(night: string): string {\n  return `${night}: lit ${lamps.length} lamps on the bridge`\n}\n"

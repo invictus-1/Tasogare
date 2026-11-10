@@ -1191,7 +1191,7 @@ async function compactNow(id: string, pane: Pane, signal: AbortSignal): Promise<
 // ——— Editing a passage of a reply (select text in the chat) ———
 
 const PASSAGE_RULES = `You are editing one passage of your earlier reply, marked <passage>, as the instruction asks.
-Reply with only the replacement text for the passage: no preamble, no quotation marks, no commentary, nothing before or after it.
+Reply with only the replacement text for the passage: no preamble, no quotation marks, no commentary, nothing before or after it. Do not call tools.
 Keep the voice, tense, point of view and markdown formatting unless the instruction says otherwise, and keep it consistent with everything else in the conversation.`
 
 /**
@@ -1221,16 +1221,36 @@ export async function editPassage(id: string, nodeId: string, passage: string, i
   }
 }
 
+/**
+ * The chat a passage edit sends: the pane's thread up to its newest finished reply, which is what
+ * the last reply cached and the next one will read. Ending at the edited reply instead would read
+ * only that far. A reply on another branch (or with nothing finished after it) ends at itself.
+ */
+function passagePath(conv: db.ConversationRow, nodes: Map<string, db.NodeRow>, nodeId: string, pane: Pane): db.NodeRow[] {
+  const thread = db.ancestors(nodes, leafOf(conv, nodes, pane)).filter((n) => n.role !== 'root')
+  const at = thread.findIndex((n) => n.id === nodeId)
+  let end = thread.length - 1
+  while (end > at && !(thread[end].role === 'assistant' && thread[end].status === 'done')) end--
+  return at < 0 ? db.ancestors(nodes, nodeId).filter((n) => n.role !== 'root') : thread.slice(0, end + 1)
+}
+
 async function passageEdit(id: string, nodeId: string, passage: string, instruction: string, withChat: boolean, pane: Pane, signal: AbortSignal): Promise<string> {
   const conv = db.getConversation(id)
-  const settings: ChatSettings = { ...settingsFor(conv, pane), webSearch: false, webFetch: false, choiceTool: false, imageGen: false, library: false, mcpServers: [] }
+  // With the whole chat, the request is built exactly as the chat's next reply would be (its
+  // settings, tools and system prompt, the same messages in the same trim), so the provider reads
+  // the chat from its cache: a different tool list or system prompt would miss all of it. The tools
+  // are only named, never run. Alone, the passage needs none of them.
+  const own = settingsFor(conv, pane)
+  const settings: ChatSettings = withChat ? own : { ...own, webSearch: false, webFetch: false, choiceTool: false, imageGen: false, library: false, mcpServers: [] }
   const nodes = db.loadNodes(id)
   const config = getProvider(settings.providerId)
   const ask = `${PASSAGE_RULES}\n\n<passage>\n${passage}\n</passage>\n\nInstruction: ${instruction.trim()}`
   const base = nodes.get(nodeId)
   if (!base) throw new Error('That reply is gone.')
   const request = { ...base, id: randomUUID(), role: 'user', text: ask, content: JSON.stringify([{ type: 'text', text: ask }]), status: 'done' } as db.NodeRow
-  const history = withChat ? [...sinceCompaction(db.ancestors(nodes, nodeId).filter((n) => n.role !== 'root')), request] : [request]
+  const history = withChat ? trimHistory([...sinceCompaction(passagePath(conv, nodes, nodeId, pane)), request], settings.messageLimit) : [request]
+  // A server that won't connect leaves its tools out rather than failing the edit.
+  const clientTools = withChat ? (await toolsFor(settings).catch(() => ({ clientTools: [] as ClientToolDef[] }))).clientTools : []
   const result = await implFor(config).generate({
     config,
     apiKey: getApiKey(config.id),
@@ -1242,7 +1262,8 @@ async function passageEdit(id: string, nodeId: string, passage: string, instruct
     options: modelOptions(settings.providerId, settings.modelId),
     signal,
     onText: () => undefined,
-    onThinking: () => undefined
+    onThinking: () => undefined,
+    ...(clientTools.length ? { clientTools } : {})
   })
   if (signal.aborted) throw new Error('Stopped.')
   if (result.error) throw new Error(result.error)

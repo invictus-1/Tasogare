@@ -11,7 +11,7 @@ import { AlertIcon, CheckIcon, CloseIcon, FolderIcon, GlobeIcon, SendIcon, Sideb
 const MODES: { id: CodeMode; label: string; note: string }[] = [
   { id: 'plan', label: 'Plan', note: 'The agent looks around and writes a plan; nothing changes until you run it.' },
   { id: 'ask', label: 'Ask first', note: 'Every edit and command waits for you.' },
-  { id: 'edits', label: 'Accept edits', note: 'Edits go through (each can be undone); commands and deletions still ask.' },
+  { id: 'edits', label: 'Accept edits', note: 'Edits go through (each can be undone); commands, deletions and files that tools run by themselves still ask.' },
   { id: 'read', label: 'Read only', note: 'The agent can look but not change anything or run commands.' }
 ]
 
@@ -127,7 +127,17 @@ function PendingCard({ p }: { p: CodePending }) {
       </div>
     )
   }
-  const what = p.kind === 'command' ? 'Run this command?' : p.kind === 'delete' ? 'Move this file to the Recycle Bin?' : p.kind === 'write' ? 'Create this file?' : 'Make this change?'
+  const what =
+    p.kind === 'command'
+      ? 'Run this command?'
+      : p.kind === 'delete'
+        ? 'Move this file to the Recycle Bin?'
+        : p.kind === 'read'
+          ? 'Let the agent read this file?'
+          : p.kind === 'write'
+            ? 'Create this file?'
+            : 'Make this change?'
+  const careful = p.kind === 'command' ? "Read it before you approve; Tasogare can't undo what a command does." : p.kind === 'read' ? 'Say no unless the work needs it.' : 'Read it before you approve.'
   return (
     <div className={`code-pending ${p.risk ? 'code-risky' : ''}`} role="dialog" aria-label={what}>
       <div className="code-pending-head">
@@ -137,22 +147,25 @@ function PendingCard({ p }: { p: CodePending }) {
       {p.command && <pre className="code-command">{p.command}</pre>}
       {p.risk && (
         <p className="code-risk" role="alert">
-          <AlertIcon size={14} /> Careful: {p.risk}. Read it before you approve; Tasogare can't undo what a command does.
+          <AlertIcon size={14} /> Careful: {p.risk}. {careful}
         </p>
       )}
-      {p.kind === 'command' && !p.risk && <p className="field-note">Commands run in the project folder but can reach outside it, and only file edits can be undone.</p>}
+      {p.note && <p className="field-note">{p.note}</p>}
+      {p.kind === 'command' && !p.risk && !p.note && (
+        <p className="field-note">Commands run in the project folder but can reach outside it, and only file edits can be undone. They are not given environment values that look like keys or passwords.</p>
+      )}
       <div className="code-pending-actions">
         <button className="tw-btn tw-btn-primary tw-btn-sm" ref={focusUnlessTyping} onClick={() => void respond({ approve: true })}>
           <CheckIcon size={14} />
           {p.kind === 'command' ? 'Run it' : 'Approve'}
         </button>
-        {(p.kind === 'edit' || p.kind === 'write') && (
+        {(p.kind === 'edit' || p.kind === 'write') && !p.risk && (
           <button className="tw-btn tw-btn-sm" title="Approve, and let later edits in this session through without asking" onClick={() => void respond({ approve: true, always: true })}>
             Approve all edits
           </button>
         )}
-        {p.kind === 'command' && !p.risk && (
-          <button className="tw-btn tw-btn-sm" title="Run it, and don't ask again for this exact command in this session" onClick={() => void respond({ approve: true, always: true })}>
+        {p.kind === 'command' && !p.risk && !p.note && (
+          <button className="tw-btn tw-btn-sm" title="Run it, and don't ask again for this exact command in this session. It runs whatever the project's files say at the time." onClick={() => void respond({ approve: true, always: true })}>
             Always allow this command
           </button>
         )}
@@ -218,7 +231,7 @@ export function CodeView() {
           {current.folder.split(/[\\/]/).pop()}
         </span>
         {current.instructions && (
-          <span className="code-chip code-instructions no-drag" title={`The agent follows ${current.instructions} from the project folder`}>
+          <span className="code-chip code-instructions no-drag" title={`The agent reads ${current.instructions} for how this project is written. It can't change what the agent asks you first.`}>
             {current.instructions}
           </span>
         )}
@@ -226,7 +239,7 @@ export function CodeView() {
           className="code-chip code-web no-drag"
           aria-pressed={current.web && current.webAvailable}
           disabled={!current.webAvailable}
-          title={current.webAvailable ? "Claude's web search and page reading, for this session" : 'Web search needs a Claude model'}
+          title={current.webAvailable ? "Claude's web search and page reading, for this session. Pages can hold text written for an agent; what it does still asks you first." : 'Web search needs a Claude model'}
           onClick={() => void useCode.getState().setOptions({ web: !current.web })}
         >
           <GlobeIcon size={13} />
