@@ -7,7 +7,7 @@ import { ChatSettingsPanel } from './ChatSettingsPanel'
 import { CompactBar } from './Compaction'
 import { Composer } from './Composer'
 import { DeletedPanel } from './DeletedPanel'
-import { BranchIcon, SidebarIcon, SlidersIcon, SplitIcon, StarIcon, TrashIcon } from './Icons'
+import { BranchIcon, PlusIcon, SidebarIcon, SlidersIcon, SplitIcon, StarIcon, TrashIcon } from './Icons'
 import { nextBookmark, useBookmarks } from '../bookmarks'
 import { DiffSummary, DiffToggle } from './SplitDiff'
 import { ArenaBar, BlindToggle } from './Arena'
@@ -72,11 +72,69 @@ function JudgeSplitButton() {
   )
 }
 
+type Panel = 'settings' | 'deleted' | null
+
+/** The open chat's title and buttons in the header. */
+function ChatHeadTools({ panel, setPanel, openSettings }: { panel: Panel; setPanel: (next: Panel | ((was: Panel) => Panel)) => void; openSettings: () => Promise<void> }) {
+  const current = useStore((s) => s.current)
+  const deleted = useStore((s) => s.deletions.length)
+  const split = !!current?.split
+  // Any other branch leaves the thread shown somewhere, where a message there has versions.
+  const branched = !!current?.path.some((n) => n.siblingCount > 1)
+  return (
+    <>
+      <h1 className="chat-title">{current?.title ?? 'New chat'}</h1>
+      <button
+        className="tw-btn tw-btn-ghost tw-btn-sm no-drag"
+        aria-pressed={split}
+        disabled={!current || current.path.length === 0}
+        title={split ? 'Close split (keeps A)' : 'Clone into split (Ctrl+Shift+S)'}
+        onClick={() => void (split ? useStore.getState().closeSplit('a') : useStore.getState().cloneIntoSplit())}
+      >
+        <SplitIcon />
+        {split ? 'Close split' : 'Split'}
+      </button>
+      {split && <DiffToggle />}
+      {split && <JudgeSplitButton />}
+      {split && <BlindToggle />}
+      <BookmarkJump />
+      {branched && (
+        <button
+          className="tw-btn tw-btn-ghost tw-btn-sm no-drag branch-open"
+          title="Branch map: every version of this chat, drawn (Ctrl+Shift+B)"
+          onClick={() => useStore.getState().setOverlay('branches')}
+        >
+          <BranchIcon />
+          Branches
+        </button>
+      )}
+      {deleted > 0 && (
+        <button
+          className="tw-btn tw-btn-ghost tw-btn-sm no-drag"
+          aria-expanded={panel === 'deleted'}
+          title="Recently deleted messages: read or restore them"
+          onClick={() => setPanel((p) => (p === 'deleted' ? null : 'deleted'))}
+        >
+          <TrashIcon />
+          {deleted}
+        </button>
+      )}
+      <button
+        className="tw-btn tw-btn-ghost tw-btn-sm no-drag"
+        aria-expanded={panel === 'settings'}
+        onClick={() => (panel === 'settings' ? setPanel(null) : void openSettings())}
+      >
+        <SlidersIcon />
+        Model settings
+      </button>
+    </>
+  )
+}
+
 export function ChatView() {
   const current = useStore((s) => s.current)
   const toggleSidebar = useStore((s) => s.toggleSidebar)
-  const deleted = useStore((s) => s.deletions.length)
-  const [panel, setPanel] = useState<'settings' | 'deleted' | null>(null)
+  const [panel, setPanel] = useState<Panel>(null)
   // The empty chat's quick check of its system prompt, opened from the small button under the greeting.
   const [promptOpen, setPromptOpen] = useState(false)
   const split = !!current?.split
@@ -92,64 +150,36 @@ export function ChatView() {
     return () => window.removeEventListener('twilight-model-settings', open)
   }, [])
   const empty = !current || (current.path.length === 0 && !split)
+  // The Chats button shows the sky by itself: nothing of a chat is drawn until one is opened or
+  // begun, and then its parts ease in (app.css: .chat-bare, .chat-arriving).
+  const bare = useStore((s) => s.sky && !s.current)
+  const arriving = useStore((s) => s.arriving)
+  const sidebarOpen = useStore((s) => s.sidebarOpen)
+  useEffect(() => {
+    if (!arriving) return
+    const done = window.setTimeout(() => useStore.setState({ arriving: false }), 600)
+    return () => window.clearTimeout(done)
+  }, [arriving])
   const models = useStore((s) => s.models)
   const fallback = useStore((s) => s.defaults?.modelId)
   const chosen = current?.settings.modelId ?? fallback ?? null
   const ready = chosen && models.some((m) => m.id === chosen) ? modelName(models, chosen) : null
 
-  // Any other branch leaves the thread shown somewhere, where a message there has versions.
-  const branched = !!current?.path.some((n) => n.siblingCount > 1)
-
   return (
-    <main className="chat">
+    <main className={`chat ${bare ? 'chat-bare' : ''} ${arriving ? 'chat-arriving' : ''}`}>
       <header className="chat-head drag">
         <button className="tw-btn tw-btn-ghost tw-btn-icon no-drag" aria-label="Toggle sidebar (Ctrl+B)" title="Toggle sidebar (Ctrl+B)" onClick={toggleSidebar}>
           <SidebarIcon />
         </button>
-        <h1 className="chat-title">{current?.title ?? 'New chat'}</h1>
-        <button
-          className="tw-btn tw-btn-ghost tw-btn-sm no-drag"
-          aria-pressed={split}
-          disabled={!current || current.path.length === 0}
-          title={split ? 'Close split (keeps A)' : 'Clone into split (Ctrl+Shift+S)'}
-          onClick={() => void (split ? useStore.getState().closeSplit('a') : useStore.getState().cloneIntoSplit())}
-        >
-          <SplitIcon />
-          {split ? 'Close split' : 'Split'}
-        </button>
-        {split && <DiffToggle />}
-        {split && <JudgeSplitButton />}
-        {split && <BlindToggle />}
-        <BookmarkJump />
-        {branched && (
-          <button
-            className="tw-btn tw-btn-ghost tw-btn-sm no-drag branch-open"
-            title="Branch map: every version of this chat, drawn (Ctrl+Shift+B)"
-            onClick={() => useStore.getState().setOverlay('branches')}
-          >
-            <BranchIcon />
-            Branches
+        {bare && <span className="tw-spacer" />}
+        {/* With the sidebar and its + put away, the way to a chat is here. */}
+        {bare && !sidebarOpen && (
+          <button className="tw-btn tw-btn-ghost tw-btn-sm no-drag sky-new" title="New chat (Ctrl+N)" onClick={() => void useStore.getState().newChat()}>
+            <PlusIcon />
+            New chat
           </button>
         )}
-        {deleted > 0 && (
-          <button
-            className="tw-btn tw-btn-ghost tw-btn-sm no-drag"
-            aria-expanded={panel === 'deleted'}
-            title="Recently deleted messages: read or restore them"
-            onClick={() => setPanel((p) => (p === 'deleted' ? null : 'deleted'))}
-          >
-            <TrashIcon />
-            {deleted}
-          </button>
-        )}
-        <button
-          className="tw-btn tw-btn-ghost tw-btn-sm no-drag"
-          aria-expanded={panel === 'settings'}
-          onClick={() => (panel === 'settings' ? setPanel(null) : void openSettings())}
-        >
-          <SlidersIcon />
-          Model settings
-        </button>
+        {!bare && <ChatHeadTools panel={panel} setPanel={setPanel} openSettings={openSettings} />}
       </header>
       {/* Keys unique among <main>'s children: the thread below is keyed by the chat id too, and
           two siblings sharing a key leave stale panels behind when one closes. */}
@@ -162,6 +192,7 @@ export function ChatView() {
       ) : empty ? (
         <div className="empty">
           <EmptySky watch />
+          {!bare && (
           <div className="empty-copy">
             <h2 className="t-display empty-title">{greeting()}</h2>
             <p className="empty-sub">{ready ? `${ready} is ready. Start typing.` : 'Pick a model below and start typing.'}</p>
@@ -173,6 +204,7 @@ export function ChatView() {
             )}
             {current && promptOpen && <SystemPromptCard compact />}
           </div>
+          )}
         </div>
       ) : (
         <Thread key={current.id} />

@@ -39,8 +39,8 @@ export function openMode(mode: Mode): void {
 }
 const go = openMode
 
-// Coming to Chats from another section starts at a new chat (under the sky) unless you'd rather
-// carry on with the last one (Settings → General). Kept per install like the theme.
+// Coming to Chats from another section shows the sky by itself, with no chat open or made, unless
+// you'd rather carry on with the last one (Settings → General). Kept per install like the theme.
 const CHATS_KEY = 'twilight.chatsOpenLast'
 export function readChatsOpenLast(): boolean {
   try {
@@ -56,11 +56,11 @@ export function writeChatsOpenLast(on: boolean): void {
     // Storage unavailable: the choice holds for this session.
   }
 }
-/** The Chats button and Ctrl+1: a new chat when arriving from elsewhere, or the last one if chosen. */
+/** The Chats button and Ctrl+1: the bare sky when arriving from elsewhere, or the last chat if chosen. */
 export function openChats(): void {
   const arriving = s().mode !== 'chat'
   openMode('chat')
-  if (arriving && !readChatsOpenLast()) void s().newChat()
+  if (arriving && !readChatsOpenLast()) s().showSky()
 }
 const settings = (section?: string): void => s().setSettingsOpen(true, section)
 const split = (): boolean => !!s().current?.split

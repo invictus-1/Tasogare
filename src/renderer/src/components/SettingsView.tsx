@@ -465,7 +465,7 @@ function GeneralSection() {
               setOpenLast(e.target.checked)
             }}
           />
-          The Chats button opens the last chat you were on, instead of a new one
+          The Chats button opens the last chat you were on, instead of the sky by itself
         </label>
       </div>
       <LongChats />

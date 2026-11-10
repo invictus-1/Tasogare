@@ -92,6 +92,11 @@ interface State {
   refreshList(): Promise<void>
   refreshModels(refresh?: boolean): Promise<void>
   open(id: string): Promise<void>
+  /** The Chats button: the chat view shows its sky and nothing of a chat, and no chat is open. */
+  sky: boolean
+  showSky(): void
+  /** A chat has just come in under the bare sky, so its parts ease in rather than appear. */
+  arriving: boolean
   newChat(folderId?: string | null): Promise<void>
   /** A new chat set up from a persona: its system prompt, and its model and choice cards when it has them. */
   newChatFromPersona(personaId: string, folderId?: string | null): Promise<void>
@@ -147,6 +152,9 @@ async function guard<T>(set: (s: Partial<State>) => void, fn: () => Promise<T>):
   }
 }
 
+/** The untouched chat that was open when the sky was shown by itself; the main process checks it is still empty before reusing it. */
+let spare: string | null = null
+
 export const useStore = create<State>((set, get) => {
   /** Runs a conversation call and shows its result. */
   const withCurrent = async (fn: (id: string) => Promise<ConversationView>): Promise<void> => {
@@ -163,6 +171,8 @@ export const useStore = create<State>((set, get) => {
     folders: [],
     trash: [],
     current: null,
+    sky: false,
+    arriving: false,
     models: [],
     providers: [],
     mcpServers: [],
@@ -231,11 +241,18 @@ export const useStore = create<State>((set, get) => {
       void get().refreshDeletions()
     },
 
+    showSky() {
+      const current = get().current
+      // An untouched chat left behind is the one the next New chat sets up, so empty chats do not pile up.
+      if (current && current.path.length === 0 && !current.split) spare = current.id
+      set({ current: null, sky: true, arriving: false, deletions: [], undo: appUndo(), arenaReveal: null })
+    },
+
     async newChat(folderId = null) {
       const current = get().current
       // Reuse an untouched chat instead of piling up empty ones. It's set up afresh for where it
       // now goes: only moving it once left a workspace's chat without the workspace's system prompt.
-      const untouched = current && current.path.length === 0 && !current.split ? current.id : null
+      const untouched = current ? (current.path.length === 0 && !current.split ? current.id : null) : spare
       const view = await guard(set, () => api.createConversation(folderId, null, untouched))
       if (!view) return
       set({ current: view, deletions: [], undo: appUndo() })
@@ -244,7 +261,7 @@ export const useStore = create<State>((set, get) => {
 
     async newChatFromPersona(personaId, folderId = null) {
       const current = get().current
-      const untouched = current && current.path.length === 0 && !current.split ? current.id : null
+      const untouched = current ? (current.path.length === 0 && !current.split ? current.id : null) : spare
       const view = await guard(set, () => api.createConversation(folderId, personaId, untouched))
       if (!view) return
       set({ current: view, deletions: [], undo: appUndo() })
@@ -457,6 +474,12 @@ export const useStore = create<State>((set, get) => {
     setSettingsOpen: (open, section) => set({ settingsOpen: open, settingsSection: section ?? null }),
     setError: (error) => set({ error })
   }
+})
+
+// However a chat comes to be open under the bare sky (New chat, the list, search, a persona), the
+// sky stops being bare and the chat is marked as arriving, in one step with the chat itself.
+useStore.subscribe((s) => {
+  if (s.sky && s.current) useStore.setState({ sky: false, arriving: true })
 })
 
 export function modelName(models: ModelInfo[], id: string | undefined): string {

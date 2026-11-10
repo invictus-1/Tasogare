@@ -177,6 +177,7 @@ What's shipped, what's next, and ideas not yet committed to. Tasogare shows this
 - [x] **Installer** · Core — Windows installer and portable zip, with Tasogare artwork
 
 ## Next
+- [~] **The sky by itself** · Chat — done, in the next release: the Chats button shows the scene with nothing of a chat and makes none, and New chat brings the greeting and the message box in with a short ease
 - [~] **Your feedback on 1.0** · Core — fixes from real use
 
 ## Later

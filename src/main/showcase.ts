@@ -280,7 +280,7 @@ async function idle(id: string): Promise<void> {
 
 const wait = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
 
-/** Every theme on the chat, an empty chat, Appearance, Insights and Writing: <theme>-<surface>.png. */
+/** Every theme on the chat, the sky by itself, an empty chat, Appearance, Insights and Writing: <theme>-<surface>.png. */
 async function themeTour(win: BrowserWindow, js: (code: string) => Promise<unknown>, shot: (name: string) => Promise<void>, docPath: string): Promise<void> {
   const only = process.env.TWILIGHT_SHOWCASE_THEMES === '1' ? null : (process.env.TWILIGHT_SHOWCASE_THEMES ?? '').split(',')
   const surfaces: [string, string][] = [
@@ -301,8 +301,9 @@ async function themeTour(win: BrowserWindow, js: (code: string) => Promise<unkno
       await js(go)
       await shot(`${theme.id}-${name}`)
     }
-    // An empty chat, where the sky is.
-    await js(`document.querySelector('[data-mode="chat"]').click(); await wait(300)`)
+    // The Chats button shows the sky by itself; then an empty chat under it.
+    await js(`document.querySelector('[data-mode="chat"]').click(); await wait(1500)`)
+    await shot(`${theme.id}-sky`)
     win.webContents.focus()
     win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'N', modifiers: ['control'] })
     win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'N', modifiers: ['control'] })

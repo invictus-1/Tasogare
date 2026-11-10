@@ -295,6 +295,9 @@ h1, h2, h3 { margin: 0; }
 .cache-bar { flex: none; display: flex; align-items: center; gap: var(--space-2); max-width: var(--thread); width: calc(100% - 2 * var(--space-6)); margin: 0 auto var(--space-2); padding: 2px var(--space-1) 2px var(--space-3); font-size: 12px; line-height: 16px; color: var(--ink-muted); background: var(--surface-raised); border-radius: var(--radius-sm); }
 .cache-text { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .cache-bar .tw-btn-icon { width: 22px; height: 22px; }
+/* One fixed height, which the empty chat's sky counts on (.empty:has(~ .cache-bar)). */
+.cache-bar { box-sizing: border-box; height: var(--cache-bar-height); }
+.chat { --cache-bar-height: 26px; }
 .cache-dot { display: inline-block; width: 8px; height: 8px; border-radius: var(--radius-full); background: var(--ink-faint); flex: none; vertical-align: 0; }
 .cache-hit .cache-dot { background: var(--success); }
 .cache-write .cache-dot, .cache-miss .cache-dot { background: var(--warning); }
@@ -1375,12 +1378,29 @@ div.continuity-target { padding: var(--space-2) var(--space-3); border-radius: v
   :root:not([data-motion]) .app > main, :root:not([data-motion]) .msg-enter { animation-name: fade-only; }
 }
 
+/* ——— The sky by itself, and a chat arriving under it ——— */
+/* The Chats button shows only the sky. The message box keeps its place unseen, so the scene is the
+   size it will be once a chat begins and nothing jumps when one does. */
+.chat-bare .composer-wrap { visibility: hidden; }
+/* A chat begun or opened from there: the greeting, the message box and the header's buttons ease in. */
+.chat-arriving .composer-wrap { animation: chat-arrive 360ms cubic-bezier(.2, .8, .2, 1) backwards; }
+.chat-arriving .empty-copy { animation: chat-arrive 360ms cubic-bezier(.2, .8, .2, 1) 70ms backwards; }
+.chat-arriving .chat-head > :not(:first-child), .chat-arriving .thread-wrap, .chat-arriving .cache-bar, .chat-arriving .compact-bar { animation: fade-only 240ms ease-out backwards; }
+@keyframes chat-arrive { from { opacity: 0; transform: translateY(14px); } }
+:root[data-motion='reduced'] .chat-arriving .composer-wrap, :root[data-motion='reduced'] .chat-arriving .empty-copy { animation-name: fade-only; }
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion]) .chat-arriving .composer-wrap, :root:not([data-motion]) .chat-arriving .empty-copy { animation-name: fade-only; }
+}
+
 /* ——— The empty chat's small evening ——— */
 .empty { position: relative; overflow: hidden; isolation: isolate; }
 .empty > :not(.empty-sky) { position: relative; z-index: 1; }
 /* As the message box grows, it rises over the foot of a new chat's sky instead of taking room from
    it: the sky keeps its size, so the scene doesn't rescale with every line (Composer: --composer-grow). */
 .empty { margin-bottom: calc(-1 * var(--composer-grow, 0px)); }
+/* The cache bar sits over the sky's foot in the same way, so the sky is one size with the bar,
+   without it, and before a chat is begun. */
+.empty:has(~ .cache-bar) { margin-bottom: calc(-1 * (var(--composer-grow, 0px) + var(--cache-bar-height) + var(--space-2))); }
 .empty ~ * { position: relative; z-index: 1; }
 .empty-sky { position: absolute; inset: 0; z-index: 0; pointer-events: none; background: linear-gradient(180deg, transparent 0%, transparent 45%, color-mix(in srgb, var(--dusk-soft) 70%, transparent) 85%, color-mix(in srgb, var(--horizon-soft) 90%, transparent) 100%); }
 .empty-star { position: absolute; width: 2px; height: 2px; border-radius: 50%; background: var(--ink); opacity: .15; animation: wl-twinkle 3.6s ease-in-out infinite; }

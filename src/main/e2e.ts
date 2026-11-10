@@ -5679,8 +5679,8 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
       await shot('e2e-data.png')
       await js(`document.querySelector('.rail-item[data-mode="chat"]')?.click()`)
 
-      // 50. The Chats button: from another section it opens a new chat, or the last one if chosen.
-      const chats50 = await js<{ before: string; msgs: number; kept: string; box: boolean; stored: string | null; fresh: number; empty: boolean }>(`(async () => {
+      // 50. The Chats button: from another section it shows the sky by itself, or the last chat if chosen.
+      const chats50 = await js<{ before: string; msgs: number; kept: string; box: boolean; stored: string | null }>(`(async () => {
         const wait = (ms) => new Promise((r) => setTimeout(r, ms))
         const rail = (m) => document.querySelector('.rail-item[data-mode="' + m + '"]')?.click()
         const settle = async () => { await wait(300); for (let end = Date.now() + 3000; Date.now() < end && !document.querySelector('.chat-head'); ) await wait(25) }
@@ -5704,14 +5704,106 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         await wait(100)
         const stored = localStorage.getItem('twilight.chatsOpenLast')
         rail('chat'); await settle()
-        rail('write'); await wait(300); rail('chat'); await settle()
-        for (let end = Date.now() + 3000; Date.now() < end && !document.querySelector('.empty'); ) await wait(25)
-        const out = { before, msgs, kept, box: !!input, stored, fresh: document.querySelectorAll('.msg').length, empty: !!document.querySelector('.empty') }
+        return { before, msgs, kept, box: !!input, stored }
+      })()`)
+      check('with "open the last chat" on, the Chats button goes back to the chat you were on', chats50.msgs > 0 && !!chats50.before && chats50.kept === chats50.before, chats50)
+      check('General has the switch for what the Chats button opens, off by default', chats50.box && chats50.stored === '0', chats50)
+      // By default the Chats button shows the sky and nothing of a chat, and makes no chat.
+      const sky50 = await js<Record<string, unknown>>(`(async () => {
+        const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+        const until = async (test) => { for (let end = Date.now() + 3000; Date.now() < end && !test(); ) await wait(25) }
+        const rail = (m) => document.querySelector('.rail-item[data-mode="' + m + '"]')?.click()
+        const count = async () => (await window.twilight.listConversations()).length
+        const leave = async () => { rail('write'); await wait(300); rail('chat'); await until(() => document.querySelector('.chat-bare')); await wait(150) }
+        const box = () => document.querySelector('.composer-wrap')
+        const plus = () => document.querySelector('.sidebar-head [aria-label="New chat (Ctrl+N)"]')
+        const names = (el) => (el ? el.getAnimations().map((a) => a.animationName).join() : 'none')
+        const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
+        const motionWas = document.documentElement.dataset.motion
+        delete document.documentElement.dataset.motion
+        const out = { want: reduced ? 'fade-only' : 'chat-arrive' }
+
+        const chatsBefore = await count()
+        await leave()
+        out.bare = !!document.querySelector('main.chat.chat-bare')
+        out.sky = !!document.querySelector('.empty .empty-sky')
+        out.noCopy = !document.querySelector('.empty-copy')
+        out.boxHidden = !!box() && getComputedStyle(box()).visibility === 'hidden'
+        out.headOnly = [...document.querySelectorAll('.chat-head > *')].map((e) => e.getAttribute('aria-label') ?? e.className).join('|')
+        out.noneCurrent = !document.querySelector('.tw-conv[aria-current="true"]')
+        out.noneMade = (await count()) === chatsBefore
+        out.skyHeight = Math.round(document.querySelector('.empty').getBoundingClientRect().height)
+
+        // New chat: the greeting, the message box and the header's buttons come in, eased.
+        plus()?.click()
+        await until(() => document.querySelector('.chat-arriving'))
+        out.arriving = !!document.querySelector('main.chat.chat-arriving:not(.chat-bare)')
+        out.boxIn = names(box())
+        out.copyIn = names(document.querySelector('.empty-copy'))
+        out.headIn = names(document.querySelector('.chat-title'))
+        out.boxShown = !!box() && getComputedStyle(box()).visibility === 'visible'
+        out.typing = document.activeElement?.getAttribute('placeholder') ?? ''
+        out.sameSky = Math.round(document.querySelector('.empty').getBoundingClientRect().height)
+        out.oneMade = (await count()) - chatsBefore
+        await until(() => !document.querySelector('.chat-arriving'))
+        out.settled = !document.querySelector('.chat-arriving') && names(box()) === ''
+        out.title = document.querySelector('.chat-title')?.textContent ?? ''
+
+        // Back to the sky and New chat again: the chat nobody typed in is the one set up, not another.
+        await leave()
+        out.bareAgain = !!document.querySelector('.chat-bare') && !document.querySelector('.empty-copy')
+        // Gentle keeps the fade and drops the movement.
+        document.documentElement.dataset.motion = 'reduced'
+        plus()?.click()
+        await until(() => document.querySelector('.chat-arriving'))
+        out.gentle = names(box()) + '/' + names(document.querySelector('.empty-copy'))
+        delete document.documentElement.dataset.motion
+        out.reused = (await count()) - chatsBefore
+        await until(() => !document.querySelector('.chat-arriving'))
+
+        // With the sidebar put away, the header has the way to a chat.
+        await leave()
+        out.noButton = !document.querySelector('.sky-new')
+        document.querySelector('[aria-label="Toggle sidebar (Ctrl+B)"]')?.click()
+        await until(() => document.querySelector('.sky-new'))
+        out.button = document.querySelector('.sky-new')?.textContent.trim() ?? ''
+        document.querySelector('.sky-new')?.click()
+        await until(() => document.querySelector('.empty-copy'))
+        out.fromHeader = !!document.querySelector('.empty-copy') && !document.querySelector('.chat-bare')
+        document.querySelector('[aria-label="Toggle sidebar (Ctrl+B)"]')?.click()
+        await until(() => document.querySelector('.sidebar'))
+
+        // A chat picked from the list under the bare sky opens as it always did.
+        await leave()
+        const busy = [...document.querySelectorAll('.tw-conv')].find((r) => r.querySelector('.tw-conv-title')?.textContent === ${JSON.stringify(chats50.before)})
+        busy?.click()
+        await until(() => document.querySelector('.msg'))
+        out.opened = document.querySelectorAll('.msg').length
+        out.openedBare = !!document.querySelector('.chat-bare')
+        await until(() => !document.querySelector('.chat-arriving'))
+
+        // Left as the checks below expect: a new chat, and the Chats button going back to the last one.
+        plus()?.click()
+        await until(() => document.querySelector('.empty-copy'))
+        await until(() => !document.querySelector('.chat-arriving'))
+        out.total = (await count()) - chatsBefore
+        if (motionWas) document.documentElement.dataset.motion = motionWas
         localStorage.setItem('twilight.chatsOpenLast', '1')
         return out
       })()`)
-      check('with "open the last chat" on, the Chats button goes back to the chat you were on', chats50.msgs > 0 && !!chats50.before && chats50.kept === chats50.before, chats50)
-      check('by default the Chats button opens a new chat, and General has the switch', chats50.box && chats50.stored === '0' && chats50.fresh === 0 && chats50.empty, chats50)
+      check(
+        'by default the Chats button shows the sky by itself: no greeting, no message box, no chat open and none made',
+        sky50.bare === true && sky50.sky === true && sky50.noCopy === true && sky50.boxHidden === true && sky50.headOnly === 'Toggle sidebar (Ctrl+B)|tw-spacer' && sky50.noneCurrent === true && sky50.noneMade === true,
+        sky50
+      )
+      check(
+        'New chat under the bare sky brings the greeting, the message box and the header in with an ease, ready to type',
+        sky50.arriving === true && sky50.boxIn === sky50.want && sky50.copyIn === sky50.want && sky50.headIn === 'fade-only' && sky50.boxShown === true && sky50.typing === 'Ask anything' && sky50.oneMade === 1 && sky50.settled === true && sky50.title === 'New chat',
+        sky50
+      )
+      check('the sky is the same size bare as with the message box under it, so the scene does not jump', Number(sky50.skyHeight) > 0 && sky50.skyHeight === sky50.sameSky, sky50)
+      check('an untouched chat left for the sky is the one New chat sets up, and Gentle motion only fades', sky50.bareAgain === true && sky50.reused === 1 && sky50.total === 2 && sky50.gentle === 'fade-only/fade-only', sky50)
+      check('with the sidebar closed the bare sky has a New chat button, and a chat picked from the list opens', sky50.noButton === true && sky50.button === 'New chat' && sky50.fromHeader === true && Number(sky50.opened) > 0 && sky50.openedBare === false, sky50)
 
       // 51. The branch map: straight runs fold, forks and branch ends are drawn.
       const row51 = (id: string, parentId: string | null, i: number) => ({ id, parentId, role: (i % 2 ? 'assistant' : 'user') as 'user' | 'assistant', text: 'Message ' + id, createdAt: i })
