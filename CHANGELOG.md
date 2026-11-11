@@ -2,7 +2,7 @@
 
 Each version's section becomes its release notes on the releases page (`npm run release`), and Tasogare shows them in Settings > Updates.
 
-## Unreleased
+## 1.7.0
 
 **Story analysis of the files you choose**
 

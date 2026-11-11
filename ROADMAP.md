@@ -4,6 +4,9 @@ What's shipped, what's next, and ideas not yet committed to. Tasogare shows this
 
 ## Shipped
 
+### 1.7.0 · November 2026
+- [x] **Story analysis of chosen files** · Writing — tick the files to analyse, a file a model will not read is set aside instead of ending the scan, any model can read what is missing without reading the rest again, and a note goes to the model
+
 ### 1.6.2 · November 2026
 - [x] **The sky by itself** · Chat — the Chats button shows the scene with nothing of a chat and makes none, and New chat brings the greeting and the message box in with a short ease
 
@@ -180,7 +183,6 @@ What's shipped, what's next, and ideas not yet committed to. Tasogare shows this
 - [x] **Installer** · Core — Windows installer and portable zip, with Tasogare artwork
 
 ## Next
-- [~] **Story analysis of chosen files** · Writing — done, in the next release: tick the files to analyse, a file a model will not read is set aside instead of ending the scan, any model can read what is missing without reading the rest again, and a note goes to the model
 - [~] **Your feedback on 1.0** · Core — fixes from real use
 
 ## Later

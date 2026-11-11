@@ -1,7 +1,7 @@
 {
   "name": "tasogare",
   "productName": "Tasogare",
-  "version": "1.6.2",
+  "version": "1.7.0",
   "license": "MIT",
   "description": "A fast, local-first desktop front end for language models, agents and writing.",
   "private": true,
