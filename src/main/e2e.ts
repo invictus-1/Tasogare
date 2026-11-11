@@ -58,7 +58,7 @@ import * as updates from './updates'
 import * as insights from './insights'
 import * as insightsAi from './insightsAi'
 import * as reports from './reports'
-import { ACHIEVEMENTS, analyzeText } from '@shared/insights'
+import { ACHIEVEMENTS, analyzeText, overallStory } from '@shared/insights'
 import type { Usage, UsageRange, UsageTotals } from '@shared/types'
 import { usageStats } from './usage'
 import { createHash } from 'node:crypto'
@@ -459,6 +459,12 @@ function startMockServer(log: LoggedRequest[]): Promise<Server> {
       const parsed = JSON.parse(body) as { model: string; messages: { role: string; content: string }[] }
       const entry: LoggedRequest = { model: parsed.model, messages: parsed.messages, body: parsed, startedAt: Date.now() }
       log.push(entry)
+      // A model that is down: every request fails, whatever it holds.
+      if (parsed.model === 'mock-down') {
+        res.writeHead(503, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: { message: 'The server is overloaded' } }))
+        return
+      }
       if (parsed.messages[0]?.content?.startsWith('You are a careful coding agent')) return codeAgentReply(parsed.messages, res)
       if (parsed.messages[0]?.content?.startsWith('You are the context scout')) return scoutReply(parsed.messages, res)
       const lastUser =[...parsed.messages].reverse().find((m) => m.role === 'user')?.content ?? ''
@@ -547,6 +553,9 @@ function startMockServer(log: LoggedRequest[]): Promise<Server> {
         reply =
           `### Prose — X ${xGood ? 8 : 5} · Y ${xGood ? 5 : 8}\nX quotes "${x.slice(0, 20)}".\n\n### Verdict\n${xGood ? 'X' : 'Y'} is better.\n\n` +
           '```json\n' + JSON.stringify({ criteria, overall: { X: xGood ? 8 : 5, Y: xGood ? 5 : 8 }, winner: xGood ? 'X' : 'Y', confidence: 'high' }) + '\n```'
+      } else if (system.startsWith('You classify one passage') && parsed.model === 'mock-a' && lastUser.includes('REFUSED-BY-A')) {
+        // One model declines a passage, in prose; another reads it.
+        reply = "I can't help with classifying this passage."
       } else if (system.startsWith('You classify one passage')) {
         reply = '```json\n' + JSON.stringify({ breakdown: { Drama: 60, Romance: 25, Worldbuilding: 15 }, genres: ['Drama', 'Romance'], tags: [{ name: 'Weather', sub: ['Rain', 'Wind'] }], themes: ['Belonging', 'Counting'], summary: 'Things happen in this part.' }) + '\n```'
       } else if (system.startsWith('You analyse a long work')) {
@@ -2111,29 +2120,29 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
       check('Tools menu turns on the choice tool', c8settings.choiceCards && c8settings.choiceTool, { cards: c8settings.choiceCards, tool: c8settings.choiceTool })
       await shot('e2e-tools.png')
 
-      // 34. Insights AI pages: deep scan in chunks (cached by text), quick sample, focus, notes;
-      // reports; and the Ultraviolet theme.
+      // 34. Insights AI pages: deep scan in chunks (cached by text), quick sample, focus, notes,
+      // chosen files and what a model will not read; reports; and the Ultraviolet theme.
       insightsAi.setConfig({ providerId: 'mock', modelId: 'mock-a', effort: null, parallel: 4 })
-      const est1 = await insightsAi.estimate('deep', '')
+      const est1 = await insightsAi.estimate('deep')
       check('deep scan estimate counts chunks plus the closing call', est1.calls >= 3 && est1.cached === 0 && est1.words > 100000, est1)
       const beforeDeep = log.length
-      let aiState = await insightsAi.runStory('deep', '')
+      let aiState = await insightsAi.runStory('deep')
       const deep = aiState.story['']
       const deepCalls = log.length - beforeDeep
       check('deep scan reads every chunk, then writes the themes', deepCalls === est1.calls && deep?.mode === 'deep' && !aiState.error, { deepCalls, error: aiState.error })
       check('content breakdown sums to 100', Math.abs((deep?.breakdown ?? []).reduce((a, b) => a + b.percent, 0) - 100) < 0.5 && deep?.breakdown[0]?.name === 'Drama', deep?.breakdown)
       check('genres, tags and themes merged', (deep?.genres.length ?? 0) >= 2 && deep?.tags[0]?.subtags.length > 0 && deep?.themes.length === 2 && !!deep?.summary, deep)
-      const est2 = await insightsAi.estimate('deep', '')
+      const est2 = await insightsAi.estimate('deep')
       check('a rescan only pays for text that changed', est2.cached === est1.calls - 1 && est2.calls === 1, est2)
       // An edit near the top of a long manuscript changes the part it's in, not every part after it.
       const bigText = (await docs.readDoc(big.path)).text
       await docs.writeDoc(big.path, `A new opening line, added after the scan.\n\n${bigText}`)
-      const est3 = await insightsAi.estimate('deep', '')
+      const est3 = await insightsAi.estimate('deep')
       check('an early edit re-reads one part, not the rest', est3.calls <= 3 && est3.cached >= est1.calls - 3, { calls: est3.calls, cached: est3.cached, total: est1.calls - 1 })
       await docs.writeDoc(big.path, bigText)
       check('the parallel setting is kept', insightsAi.state().config.parallel === 4)
       const beforeQuick = log.length
-      aiState = await insightsAi.runStory('quick', '')
+      aiState = await insightsAi.runStory('quick')
       check('quick sample is one call', log.length - beforeQuick === 1 && aiState.story['']?.mode === 'quick' && aiState.story['']?.genres[0]?.name === 'Fantasy', aiState.story[''])
       aiState = await insightsAi.runFocus()
       check('focus gives areas with evidence and an exercise', (aiState.focus?.areas.length ?? 0) === 2 && !!aiState.focus?.areas[0].exercise && aiState.focus.areas[0].evidence.length === 1, aiState.focus)
@@ -2145,7 +2154,88 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
       const hist = insightsAi.state().history
       check('earlier results are kept', hist.story.length === 2 && hist.story[0].mode === 'quick' && hist.story[1].mode === 'deep' && hist.focus.length === 1 && hist.notes.length === 1, { story: hist.story.length })
       check('an earlier result can be removed', insightsAi.forget('story', hist.story[1].at).history.story.length === 1 && !!insightsAi.state().story[''])
-      await insightsAi.runStory('quick', '')
+      // 34b. Story analysis of chosen files. Reads are kept per part whichever model made them, a
+      // part a model will not read is set aside rather than ending the scan, another model can
+      // read just that part later, and a note goes to the model with what it reads.
+      const sp0 = await insightsAi.plan()
+      check(
+        'every document is listed with how much of it is read and by which model',
+        sp0.files.length >= 3 && sp0.files.every((f) => f.read === f.parts && (f.parts === 0 || f.models.join() === 'mock-a')) && sp0.deep.calls === 1,
+        sp0.files.map((f) => [f.path, f.read, f.parts, f.models.join()])
+      )
+      const small34 = sp0.files.filter((f) => f.path !== big.path && f.words > 0).map((f) => f.path)
+      const [hard34, spare34] = small34
+      const hardText34 = (await docs.readDoc(hard34)).text
+      // mock-a declines any passage holding this word (it answers in prose, not JSON).
+      await docs.writeDoc(hard34, `${hardText34}\n\nREFUSED-BY-A Rowan would not say what the tide had brought in.\n`)
+      const chosen34 = sp0.files.map((f) => f.path).filter((p) => p !== spare34)
+      const sp1 = await insightsAi.plan(chosen34)
+      const hardState = (p: typeof sp1): (typeof sp1.files)[number] | undefined => p.files.find((f) => f.path === hard34)
+      check('a changed file is the only one a deep scan of the chosen files would read', sp1.deep.calls === 2 && hardState(sp1)?.read === 0 && sp1.files.length === sp0.files.length, { deep: sp1.deep, files: sp1.files.length })
+      let before34 = log.length
+      aiState = await insightsAi.runStory('deep', chosen34, { note: "Rowan is the keeper's sister." })
+      let part34 = aiState.history.story[0]
+      const sent34 = log.slice(before34).map((e) => JSON.stringify(e.messages))
+      const missed34 = part34?.files?.find((f) => f.path === hard34)
+      check(
+        'a part the model will not read is set aside, and the rest is still analysed',
+        !aiState.error && part34?.mode === 'deep' && part34.scope === 'selection' && sent34.length === 2 && !!missed34 && missed34.read === 0 && missed34.words > 0 && /JSON/.test(missed34.error ?? '') && part34.themes.length === 2 && part34.words > 100000,
+        { error: aiState.error, calls: sent34.length, missed34, scope: part34?.scope }
+      )
+      check('the result says which files it covers and which were left out', part34?.files?.length === chosen34.length && part34.leftOut?.join() === spare34 && !part34.files.some((f) => f.path === spare34), { files: part34?.files?.length, leftOut: part34?.leftOut })
+      check(
+        'the note goes to the model with what it reads, and to the closing call',
+        sent34[0].includes('<author_note>') && sent34[0].includes("Rowan is the keeper's sister.") && sent34[1].includes("The author's notes") && sent34[1].includes("Rowan is the keeper's sister.") && part34?.note === "Rowan is the keeper's sister.",
+        sent34.map((t) => t.slice(0, 200))
+      )
+      check('the file list says which one could not be read, and why', /JSON/.test(hardState(await insightsAi.plan(chosen34))?.error ?? ''))
+      // Another model reads only what is missing; the rest keeps the reads it has.
+      insightsAi.setConfig({ providerId: 'mock', modelId: 'mock-b', effort: null, parallel: 4 })
+      const est34 = await insightsAi.estimate('deep', chosen34)
+      check('another model is asked only for the part that is missing', est34.calls === 2 && est34.cached === sp1.deep.cached, est34)
+      before34 = log.length
+      aiState = await insightsAi.runStory('deep', chosen34, { note: 'Told from the far shore.' })
+      part34 = aiState.history.story[0]
+      const mixed34 = part34?.files ?? []
+      check(
+        'the missing file is read by the other model and joined to the rest',
+        !aiState.error && log.length - before34 === 2 && mixed34.every((f) => f.read === f.words) && mixed34.find((f) => f.path === hard34)?.models.join() === 'mock-b' && mixed34.find((f) => f.path === big.path)?.models.join() === 'mock-a',
+        { error: aiState.error, calls: log.length - before34, models: mixed34.map((f) => [f.path, f.models.join(), f.read, f.words]) }
+      )
+      const sp2 = await insightsAi.plan(chosen34)
+      check('a note is kept with the file it was read with, and the failure is forgotten', hardState(sp2)?.note === 'Told from the far shore.' && !hardState(sp2)?.error && hardState(sp2)?.models.join() === 'mock-b', hardState(sp2))
+      const own34 = await insightsAi.estimate('deep', chosen34, { own: true })
+      check('reading everything with the chosen model counts only its own reads', own34.cached === 1 && own34.calls === sp1.deep.cached + 1, own34)
+      // The file left out is added: nothing is read again, only the closing call is made.
+      before34 = log.length
+      aiState = await insightsAi.runStory('deep')
+      const whole34 = aiState.history.story[0]
+      const closing34 = JSON.stringify(log.at(-1)?.messages ?? [])
+      check(
+        'adding the file left out reads nothing again and tells the closing call the kept note',
+        !aiState.error && log.length - before34 === 1 && whole34?.scope === '' && whole34.leftOut?.length === 0 && whole34.files?.length === sp0.files.length && closing34.includes(`On ${hard34}: Told from the far shore.`),
+        { error: aiState.error, calls: log.length - before34, scope: whole34?.scope, closing: closing34.slice(0, 300) }
+      )
+      before34 = log.length
+      aiState = await insightsAi.runStory('quick', [hard34])
+      const one34 = aiState.history.story[0]
+      const quick34 = JSON.stringify(log.at(-1)?.messages ?? [])
+      check(
+        'a quick sample of one chosen file reads only that file',
+        log.length - before34 === 1 && one34?.scope === hard34 && one34.files?.length === 1 && quick34.includes('REFUSED-BY-A') && !quick34.includes('The lamps came on one street'),
+        { scope: one34?.scope, files: one34?.files?.length }
+      )
+      aiState = await insightsAi.runStory('quick', ['../twilight.db'])
+      check('a path that is not a document in the folder is never read', /no text/.test(aiState.error ?? '') && aiState.history.story[0]?.at === one34?.at, aiState.error)
+      // A model that fails for a reason that is not the text ends the scan instead of failing every part in turn.
+      insightsAi.setConfig({ providerId: 'mock', modelId: 'mock-down', effort: null, parallel: 4 })
+      before34 = log.length
+      aiState = await insightsAi.runStory('deep', null, { own: true })
+      check('a scan whose first calls all fail for another reason stops with the reason', /overloaded/.test(aiState.error ?? '') && log.length - before34 <= 8 && aiState.history.story[0]?.at === one34?.at, { error: aiState.error, calls: log.length - before34 })
+      check('reports quote the latest analysis of the folder or of several files', overallStory(insightsAi.state())?.at === whole34?.at)
+      await docs.writeDoc(hard34, hardText34)
+      insightsAi.setConfig({ providerId: 'mock', modelId: 'mock-a', effort: null, parallel: 4 })
+      await insightsAi.runStory('quick')
       const reportFile = await reports.exportReport('week', true)
       const reportHtml = await readFile(reportFile, 'utf8')
       check('a report is one self-contained file', reportHtml.includes('Week in Writing') && !/<script/i.test(reportHtml) && !/https?:\/\//.test(reportHtml.replace(/xmlns="[^"]*"/g, '')), reportFile)
@@ -2181,6 +2271,87 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
       check('Ultraviolet theme applies', aiUi.theme === 'ultraviolet' && aiUi.night === '#0c0614', aiUi)
       await shot('e2e-ultraviolet.png')
       await win.webContents.executeJavaScript(`[...document.querySelectorAll('.theme-option')].find((b) => b.textContent.includes('Twilight'))?.click()`)
+
+      // 34c. The Story analysis page: choosing files, the note, and what a result covers.
+      const storyUi: Record<string, unknown> = await win.webContents.executeJavaScript(`(async () => {
+        const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+        const until = async (test) => { for (let end = Date.now() + 5000; Date.now() < end && !test(); ) await wait(30) }
+        document.querySelector('[data-mode="insights"]').click()
+        await wait(300)
+        ;[...document.querySelectorAll('.insights-nav-item')].find((b) => b.textContent.startsWith('Story analysis'))?.click()
+        await until(() => document.querySelector('.story-pick'))
+        const pick = () => document.querySelector('.story-pick span')?.textContent ?? ''
+        const rows = () => [...document.querySelectorAll('.story-file')]
+        const link = (label) => [...document.querySelectorAll('.link-btn')].find((b) => b.textContent.trim() === label)
+        const run = (label) => [...document.querySelectorAll('.ai-run .tw-btn')].find((b) => b.textContent.trim() === label)
+        const skip = async () => (await window.twilight.getAiState()).config.skip ?? []
+        const out = {}
+        await until(() => /^All \\d+ files$/.test(pick()))
+        out.all = pick()
+        out.shut = rows().length
+        document.querySelector('.story-pick').click()
+        await until(() => rows().length > 0)
+        const total = rows().length
+        out.total = total
+        await until(() => rows().some((r) => /^Read by /.test(r.querySelector('.story-file-state').textContent)))
+        out.states = rows().map((r) => r.querySelector('.story-file-state').textContent)
+        out.words = rows().every((r) => /words$/.test(r.querySelector('.story-file-words').textContent))
+        // Unticking a file leaves it out, and that is remembered.
+        const dropped = rows()[1].querySelector('.story-file-name').textContent
+        rows()[1].querySelector('input').click()
+        await until(() => pick() === (total - 1) + ' of ' + total + ' files')
+        out.some = pick()
+        out.kept = (await skip()).length
+        // Every file is read already, so "Not read yet" leaves nothing to scan.
+        link('Not read yet').click()
+        await until(() => pick() === 'No files chosen')
+        out.none = pick()
+        out.blocked = run('Deep scan').disabled && run('Quick sample').disabled
+        link('All').click()
+        await until(() => /^All /.test(pick()))
+        out.allAgain = pick()
+        rows()[1].querySelector('input').click()
+        await until(() => pick() === (total - 1) + ' of ' + total + ' files')
+        // A note, then a quick sample of everything but that file.
+        const box = document.querySelector('.story-note textarea')
+        Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(box, 'The second file is only notes.')
+        box.dispatchEvent(new Event('input', { bubbles: true }))
+        await wait(100)
+        out.noteHint = /Your note goes with what is read/.test(document.querySelector('.ai-run .field-note')?.textContent ?? '')
+        const before = (await window.twilight.getAiState()).history.story[0]?.at
+        run('Quick sample').click()
+        await until(() => document.querySelector('.story-covers'))
+        const latest = (await window.twilight.getAiState()).history.story[0]
+        out.ran = latest.at !== before && latest.scope === 'selection' && latest.files.length === total - 1 && latest.note === 'The second file is only notes.'
+        out.head = document.querySelector('.ins-note')?.textContent ?? ''
+        out.covers = document.querySelector('.story-covers')?.textContent ?? ''
+        out.leftOut = out.covers.includes('Left out: ' + dropped)
+        await wait(200)
+        out.noteCleared = document.querySelector('.story-note textarea').value === ''
+        out.history = [...document.querySelectorAll('.ai-history-pick option')].map((o) => o.textContent)[0] ?? ''
+        // "Add back" ticks the file left out again, ready for the next run.
+        document.querySelector('.story-pick').click()
+        await until(() => rows().length === 0)
+        const estimate = () => document.querySelector('.ai-run .field-note')?.textContent ?? ''
+        const estimateWas = estimate()
+        link('Add back').click()
+        await until(() => /^All /.test(pick()) && rows().length > 0)
+        await until(() => estimate() !== estimateWas)
+        out.estimateMoved = estimate() !== estimateWas
+        out.added = pick()
+        out.opened = rows().length === total
+        out.keptAfter = (await skip()).length
+        return out
+      })()`)
+      check('the Story analysis page lists every file with what a deep scan has read of it', storyUi.shut === 0 && Number(storyUi.total) >= 3 && storyUi.all === `All ${storyUi.total} files` && (storyUi.states as string[]).some((t) => /^Read by /.test(t)) && storyUi.words === true, storyUi)
+      check('unticking a file leaves it out and is remembered; "Not read yet" and "All" choose for you', storyUi.some === `${Number(storyUi.total) - 1} of ${storyUi.total} files` && storyUi.kept === 1 && storyUi.none === 'No files chosen' && storyUi.blocked === true && storyUi.allAgain === storyUi.all, storyUi)
+      check('an analysis of some files says what it covers, what was left out and the note it was given', storyUi.ran === true && storyUi.noteHint === true && /in \d+ of \d+ files/.test(String(storyUi.head)) && storyUi.leftOut === true && String(storyUi.covers).includes('Your note: The second file is only notes.') && storyUi.noteCleared === true && /quick sample · \d+ of \d+ files/.test(String(storyUi.history)), storyUi)
+      check('"Add back" ticks the files left out, opens the list and the estimate follows', storyUi.added === storyUi.all && storyUi.opened === true && storyUi.keptAfter === 0 && storyUi.estimateMoved === true, storyUi)
+      await shot('e2e-story-files.png')
+      await win.webContents.executeJavaScript(`document.querySelector('.story-covers')?.scrollIntoView({ block: 'center' }); new Promise((r) => setTimeout(r, 300))`)
+      await shot('e2e-story-covers.png')
+      // Back to Settings, where the next section starts.
+      await win.webContents.executeJavaScript(`document.querySelector('.rail [data-rail="settings"]').click(); new Promise((r) => setTimeout(r, 400))`)
 
       // 35. The first-run welcome, replayed from Settings → About: intro, a local model found and
       // ticked, the writing folder, a look, done.

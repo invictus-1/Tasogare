@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import type { AiState, InsightsSummary, StoryAnalysis, StoryEstimate } from '@shared/insights'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { AiState, InsightsSummary, StoryAnalysis, StoryEstimate, StoryFileState, StoryPlan } from '@shared/insights'
 import { formatCost } from '@shared/pricing'
 import { useInsights, type InsightsPage } from '../insightsStore'
 import { modelName, optionsFor, useStore } from '../store'
@@ -218,13 +218,58 @@ function Tags({ tags }: { tags: StoryAnalysis['tags'] }) {
   )
 }
 
-function StoryResult({ r }: { r: StoryAnalysis }) {
+const docName = (path: string): string => path.replace(/\.md$/i, '')
+const listed = (names: string[], max = 6): string => (names.length > max ? `${names.slice(0, max).join(', ')} and ${names.length - max} more` : names.join(', '))
+
+/** What a result covers, in a few words: the folder, one document, or some of them. */
+function covers(r: StoryAnalysis): string {
+  if (!r.files) return r.scope ? docName(r.scope) : 'the folder'
+  if (r.files.length === 1) return docName(r.files[0].path)
+  const total = r.files.length + (r.leftOut?.length ?? 0)
+  return r.files.length === total ? `all ${total} files` : `${r.files.length} of ${total} files`
+}
+
+/** A result, with what it covers: the files a model would not read and the ones left out can be chosen from here. */
+function StoryResult({ r, onChoose }: { r: StoryAnalysis; onChoose: (paths: string[]) => void }) {
+  const models = useStore((s) => s.models)
+  const closing = modelName(models, r.model)
+  const readBy = [...new Set((r.files ?? []).flatMap((f) => f.models).filter(Boolean).map((m) => modelName(models, m)))]
+  const who = readBy.length > 1 || (readBy.length === 1 && readBy[0] !== closing) ? `read by ${readBy.join(' and ')}` : closing
+  const covered = (r.files ?? []).map((f) => f.path)
+  const missed = (r.files ?? []).filter((f) => f.read < f.words)
+  const left = r.leftOut ?? []
   return (
     <>
       <p className="ins-note">
-        {r.mode === 'deep' ? 'Deep scan' : 'Quick sample'} of {r.words.toLocaleString()} words · {modelName(useStore.getState().models, r.model)} · {ago(r.at)}
+        {r.mode === 'deep' ? 'Deep scan' : 'Quick sample'} of {r.words.toLocaleString()} words{r.files ? ` in ${covers(r)}` : ''} · {who} · {ago(r.at)}
         {r.costUsd !== null ? ` · ${formatCost(r.costUsd)}` : ''}
       </p>
+      {(missed.length > 0 || left.length > 0 || r.note) && (
+        <div className="story-covers">
+          {missed.length > 0 && (
+            <p className="story-missed">
+              <b>Not read:</b> {listed(missed.map((f) => (f.read ? `${docName(f.path)} (${(f.words - f.read).toLocaleString()} of ${f.words.toLocaleString()} words)` : docName(f.path))))}.{' '}
+              {missed.find((f) => f.error)?.error}{' '}
+              <button className="link-btn" title="Chooses these files again. Pick another model if this one will not read them: a deep scan then reads only what is missing." onClick={() => onChoose(covered)}>
+                Try again
+              </button>
+            </p>
+          )}
+          {left.length > 0 && (
+            <p>
+              <b>Left out:</b> {listed(left.map(docName))}.{' '}
+              <button className="link-btn" title="Chooses them along with the files already covered. A deep scan then reads only them, with the model you pick." onClick={() => onChoose([...covered, ...left])}>
+                Add back
+              </button>
+            </p>
+          )}
+          {r.note && (
+            <p>
+              <b>Your note:</b> {r.note}
+            </p>
+          )}
+        </div>
+      )}
       {r.summary && (
         <section className="ins-card">
           <h3 className="ins-card-title">In short</h3>
@@ -276,48 +321,93 @@ function StoryResult({ r }: { r: StoryAnalysis }) {
   )
 }
 
+/** How much of a document a deep scan has read, in a few words. */
+function fileState(f: StoryFileState, by: string): { label: string; tone: 'read' | 'part' | 'none' | 'failed'; title?: string } {
+  if (!f.parts) return { label: f.words ? '' : 'Empty', tone: 'none' }
+  if (f.read === f.parts) return { label: `Read by ${by}`, tone: 'read' }
+  if (f.read) return { label: `Part read: ${f.read} of ${f.parts}`, tone: 'part', title: f.error ?? 'It has changed since it was read, or part of it has not been read yet' }
+  return f.error ? { label: "Couldn't be read", tone: 'failed', title: f.error } : { label: 'Not read', tone: 'none' }
+}
+
 function StoryPage({ ai, s }: { ai: AiState; s: InsightsSummary }) {
-  const [scope, setScope] = useState('')
-  const [estimate, setEstimate] = useState<Record<'quick' | 'deep', StoryEstimate | null>>({ quick: null, deep: null })
-  const busy = !!ai.running
+  const models = useStore((st) => st.models)
+  const [plan, setPlan] = useState<StoryPlan | null>(null)
+  const [open, setOpen] = useState(false)
+  const [note, setNote] = useState('')
+  const [own, setOwn] = useState(false)
   const [viewing, setViewing] = useState<number | null>(null)
-  const earlier = ai.history.story.filter((r) => r.scope === scope)
-  const result = (viewing && earlier.find((r) => r.at === viewing)) || ai.story[scope]
-  useEffect(() => setViewing(null), [scope, ai.story[scope]?.at])
-  const setParallel = (parallel: number): void =>
-    void window.twilight.setAiConfig({ ...ai.config, parallel }).then((state) => useInsights.setState({ ai: state }))
+  const card = useRef<HTMLElement>(null)
+  const busy = !!ai.running
+  const skipped = (ai.config.skip ?? []).join('\n')
+  const skip = useMemo(() => new Set(skipped ? skipped.split('\n') : []), [skipped])
+  // The folder's documents: from the plan once it is in, from the tracker's own list until then.
+  const docs: StoryFileState[] = plan?.files ?? s.perFile.map((f) => ({ path: f.path, words: f.words, parts: 0, read: 0, models: [] }))
+  const chosen = docs.filter((d) => !skip.has(d.path)).map((d) => d.path)
+  const chosenKey = chosen.join('\n')
+  const files = skip.size ? chosen : null
+  // The page shows the latest analysis, whatever it covered; which files are ticked only decides
+  // what the next one reads.
+  const latest = ai.history.story[0] ?? null
+  const result = (viewing && ai.history.story.find((r) => r.at === viewing)) || latest
+  useEffect(() => {
+    setViewing(null)
+    setNote('')
+  }, [latest?.at])
   useEffect(() => {
     let live = true
-    setEstimate({ quick: null, deep: null })
-    void Promise.all([window.twilight.estimateStory('quick', scope), window.twilight.estimateStory('deep', scope)]).then(([quick, deep]) => live && setEstimate({ quick, deep }))
+    void window.twilight.planStory(files, { own }).then((p) => live && setPlan(p))
     return () => {
       live = false
     }
-  }, [scope, ai.config.modelId, ai.running === null, s.scannedAt])
+  }, [chosenKey, skip.size, own, ai.config.modelId, ai.running === null, s.scannedAt])
+
+  const saveConfig = (patch: Partial<AiState['config']>): void =>
+    void window.twilight.setAiConfig({ ...ai.config, ...patch }).then((state) => useInsights.setState({ ai: state }))
+  /** Ticks exactly these documents; the rest are left out until ticked again. */
+  const choose = (paths: string[]): void => {
+    const keep = new Set(paths)
+    saveConfig({ skip: docs.map((d) => d.path).filter((p) => !keep.has(p)) })
+  }
+  const fromResult = (paths: string[]): void => {
+    choose(paths)
+    setOpen(true)
+    card.current?.scrollIntoView({ block: 'nearest' })
+  }
   const run = (mode: 'quick' | 'deep'): void => {
-    void window.twilight.runStory(mode, scope).catch((err) => useStore.getState().setError(errText(err)))
+    void window.twilight.runStory(mode, files, { own, note }).catch((err) => useStore.getState().setError(errText(err)))
   }
   const cost = (e: StoryEstimate | null): string =>
     e?.costUsd == null ? 'cost unknown for this model' : e.costUsd === 0 ? 'free on a local model' : `about ${formatCost(e.costUsd)}`
+
+  const total = docs.length
+  const label = !total
+    ? 'No documents yet'
+    : !chosen.length
+      ? 'No files chosen'
+      : chosen.length === 1
+        ? docName(chosen[0])
+        : chosen.length === total
+          ? `All ${total} files`
+          : `${chosen.length} of ${total} files`
+  const unread = docs.filter((d) => d.parts > 0 && d.read < d.parts).map((d) => d.path)
+  const othersRead = !!plan?.files.some((f) => !skip.has(f.path) && f.models.some((m) => m !== ai.config.modelId))
+  const quick = plan?.quick ?? null
+  const deep = plan?.deep ?? null
   return (
     <>
       <Head title="Story analysis" sub="What your story is made of: content, genres, tags and themes, read by a model you choose" />
-      <ModelBar ai={ai} sends={scope ? 'this document' : 'your documents'} />
-      <section className="ins-card ai-run">
+      <ModelBar ai={ai} sends={chosen.length === 1 ? 'this document' : 'the documents you choose'} />
+      <section className="ins-card ai-run" ref={card}>
         <div className="ai-run-row">
-          <select className="ins-select" value={scope} onChange={(e) => setScope(e.target.value)} aria-label="What to analyse">
-            <option value="">The whole writing folder</option>
-            {s.perFile.map((f) => (
-              <option key={f.path} value={f.path}>
-                {f.path.replace(/\.md$/i, '')}
-              </option>
-            ))}
-          </select>
-          <button className="tw-btn tw-btn-primary" disabled={busy} onClick={() => run('quick')}>
+          <button className="story-pick" aria-expanded={open} aria-label="Files to analyse" title="Choose which files are analysed" onClick={() => setOpen((o) => !o)}>
+            {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            <span>{label}</span>
+          </button>
+          <button className="tw-btn tw-btn-primary" disabled={busy || !chosen.length} onClick={() => run('quick')}>
             <SparkIcon size={15} />
             Quick sample
           </button>
-          <button className="tw-btn" disabled={busy} onClick={() => run('deep')}>
+          <button className="tw-btn" disabled={busy || !chosen.length} onClick={() => run('deep')}>
             Deep scan
           </button>
           <label className="ai-parallel" title="How many parts of a deep scan are read at the same time. More is faster; some providers limit how many requests you can make at once.">
@@ -328,20 +418,86 @@ function StoryPage({ ai, s }: { ai: AiState; s: InsightsSummary }) {
               max={10}
               value={ai.config.parallel}
               disabled={busy}
-              onChange={(e) => setParallel(Math.min(10, Math.max(1, Number(e.target.value) || 1)))}
+              onChange={(e) => saveConfig({ parallel: Math.min(10, Math.max(1, Number(e.target.value) || 1)) })}
             />
           </label>
         </div>
+        {open && (
+          <div className="story-files">
+            <div className="story-files-pick">
+              <span>Choose</span>
+              <button className="link-btn" disabled={busy} onClick={() => choose(docs.map((d) => d.path))}>
+                All
+              </button>
+              <button className="link-btn" disabled={busy} onClick={() => choose([])}>
+                None
+              </button>
+              <button className="link-btn" disabled={busy || !plan} title="Only the files a deep scan has not read, or has not read all of" onClick={() => choose(unread)}>
+                Not read yet
+              </button>
+            </div>
+            <ul className="story-file-list">
+              {docs.map((f) => {
+                const st = fileState(f, f.models.map((m) => modelName(models, m)).join(' and '))
+                return (
+                  <li key={f.path}>
+                    <label className="story-file">
+                      <input
+                        type="checkbox"
+                        checked={!skip.has(f.path)}
+                        disabled={busy}
+                        onChange={() => choose(skip.has(f.path) ? [...chosen, f.path] : chosen.filter((p) => p !== f.path))}
+                      />
+                      <span className="story-file-name">{docName(f.path)}</span>
+                      {f.note && (
+                        <span className="tw-badge" title={`Your note: ${f.note}`}>
+                          Note
+                        </span>
+                      )}
+                      <span className="story-file-words">{f.words.toLocaleString()} words</span>
+                      <span className={`story-file-state story-${st.tone}`} title={st.title}>
+                        {st.label}
+                      </span>
+                    </label>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        )}
+        <label className="story-note">
+          <span>Note for the model (optional)</span>
+          <textarea
+            rows={2}
+            maxLength={1000}
+            value={note}
+            disabled={busy}
+            placeholder="Anything it should know about these files: where they sit in the story, why they are here"
+            onChange={(e) => setNote(e.target.value)}
+          />
+        </label>
+        {(own || othersRead) && (
+          <label className="check story-own">
+            <input type="checkbox" checked={own} disabled={busy} onChange={(e) => setOwn(e.target.checked)} />
+            Read everything with {modelName(models, ai.config.modelId)}, even what another model has read
+          </label>
+        )}
         <p className="field-note">
-          Quick sample: one call reading {estimate.quick ? `${estimate.quick.words > 25000 ? 'about 25,000 words of excerpts' : `all ${estimate.quick.words.toLocaleString()} words`}` : '…'}, {cost(estimate.quick)}. Deep scan:{' '}
-          {estimate.deep ? `${estimate.deep.calls} call${estimate.deep.calls === 1 ? '' : 's'} over ${estimate.deep.words.toLocaleString()} words` : '…'}
-          {estimate.deep && estimate.deep.cached > 0 ? ` (${estimate.deep.cached} parts already read, never billed twice)` : ''}, {cost(estimate.deep)}, {ai.config.parallel} at a
-          time; the same model writes the final themes.
+          Quick sample: one call reading {quick ? `${quick.words > 25000 ? 'about 25,000 words of excerpts' : `all ${quick.words.toLocaleString()} words`}` : '…'}, {cost(quick)}. Deep scan:{' '}
+          {deep ? `${deep.calls} call${deep.calls === 1 ? '' : 's'} over ${deep.words.toLocaleString()} words` : '…'}
+          {deep && deep.cached > 0 ? ` (${deep.cached} parts already read, never billed twice)` : ''}, {cost(deep)}, {ai.config.parallel} at a time; the same model writes the final themes. A part a
+          model will not read is set aside, and the rest is still analysed.{note.trim() ? ' Your note goes with what is read in this run.' : ''}
         </p>
         <RunState ai={ai} kind="story" />
       </section>
-      <History items={earlier} viewing={viewing} onView={setViewing} onForget={(at) => forget('story', at)} describe={(r) => (r.mode === 'deep' ? 'deep scan' : 'quick sample')} />
-      {result ? <StoryResult r={result} /> : !busy && <div className="ins-empty">No analysis of {scope ? 'this document' : 'the folder'} yet. A quick sample is a good start.</div>}
+      <History
+        items={ai.history.story}
+        viewing={viewing}
+        onView={setViewing}
+        onForget={(at) => forget('story', at)}
+        describe={(r) => `${r.mode === 'deep' ? 'deep scan' : 'quick sample'} · ${covers(r)}`}
+      />
+      {result ? <StoryResult r={result} onChoose={fromResult} /> : !busy && <div className="ins-empty">No analysis yet. A quick sample is a good start.</div>}
     </>
   )
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { InsightsSummary } from '@shared/insights'
+import { overallStory, type InsightsSummary } from '@shared/insights'
 import { useInsights } from '../insightsStore'
 import { useStore } from '../store'
 import { ExportIcon, FolderIcon, SparkIcon } from './Icons'
@@ -19,7 +19,7 @@ export function ReportsPage(_: { s: InsightsSummary }) {
   const [includeAi, setIncludeAi] = useState(true)
   const [busy, setBusy] = useState<Kind | null>(null)
   const [last, setLast] = useState<string | null>(null)
-  const hasAi = !!(ai?.notes || ai?.story[''])
+  const hasAi = !!(ai?.notes || (ai && overallStory(ai)))
   const exportOne = async (kind: Kind): Promise<void> => {
     setBusy(kind)
     try {

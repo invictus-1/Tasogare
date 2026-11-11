@@ -109,7 +109,7 @@ Markdown documents in any folder you choose (an Obsidian vault works as is). A 1
 
 ![Writer insights: words written today, this week, month and year, streak, best day, and the last 14 days](docs/screenshots/insights.png)
 
-Your writing folder, seen as numbers: words written today, this week and this year; a heatmap of the days you write; streaks and your best day; sentence length, dialogue share and vocabulary; which characters get the most page time. With a model you choose, **Story analysis** reads what your story is made of, **Focus** suggests what to work on, and **Reports** turn a week, month or year into a recap.
+Your writing folder, seen as numbers: words written today, this week and this year; a heatmap of the days you write; streaks and your best day; sentence length, dialogue share and vocabulary; which characters get the most page time. With a model you choose, **Story analysis** reads what your story is made of, from the files you tick (a file one model will not read is set aside and can be given to another without reading the rest again), **Focus** suggests what to work on, and **Reports** turn a week, month or year into a recap.
 
 ### Make it yours
 
@@ -207,7 +207,7 @@ Caching is a prefix match, so requests are built to be the previous request plus
 
 After `npm run build`, each runs the real app in a throwaway profile and never touches your data:
 
-- `TWILIGHT_E2E=<folder> npx electron .` starts a fake OpenAI-compatible model server (plus fake MCP and embedding servers) and drives the app through every feature, writing `e2e.json` (762 checks) and screenshots.
+- `TWILIGHT_E2E=<folder> npx electron .` starts a fake OpenAI-compatible model server (plus fake MCP and embedding servers) and drives the app through every feature, writing `e2e.json` (781 checks) and screenshots.
 - `node scripts/bench.cjs <label>` times startup, opening screens, memory and scrolling on the packaged app.
 - `TWILIGHT_SELFTEST=<folder> npx electron .` scrolls a ~350k-token chat one step per frame and writes frame timings.
 - `TWILIGHT_SHOWCASE=<folder> npx electron .` fills a profile with an invented story and captures the screenshots in `docs/screenshots/`.

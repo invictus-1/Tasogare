@@ -12,7 +12,7 @@ import type { ChoiceSet } from './choices'
 import type { BranchMap } from './branchMap'
 import type { ReplyConfidence, Samplers } from './confidence'
 import type { VoiceState } from './voice'
-import type { AiConfig, AiState, InsightsSummary, StoryEstimate, TrackedCharacter } from './insights'
+import type { AiConfig, AiState, InsightsSummary, StoryOptions, StoryPlan, TrackedCharacter } from './insights'
 import type { JudgeInput, Judgment, JudgmentSummary, Leaderboard, Rubric } from './judge'
 import type { Library, Persona, SavedPrompt } from './library'
 
@@ -792,8 +792,10 @@ export interface TwilightApi {
   onInsights(listener: (event: InsightsEvent) => void): () => void
   getAiState(): Promise<AiState>
   setAiConfig(config: AiConfig): Promise<AiState>
-  estimateStory(mode: 'quick' | 'deep', scope: string): Promise<StoryEstimate>
-  runStory(mode: 'quick' | 'deep', scope: string): Promise<AiState>
+  /** Every document with how much of it is read, and what analysing the chosen ones (null: all) would send. */
+  planStory(files: string[] | null, opts?: StoryOptions): Promise<StoryPlan>
+  /** Analyses the chosen documents (null: all of them). */
+  runStory(mode: 'quick' | 'deep', files: string[] | null, opts?: StoryOptions): Promise<AiState>
   runFocus(): Promise<AiState>
   runNotes(): Promise<AiState>
   stopAi(): Promise<void>

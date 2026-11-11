@@ -31,7 +31,7 @@ import * as logs from './logs'
 import * as workspaces from './workspaces'
 import type { JudgeInput, Rubric } from '@shared/judge'
 import type { Persona, SavedPrompt } from '@shared/library'
-import type { AiConfig, TrackedCharacter } from '@shared/insights'
+import type { AiConfig, StoryOptions, TrackedCharacter } from '@shared/insights'
 import * as writing from './writing'
 import * as providers from './providers'
 import * as insights from './insights'
@@ -448,8 +448,8 @@ function registerIpc(): void {
     answerWordJump: (_e, id: string, count: boolean) => insights.answerJump(id, count),
     getAiState: () => insightsAi.state(),
     setAiConfig: (_e, config: AiConfig) => insightsAi.setConfig(config),
-    estimateStory: (_e, mode: 'quick' | 'deep', scope: string) => insightsAi.estimate(mode, scope),
-    runStory: (_e, mode: 'quick' | 'deep', scope: string) => insightsAi.runStory(mode, scope),
+    planStory: (_e, files: string[] | null, opts?: StoryOptions) => insightsAi.plan(files, opts ?? {}),
+    runStory: (_e, mode: 'quick' | 'deep', files: string[] | null, opts?: StoryOptions) => insightsAi.runStory(mode === 'deep' ? 'deep' : 'quick', files, opts ?? {}),
     runFocus: () => insightsAi.runFocus(),
     runNotes: () => insightsAi.runNotes(),
     stopAi: () => insightsAi.stop(),

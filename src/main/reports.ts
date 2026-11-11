@@ -5,7 +5,7 @@
 import { app, shell } from 'electron'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { DayCount } from '@shared/insights'
+import { overallStory, type DayCount } from '@shared/insights'
 import * as db from './db'
 import { dayOf, summary } from './insights'
 import { state as aiState } from './insightsAi'
@@ -101,7 +101,7 @@ export async function exportReport(kind: ReportKind, includeAi: boolean): Promis
   const range = kind === 'all' ? `Since ${label(from, { month: 'long', day: 'numeric', year: 'numeric' })}` : `${label(from, { month: 'long', day: 'numeric' })} – ${label(today, { month: 'long', day: 'numeric', year: 'numeric' })}`
   const stat = (v: string, l: string): string => `<div class="stat"><b>${v}</b><span>${l}</span></div>`
   const ai = includeAi ? aiState() : null
-  const story = ai?.story['']
+  const story = ai ? overallStory(ai) : null
   const maxChar = Math.max(1, ...s.characters.map((c) => c.mentions))
 
   const html = `<!doctype html>

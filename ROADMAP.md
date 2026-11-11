@@ -180,6 +180,7 @@ What's shipped, what's next, and ideas not yet committed to. Tasogare shows this
 - [x] **Installer** · Core — Windows installer and portable zip, with Tasogare artwork
 
 ## Next
+- [~] **Story analysis of chosen files** · Writing — done, in the next release: tick the files to analyse, a file a model will not read is set aside instead of ending the scan, any model can read what is missing without reading the rest again, and a note goes to the model
 - [~] **Your feedback on 1.0** · Core — fixes from real use
 
 ## Later

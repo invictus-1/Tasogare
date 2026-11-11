@@ -206,6 +206,12 @@ export function kvSet(key: string, value: unknown): void {
   )
 }
 
+/** Every key that starts with a prefix (of plain characters). */
+export function kvKeys(prefix: string): string[] {
+  const rows = db.prepare('SELECT key FROM kv WHERE key >= ? AND key < ?').all(prefix, `${prefix}\uffff`) as { key: string }[]
+  return rows.map((r) => r.key)
+}
+
 export function kvDelete(key: string): void {
   db.prepare('DELETE FROM kv WHERE key = ?').run(key)
 }

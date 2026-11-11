@@ -2,6 +2,17 @@
 
 Each version's section becomes its release notes on the releases page (`npm run release`), and Tasogare shows them in Settings > Updates.
 
+## Unreleased
+
+**Story analysis of the files you choose**
+
+- **Choose the files:** the Story analysis page lists every file in your writing folder with a tick box, its words, and how much of it a deep scan has already read and with which model. Untick the ones you want left out; the choice is remembered, and a new file is in until you untick it. "Not read yet" ticks only the files that still need reading.
+- **A file a model will not read no longer ends the scan:** the part it declines is set aside and everything else is still analysed. The result says which files are missing and why, and "Try again" chooses them so you can pick another model.
+- **Any model can fill the gaps:** what a deep scan reads is kept for each part of each file, whichever model read it. Adding the files you left out, or the ones a model declined, reads only those, with the model you pick, and puts them together with the rest; only the short closing call is made again. Tick "Read everything with this model" when you do want one model to read it all.
+- **What a result covers:** each analysis says how many of your files it covers, which were left out (with "Add back"), and which models read it. Earlier results list what they covered too.
+- **A note for the model:** say what it should know about the files (where they sit in the story, why they are here). The note goes with what is read in that run, is kept with those files, and is given to the closing call whenever they are part of an analysis.
+- Reports quote your latest analysis of the folder or of several files, so leaving a few files out for good no longer leaves the report without one.
+
 ## 1.6.2
 
 - **The sky by itself:** the Chats button now shows the scene and nothing else: no greeting, no message box, and no chat made, so there is no empty chat to delete afterwards. New chat (the + in the sidebar, Ctrl+N, or the button in the header when the sidebar is closed) brings the greeting, the message box and the header's buttons in with a short ease; Gentle motion fades them in and Off shows them at once. A chat picked from the list opens as before, and Settings > General can still have the button go back to the last chat instead.

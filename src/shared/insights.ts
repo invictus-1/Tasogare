@@ -258,11 +258,46 @@ export interface AiConfig {
   effort: string | null
   /** Deep scan calls sent at once, 1–10. */
   parallel: number
+  /** Documents left out of Story analysis, by path; a new document is in until it is unticked. */
+  skip?: string[]
+}
+
+/** How a story analysis is run. */
+export interface StoryOptions {
+  /** Count only what the chosen model has read itself, and read the rest with it. */
+  own?: boolean
+  /** The author's note: given to the model with what it reads in this run, and kept with those reads. */
+  note?: string
+}
+
+/** One document a story analysis covers. */
+export interface StoryFile {
+  path: string
+  words: number
+  /** How many of its words were read: all of them, unless a model would not read a part. */
+  read: number
+  /** The models whose reads were used. */
+  models: string[]
+  /** Why a part of it was not read. */
+  error?: string
+}
+
+/** One document in the writing folder, and how much of it a deep scan has already read. */
+export interface StoryFileState {
+  path: string
+  words: number
+  /** The parts a deep scan reads it in, and how many of them are read. */
+  parts: number
+  read: number
+  models: string[]
+  /** The note that went with its reads, and why a part was not read last time. */
+  note?: string
+  error?: string
 }
 
 export interface StoryAnalysis {
   mode: 'quick' | 'deep'
-  /** '' for the whole writing folder, else one document's path. */
+  /** '' for the whole writing folder, one document's path, or 'selection' for some of them. */
   scope: string
   model: string
   at: number
@@ -277,6 +312,17 @@ export interface StoryAnalysis {
   themes: { name: string; description: string }[]
   tone: string
   summary: string
+  /** The documents it covers, in reading order (results from before 1.7 have none). */
+  files?: StoryFile[]
+  /** Documents in the folder that were not chosen when it ran. */
+  leftOut?: string[]
+  /** The author's note that went with it. */
+  note?: string
+}
+
+/** The analysis a report quotes: the latest of the folder, or of several of its documents. */
+export function overallStory(ai: Pick<AiState, 'story' | 'history'>): StoryAnalysis | null {
+  return ai.history.story.find((r) => r.scope === '' || (r.files?.length ?? 0) > 1) ?? ai.story[''] ?? null
 }
 
 export interface FocusResult {
@@ -310,4 +356,11 @@ export interface StoryEstimate {
   cached: number
   words: number
   costUsd: number | null
+}
+
+/** Every document with how much of it is read, and what analysing the chosen ones would send. */
+export interface StoryPlan {
+  files: StoryFileState[]
+  quick: StoryEstimate
+  deep: StoryEstimate
 }
