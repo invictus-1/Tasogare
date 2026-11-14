@@ -127,6 +127,9 @@ export function App() {
       // Writing-tool runs finish inside the editor (Editor.tsx); judge runs in the judgment.
       if (event.conversationId === 'judge') {
         void useJudge.getState().reload(event.node.parentId ?? '').then(() => clearStream(event.nodeId))
+      } else if (event.conversationId === 'battle') {
+        // A side of a fresh battle finished a turn: the battle on screen takes it in, and the lists their state.
+        void useJudge.getState().refresh().then(() => clearStream(event.nodeId))
       } else if (event.conversationId !== 'writing') useStore.getState().applyDone(event.conversationId, event.node, event.asked)
     })
   }, [])

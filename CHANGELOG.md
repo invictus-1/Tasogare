@@ -4,8 +4,23 @@ Each version's section becomes its release notes on the releases page (`npm run 
 
 ## Unreleased
 
-- **Keep one side, judge a new passage against it:** a finished comparison has Keep A and Keep B. Either starts a new comparison with that passage and its label first and the other side empty, and carries over everything it was judged with: the prompt, the system prompt, the reference files, the rubric, and the judge model with its settings. Paste a new model's passage as B and it is measured the same way the kept one was. The earlier comparison is left as it is.
-- **The same rubric, even if you have edited it since:** a comparison made from an earlier one (Keep A, Keep B, or Edit and re-run) is judged with the rubric exactly as it was then. If the saved rubric has changed or been deleted, the form says so and offers the saved one instead. Before, a re-run quietly used the rubric as it is now, or General fiction if it was gone.
+**Fresh battles in the Judge**
+
+Two models write from the same prompt, system prompt and reference files, with no chat behind them, and the Judge compares what they wrote. Nothing one model wrote ever reaches the other.
+
+- **New battle:** set the prompt, the system prompt, the reference files, the two writers and the judge once. Both models then write side by side. They use your usual chat settings for length and temperature; search, tools and pictures are off, so only what is on the page reaches them.
+- **Each side has its own Continue, Stop and Start again.** Continue sends the same words to either side (you choose them, "Continue." to begin with), for when a model stops before the prompt is done. The text is read-only, so nothing can be pasted over or changed by hand.
+- **Finished locks a side.** Tick it and that side can no longer be continued or started again until you untick it. A pass can be judged once both of its sides are finished.
+- **Passes:** run the same setup again, fresh, as often as you want (up to six), so one lucky or unlucky run does not decide it. Each pass has its own tab.
+- **Judge the passes you choose:** tick one, some or all. Each is judged as its own blind comparison of what the two wrote in that pass, in both orders, with the rubric as it was when the battle began, and the judge is told which pass it is.
+- **The result averages the ticked passes:** every pass with its scores and verdict, the average, each criterion averaged, how many passes each took, and notes on where the passes disagree or a writer was uneven. Each pass's full report is one click away.
+- Each judged pass also counts on the leaderboard under the writers' names, and what a battle writes is counted in the usage ledger with the Judge.
+- If you change a pass after it was judged (untick Finished, then continue or start again), its comparison is removed, since it no longer matches the text.
+
+**Also in the Judge**
+
+- **Keep one side, judge a new passage against it:** a finished comparison has New passage vs A and New passage vs B. Either starts a new comparison with that passage and its label first and the other side empty, and carries over everything it was judged with: the prompt, the system prompt, the reference files, the rubric, and the judge model with its settings. Paste a new model's passage as B and it is measured the same way the kept one was. The earlier comparison is left as it is.
+- **The same rubric, even if you have edited it since:** a comparison made from an earlier one (New passage vs A or B, or Edit and re-run) is judged with the rubric exactly as it was then. If the saved rubric has changed or been deleted, the form says so and offers the saved one instead. Before, a re-run quietly used the rubric as it is now, or General fiction if it was gone.
 - **Past comparisons in sight:** the Judge keeps every comparison until you delete it, but they were listed only in the sidebar, so with the sidebar closed there was no sign of them. The Judge's start page now lists them all, with the verdict and the date, beside New comparison and the leaderboard. With the sidebar closed, an open comparison or leaderboard has an All comparisons button that goes back to that list. Open one and use Edit and re-run to judge a new model against the same passages and prompts.
 
 ## 1.7.0

@@ -50,6 +50,8 @@ export interface JudgeInput {
    * if the saved rubric has been edited or deleted since.
    */
   rubricAsJudged?: Rubric
+  /** Which pass of a fresh battle these two passages are (1 for the first). The judge is told. */
+  pass?: number
 }
 
 /** The most passages a round takes (15 pairs). */
@@ -94,6 +96,8 @@ export interface Judgment {
   roundId?: string
   /** The round's own title, before the pair was added to it. */
   roundTitle?: string
+  /** Set on a comparison that judged one pass of a fresh battle. */
+  battleId?: string
 }
 
 /** Whether two rubrics measure the same way: the same criteria, weights and guides. */

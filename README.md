@@ -97,7 +97,7 @@ Open a project folder and give the agent a task: it lists, reads and searches fi
 
 ![The Judge: per-criterion scores for two passages, and a verdict](docs/screenshots/judge.png)
 
-Passages are scored blind by a judge model you choose, against a rubric, criterion by criterion, and each pair is judged in both orders because judges favour whichever comes first. Put up to six passages in a round, and a **leaderboard** keeps a running, Elo-style tally by who wrote them. A general fiction rubric is included; write your own, or import and export them.
+Passages are scored blind by a judge model you choose, against a rubric, criterion by criterion, and each pair is judged in both orders because judges favour whichever comes first. Paste the passages, send them from a split chat, or start a **fresh battle**: two models write from the same prompt and reference files with no chat behind them, you continue each side until it is done and lock it, run the same setup again as further passes, and the passes you choose are judged and averaged. Put up to six passages in a round, and a **leaderboard** keeps a running, Elo-style tally by who wrote them. A general fiction rubric is included; write your own, or import and export them.
 
 ### A writing editor
 
@@ -207,7 +207,7 @@ Caching is a prefix match, so requests are built to be the previous request plus
 
 After `npm run build`, each runs the real app in a throwaway profile and never touches your data:
 
-- `TWILIGHT_E2E=<folder> npx electron .` starts a fake OpenAI-compatible model server (plus fake MCP and embedding servers) and drives the app through every feature, writing `e2e.json` (790 checks) and screenshots.
+- `TWILIGHT_E2E=<folder> npx electron .` starts a fake OpenAI-compatible model server (plus fake MCP and embedding servers) and drives the app through every feature, writing `e2e.json` (812 checks) and screenshots.
 - `node scripts/bench.cjs <label>` times startup, opening screens, memory and scrolling on the packaged app.
 - `TWILIGHT_SELFTEST=<folder> npx electron .` scrolls a ~350k-token chat one step per frame and writes frame timings.
 - `TWILIGHT_SHOWCASE=<folder> npx electron .` fills a profile with an invented story and captures the screenshots in `docs/screenshots/`.

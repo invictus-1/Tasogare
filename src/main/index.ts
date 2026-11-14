@@ -24,11 +24,13 @@ import type {
 import * as chat from './chat'
 import * as db from './db'
 import * as docs from './docs'
+import * as battle from './battle'
 import * as judge from './judge'
 import * as library from './library'
 import * as voice from './voice'
 import * as logs from './logs'
 import * as workspaces from './workspaces'
+import type { BattleSetup } from '@shared/battle'
 import type { JudgeInput, Rubric } from '@shared/judge'
 import type { Persona, SavedPrompt } from '@shared/library'
 import type { AiConfig, StoryOptions, TrackedCharacter } from '@shared/insights'
@@ -430,6 +432,16 @@ function registerIpc(): void {
     getLeaderboard: (_e, roundId?: string | null) => judge.getLeaderboard(roundId),
     stopJudge: (_e, id: string) => judge.stopJudge(id),
     deleteJudgment: (_e, id: string) => judge.deleteJudgment(id),
+    listBattles: () => battle.listBattles(),
+    getBattle: (_e, id: string) => battle.getBattle(id),
+    createBattle: (e, setup: BattleSetup) => battle.createBattle(e.sender, setup),
+    addBattlePass: (e, id: string) => battle.addPass(e.sender, id),
+    continueBattleSide: (e, id: string, pass: number, side: number) => battle.continueSide(e.sender, id, pass, side),
+    redoBattleSide: (e, id: string, pass: number, side: number) => battle.redoSide(e.sender, id, pass, side),
+    stopBattleSide: (_e, id: string, pass: number, side: number) => battle.stopSide(id, pass, side),
+    setBattleFinished: (_e, id: string, pass: number, side: number, finished: boolean) => battle.setFinished(id, pass, side, finished),
+    judgeBattle: (e, id: string, passes: number[]) => battle.judgePasses(e.sender, id, passes),
+    deleteBattle: (_e, id: string) => battle.deleteBattle(id),
     getWritingFolder: () => docs.writingFolder(),
     chooseWritingFolder: async (e) => {
       const folder = await docs.chooseWritingFolder(BrowserWindow.fromWebContents(e.sender))

@@ -3,7 +3,7 @@ import type { ChatFolder, ConversationSummary, DocEntry } from '@shared/types'
 import { modelName, useStore } from '../store'
 import { useBlind } from './Arena'
 import { useInsights, type InsightsPage } from '../insightsStore'
-import { judgmentState, useJudge } from '../judgeStore'
+import { battleState, judgmentState, useJudge } from '../judgeStore'
 import { useWriting } from '../writingStore'
 import { useCode } from '../codeStore'
 import {
@@ -566,7 +566,9 @@ function DocList({ creating, onCreated }: { creating: boolean; onCreated: () => 
 
 function JudgeList() {
   const list = useJudge((s) => s.list)
+  const battles = useJudge((s) => s.battles)
   const currentId = useJudge((s) => s.current?.id)
+  const battleId = useJudge((s) => s.battle?.battle.id)
   const boardOpen = useJudge((s) => s.board !== null)
   return (
     <div className="sidebar-list">
@@ -574,6 +576,14 @@ function JudgeList() {
         <TrophyIcon />
         <span>Leaderboard</span>
       </button>
+      {battles.map((b) => (
+        <div key={b.id} className="tw-conv battle-item" aria-current={b.id === battleId ? 'true' : undefined} onClick={() => void useJudge.getState().openBattle(b.id)}>
+          <span className="tw-conv-title">{b.title}</span>
+          <span className="tw-conv-meta">
+            {battleState(b)} · {relativeTime(b.createdAt)}
+          </span>
+        </div>
+      ))}
       {list.map((j) => (
         <div
           key={j.id}
@@ -587,7 +597,7 @@ function JudgeList() {
           </span>
         </div>
       ))}
-      {list.length === 0 && <p className="sidebar-empty">No comparisons yet.</p>}
+      {list.length === 0 && battles.length === 0 && <p className="sidebar-empty">No comparisons yet.</p>}
     </div>
   )
 }

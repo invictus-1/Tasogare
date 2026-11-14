@@ -132,9 +132,14 @@ function buildContent(input: JudgeInput, order: JudgeOrder, ttl: string | null):
     .join('\n\n')
   const [first, second] = order === 'AB' ? [input.passageA, input.passageB] : [input.passageB, input.passageA]
   const ask = input.extraInstructions.trim() ? `\n\nThe author also asks:\n${input.extraInstructions.trim()}\nAnswer that within the report, before the verdict.` : ''
+  // A fresh battle's pass: the judge is told which, and that it stands alone. It goes with the
+  // passages, after the shared context, so that context is still read from the cache.
+  const pass = input.pass
+    ? `These two passages are pass ${input.pass}: each writer wrote from the same prompt more than once, starting fresh every time. Judge this pass on its own, by what is on the page.\n\n`
+    : ''
   return [
     { type: 'text', text: shared, ...(ttl ? { cache_control: { type: 'ephemeral' as const, ttl } } : {}) },
-    { type: 'text', text: `<passage id="X">\n${first}\n</passage>\n\n<passage id="Y">\n${second}\n</passage>\n\nJudge X against Y now.${ask}` }
+    { type: 'text', text: `${pass}<passage id="X">\n${first}\n</passage>\n\n<passage id="Y">\n${second}\n</passage>\n\nJudge X against Y now.${ask}` }
   ]
 }
 
@@ -272,6 +277,22 @@ export function runRound(contents: WebContents, input: JudgeInput): { roundId: s
   return { roundId, judgments }
 }
 
+/**
+ * Judges the passes of a fresh battle, each as its own ordinary judgment. They share one context,
+ * so like a round's pairs they wait for the first one's first token and read its cache.
+ */
+export function runPasses(contents: WebContents, inputs: JudgeInput[], battleId: string): Judgment[] {
+  let first: Promise<void> | undefined
+  const finished: Promise<void>[] = []
+  return inputs.map((input, k) => {
+    const waits = [first, finished[k - PAIRS_AT_ONCE]].filter((p): p is Promise<void> => !!p)
+    const started = startJudgment(contents, input, { battleId, after: waits.length ? Promise.all(waits).then(() => undefined) : undefined })
+    first ??= started.started
+    finished.push(started.done)
+    return started.judgment
+  })
+}
+
 const PAIRS_AT_ONCE = 3
 
 /**
@@ -295,7 +316,7 @@ let lastCreated = 0
 function startJudgment(
   contents: WebContents,
   input: JudgeInput,
-  round: { roundId?: string; roundTitle?: string; after?: Promise<void> } = {}
+  round: { roundId?: string; roundTitle?: string; battleId?: string; after?: Promise<void> } = {}
 ): { judgment: Judgment; started: Promise<void>; done: Promise<void> } {
   if (!input.passageA.trim() || !input.passageB.trim()) throw new Error('Both passages need text.')
   // Extra passages and a kept rubric belong to the draft; each stored judgment holds only its own pair.
@@ -309,7 +330,8 @@ function startJudgment(
     input: pairInput,
     rubric,
     runs: orders.map((order) => ({ order, status: 'streaming', text: '' })),
-    ...(round.roundId ? { roundId: round.roundId, roundTitle: round.roundTitle ?? '' } : {})
+    ...(round.roundId ? { roundId: round.roundId, roundTitle: round.roundTitle ?? '' } : {}),
+    ...(round.battleId ? { battleId: round.battleId } : {})
   }
   store(judgment)
   const controllers = orders.map(() => new AbortController())

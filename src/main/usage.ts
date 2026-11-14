@@ -62,6 +62,15 @@ export function usageStats(range: UsageRange): UsageStats {
        WHERE k.key >= 'judgment:' AND k.key < 'judgment;' AND json_extract(r.value, '$.usage') IS NOT NULL AND json_extract(k.value, '$.createdAt') >= ?`
     )
     .all(since) as Row[]
+  // A fresh battle's writing is kept the same way, a turn at a time under its side; it is counted with the Judge.
+  const battled = sql
+    .prepare(
+      `SELECT NULL AS c, coalesce(json_extract(t.value, '$.modelId'), json_extract(k.value, '$.setup.writers[' || s.key || '].modelId')) AS m,
+         json_extract(k.value, '$.setup.writers[' || s.key || '].providerId') AS p, json_extract(k.value, '$.createdAt') AS t, json_extract(t.value, '$.usage') AS u
+       FROM kv k, json_each(k.value, '$.passes') ps, json_each(ps.value, '$.sides') s, json_each(s.value, '$.turns') t
+       WHERE k.key >= 'battle:' AND k.key < 'battle;' AND json_extract(t.value, '$.usage') IS NOT NULL AND json_extract(k.value, '$.createdAt') >= ?`
+    )
+    .all(since) as Row[]
 
   const local = new Map(getProviders().map((p) => [p.id, p.kind === 'openai' && isLocal(p.baseUrl ?? '')]))
   const totals = zero()
@@ -83,7 +92,7 @@ export function usageStats(range: UsageRange): UsageStats {
   }
   let earliest = Infinity
 
-  for (const row of [...replies, ...judged]) {
+  for (const row of [...replies, ...judged, ...battled]) {
     let u: Usage
     try {
       u = JSON.parse(row.u) as Usage

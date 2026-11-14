@@ -12,6 +12,7 @@ import type { ChoiceSet } from './choices'
 import type { BranchMap } from './branchMap'
 import type { ReplyConfidence, Samplers } from './confidence'
 import type { VoiceState } from './voice'
+import type { BattleSetup, BattleSummary, BattleView } from './battle'
 import type { AiConfig, AiState, InsightsSummary, StoryOptions, StoryPlan, TrackedCharacter } from './insights'
 import type { JudgeInput, Judgment, JudgmentSummary, Leaderboard, Rubric } from './judge'
 import type { Library, Persona, SavedPrompt } from './library'
@@ -520,6 +521,22 @@ export interface TwilightApi {
   getLeaderboard(roundId?: string | null): Promise<Leaderboard>
   stopJudge(id: string): Promise<void>
   deleteJudgment(id: string): Promise<void>
+  listBattles(): Promise<BattleSummary[]>
+  getBattle(id: string): Promise<BattleView>
+  /** Starts a fresh battle and its first pass; turns stream as StreamEvents with conversationId "battle" and nodeId "<battle id>:<pass>:<side>:<turn>". */
+  createBattle(setup: BattleSetup): Promise<BattleView>
+  /** Both models write from the same setup again, fresh. */
+  addBattlePass(id: string): Promise<BattleView>
+  /** Asks one side (0 for A, 1 for B) of a pass to go on; with nothing written yet it starts again. */
+  continueBattleSide(id: string, pass: number, side: number): Promise<BattleView>
+  /** Throws away what one side wrote in a pass and has it write again. */
+  redoBattleSide(id: string, pass: number, side: number): Promise<BattleView>
+  stopBattleSide(id: string, pass: number, side: number): Promise<void>
+  /** Locks a side as done, or unlocks it. */
+  setBattleFinished(id: string, pass: number, side: number, finished: boolean): Promise<BattleView>
+  /** Judges the chosen passes (0-based), each as its own blind comparison. */
+  judgeBattle(id: string, passes: number[]): Promise<BattleView>
+  deleteBattle(id: string): Promise<void>
 
   listConversations(): Promise<ConversationSummary[]>
   /**

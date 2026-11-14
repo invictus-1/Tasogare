@@ -1,12 +1,13 @@
 import { useState, useSyncExternalStore } from 'react'
 import { computeVerdict, ELO_K, ELO_START, keepSide, MAX_PASSAGES, passageLetter, roundPairs, sameRubric, type JudgeInput, type Judgment, type Rubric, type RubricCriterion } from '@shared/judge'
 import { formatTokens } from '@shared/pricing'
-import { judgmentState, useJudge } from '../judgeStore'
+import { battleState, judgmentState, useJudge } from '../judgeStore'
 import { renderMarkdown, renderMarkdownLive } from '../markdown'
 import { modelName, optionsFor, useStore } from '../store'
 import { readStream, subscribeStream } from '../stream'
 import { CloseIcon, PaperclipIcon, PlusIcon, SidebarIcon, TrashIcon, TrophyIcon } from './Icons'
 import { ArenaBoard } from './Arena'
+import { BattleForm, BattleScreen } from './Battle'
 
 const words = (s: string): number => s.match(/\S+/g)?.length ?? 0
 const fmt = (n: number | null): string => (n === null ? '–' : n.toFixed(1))
@@ -571,16 +572,20 @@ function JudgeResult() {
         )}
         {!running && (
           <div className="verdict-next">
-            <span className="field-note">Test another passage against one of these, measured the same way: same prompt, reference files, rubric and judge.</span>
+            <span className="verdict-next-text">
+              <b>Judge a new passage against one of these</b>
+              <span className="field-note">Same prompt, reference files, rubric and judge. The other side starts empty for the new passage.</span>
+            </span>
             {(['A', 'B'] as const).map((side) => (
               <button
                 key={side}
-                className="tw-btn tw-btn-sm judge-keep"
+                className="tw-btn judge-keep"
                 data-side={side}
                 title={`Starts a new comparison with passage ${side} kept and the other side empty`}
                 onClick={() => useJudge.getState().newDraft(keepSide(judgment, side))}
               >
-                Keep {name(side)}
+                <PlusIcon />
+                New passage vs {name(side)}
               </button>
             ))}
           </div>
@@ -620,6 +625,21 @@ function JudgeResult() {
   )
 }
 
+/** Deleting a battle asks once more: what the models wrote goes with it. */
+function DeleteBattle({ id }: { id: string }) {
+  const [confirming, setConfirming] = useState(false)
+  return confirming ? (
+    <button className="tw-btn tw-btn-ghost tw-btn-sm no-drag danger-text battle-delete" title="The passes written here are removed. The comparisons that judged them stay in the list." onClick={() => void useJudge.getState().removeBattle(id)}>
+      Delete this battle and its passes
+    </button>
+  ) : (
+    <button className="tw-btn tw-btn-ghost tw-btn-sm no-drag battle-delete" onClick={() => setConfirming(true)}>
+      <TrashIcon />
+      Delete
+    </button>
+  )
+}
+
 export function JudgeView() {
   const current = useJudge((s) => s.current)
   const draft = useJudge((s) => s.draft)
@@ -630,17 +650,24 @@ export function JudgeView() {
   // the start page; with it closed the header has the way back there.
   const sidebarOpen = useStore((s) => s.sidebarOpen)
   const list = useJudge((s) => s.list)
+  const battles = useJudge((s) => s.battles)
+  const battle = useJudge((s) => s.battle)
+  const battleDraft = useJudge((s) => s.battleDraft)
   const running = current?.runs.some((r) => r.status === 'streaming')
   const roundRunning = board?.judgments.filter((j) => j.status === 'running') ?? []
   const title = draft
     ? 'New comparison'
-    : current
-      ? current.input.title || 'Comparison'
-      : board
-        ? board.roundId
-          ? board.roundTitle || 'Round'
-          : 'Leaderboard'
-        : 'Judge'
+    : battleDraft
+      ? 'New battle'
+      : current
+        ? current.input.title || 'Comparison'
+        : battle
+          ? battle.battle.setup.title || 'Battle'
+          : board
+            ? board.roundId
+              ? board.roundTitle || 'Round'
+              : 'Leaderboard'
+            : 'Judge'
 
   return (
     <main className="chat judge">
@@ -649,11 +676,17 @@ export function JudgeView() {
           <SidebarIcon />
         </button>
         <h1 className="chat-title">{title}</h1>
-        {(current || board) && !sidebarOpen && (
-          <button className="tw-btn tw-btn-ghost tw-btn-sm no-drag judge-home" title="Back to the list of every comparison" onClick={() => useJudge.setState({ current: null, board: null, draft: null })}>
+        {(current || board || battle) && !sidebarOpen && (
+          <button className="tw-btn tw-btn-ghost tw-btn-sm no-drag judge-home" title="Back to the list of every comparison" onClick={() => useJudge.getState().home()}>
             All comparisons
           </button>
         )}
+        {current?.battleId && battles.some((b) => b.id === current.battleId) && (
+          <button className="tw-btn tw-btn-ghost tw-btn-sm no-drag judge-to-battle" onClick={() => void useJudge.getState().openBattle(current.battleId ?? '')}>
+            Back to the battle
+          </button>
+        )}
+        {battle && !battleDraft && !draft && !current && <DeleteBattle key={battle.battle.id} id={battle.battle.id} />}
         {current?.roundId && (
           <button className="tw-btn tw-btn-ghost tw-btn-sm no-drag" onClick={() => void useJudge.getState().openBoard(current.roundId)}>
             <TrophyIcon />
@@ -690,19 +723,27 @@ export function JudgeView() {
       <div className="judge-scroll">
         {draft ? (
           <JudgeForm />
+        ) : battleDraft ? (
+          <BattleForm />
         ) : current ? (
           // Keyed, so a judgment opens on its own first tab with its own names still hidden.
           <JudgeResult key={current.id} />
+        ) : battle ? (
+          <BattleScreen key={battle.battle.id} />
         ) : board ? (
           <LeaderboardView />
         ) : (
           <div className="empty">
             <h2 className="t-display">Judge two passages</h2>
-            <p className="empty-sub">Blind, rubric-scored, judged in both orders. Or use “Judge A vs B” from a split chat.</p>
+            <p className="empty-sub">Blind, rubric-scored, judged in both orders. Paste two passages, use “Judge A vs B” from a split chat, or have two models write fresh from one prompt.</p>
             <div className="judge-start-actions">
               <button className="tw-btn tw-btn-primary" onClick={() => useJudge.getState().newDraft()}>
                 <PlusIcon />
                 New comparison
+              </button>
+              <button className="tw-btn judge-new-battle" title="Two models write from the same prompt and files, with no chat behind them, as many passes as you want" onClick={() => useJudge.getState().newBattle()}>
+                <PlusIcon />
+                New battle
               </button>
               {list.length > 0 && (
                 <button className="tw-btn" onClick={() => void useJudge.getState().openBoard(null)}>
@@ -711,6 +752,23 @@ export function JudgeView() {
                 </button>
               )}
             </div>
+            {battles.length > 0 && (
+              <section className="judge-past judge-battles" aria-label="Battles">
+                <h3 className="judge-past-title">
+                  Battles<span>{battles.length}</span>
+                </h3>
+                <div className="judge-past-list">
+                  {battles.map((b) => (
+                    <button key={b.id} className="judge-past-item judge-battle-item" onClick={() => void useJudge.getState().openBattle(b.id)}>
+                      <span className="judge-past-name">{b.title}</span>
+                      <span className="judge-past-meta">
+                        {battleState(b)} · {new Date(b.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
             {list.length > 0 && (
               <section className="judge-past" aria-label="Past comparisons">
                 <h3 className="judge-past-title">

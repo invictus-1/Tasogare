@@ -56,8 +56,10 @@ import { BUILT_IN_PRICES, cacheSaved, costOf, setCustomPrices } from '@shared/pr
 import * as providers from './providers'
 import * as updates from './updates'
 import * as insights from './insights'
+import * as battle from './battle'
 import * as insightsAi from './insightsAi'
 import * as reports from './reports'
+import { joinTurns, passageOf, sideWriting, tallyBattle, type BattleSetup, type BattleView } from '@shared/battle'
 import { ACHIEVEMENTS, analyzeText, overallStory } from '@shared/insights'
 import type { Usage, UsageRange, UsageTotals } from '@shared/types'
 import { usageStats } from './usage'
@@ -553,6 +555,9 @@ function startMockServer(log: LoggedRequest[]): Promise<Server> {
         reply =
           `### Prose — X ${xGood ? 8 : 5} · Y ${xGood ? 5 : 8}\nX quotes "${x.slice(0, 20)}".\n\n### Verdict\n${xGood ? 'X' : 'Y'} is better.\n\n` +
           '```json\n' + JSON.stringify({ criteria, overall: { X: xGood ? 8 : 5, Y: xGood ? 5 : 8 }, winner: xGood ? 'X' : 'Y', confidence: 'high' }) + '\n```'
+      } else if (system.startsWith('You write the battle scene')) {
+        // A fresh battle's writers: one of them writes the line the mock judge prefers, and each part is numbered.
+        reply = `${parsed.model === 'mock-a' ? 'GOOD: ' : ''}The lamps came on for ${parsed.model}, part ${parsed.messages.filter((m) => m.role === 'assistant').length + 1}.`
       } else if (system.startsWith('You classify one passage') && parsed.model === 'mock-a' && lastUser.includes('REFUSED-BY-A')) {
         // One model declines a passage, in prose; another reads it.
         reply = "I can't help with classifying this passage."
@@ -1776,7 +1781,7 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         await wait(200)
         return out
       })()`)
-      check('a finished comparison offers to keep either side, by letter until the names are revealed', (keepUi.blind as string[]).join() === 'Keep A,Keep B' && (keepUi.named as string[]).join() === 'Keep A · Opus Secret,Keep B · Sonnet Secret', keepUi)
+      check('a finished comparison offers to keep either side, by letter until the names are revealed', (keepUi.blind as string[]).join() === 'New passage vs A,New passage vs B' && (keepUi.named as string[]).join() === 'New passage vs A · Opus Secret,New passage vs B · Sonnet Secret', keepUi)
       check(
         'keeping a side opens a new comparison with it first, the other side empty and the rest carried over',
         (keepUi.areas as string[]).join('|') === 'The lamps turned on.|' && (keepUi.labels as string[]).join('|') === 'Sonnet Secret|' && keepUi.author === 'Write the lamps.' && keepUi.system === 'You are a co-writer.' && String(keepUi.files).includes('Bible.md') &&
@@ -1799,6 +1804,284 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         for (let end = Date.now() + 4000; Date.now() < end && !document.querySelector('.verdict h2'); ) await wait(30)
         // The sidebar as these checks found it.
         ${pastUi.wasOpen === false ? `document.querySelector('.judge [aria-label="Toggle sidebar (Ctrl+B)"]')?.click(); await wait(200)` : ''}
+      })()`)
+
+      // 25d. Fresh battles: two models write from one setup with no chat behind them, each side
+      // is continued and locked on its own, the setup is run again as further passes, and the
+      // passes chosen are judged one by one and averaged.
+      const setup25: BattleSetup = {
+        title: 'Lamps battle',
+        authorPrompt: 'Write the lamps coming on.',
+        systemPrompt: 'You write the battle scene.',
+        contextDocs: [{ name: 'Bible.md', text: 'Wren counts lamps.' }],
+        continueText: 'Go on.',
+        writers: [
+          { providerId: 'mock', modelId: 'mock-a', effort: null, label: 'Alder' },
+          { providerId: 'mock', modelId: 'mock-b', effort: null, label: 'Birch' }
+        ],
+        extraInstructions: '',
+        judgeProviderId: 'mock',
+        judgeModelId: 'mock-a',
+        effort: null,
+        rubricId: 'test-serial',
+        bothOrders: true
+      }
+      const refused25 = (run: () => unknown): string => {
+        try {
+          run()
+          return ''
+        } catch (err) {
+          return String(err)
+        }
+      }
+      check(
+        'a battle needs a prompt and two differently named writers',
+        /needs a prompt/.test(refused25(() => battle.createBattle(contents, { ...setup25, authorPrompt: ' ' }))) &&
+          /different names/.test(refused25(() => battle.createBattle(contents, { ...setup25, writers: [setup25.writers[0], { ...setup25.writers[1], label: 'alder' }] }))) &&
+          battle.listBattles().length === 0
+      )
+      const judgeUsage0 = usageStats('7d').judge.requests
+      const beforeBattle = log.length
+      const battleId = battle.createBattle(contents, setup25).battle.id
+      const written25 = async (): Promise<BattleView> => {
+        for (let i = 0; i < 400 && battle.getBattle(battleId).battle.passes.some((p) => p.sides.some(sideWriting)); i++) await new Promise((r) => setTimeout(r, 25))
+        return battle.getBattle(battleId)
+      }
+      let bv = await written25()
+      const firstReqs = log.slice(beforeBattle)
+      const reqText = (r: LoggedRequest): string => JSON.stringify(r.messages)
+      check(
+        'both models write from the same setup and nothing else: the system prompt, the files, the prompt',
+        firstReqs.length === 2 && firstReqs.map((r) => r.model).sort().join() === 'mock-a,mock-b' &&
+          firstReqs.every((r) => r.messages.length === 2 && r.messages[0].content === 'You write the battle scene.' && reqText(r).includes('<document name=\\"Bible.md\\">') && reqText(r).includes('Write the lamps coming on.') && !('tools' in (r.body as object))) &&
+          reqText(firstReqs[0]).replace('mock-a', 'mock-b') === reqText(firstReqs[1]).replace('mock-a', 'mock-b'),
+        firstReqs.map((r) => ({ model: r.model, roles: r.messages.map((m) => m.role) }))
+      )
+      check(
+        'each side holds what its model wrote',
+        passageOf(bv.battle.passes[0].sides[0]) === 'GOOD: The lamps came on for mock-a, part 1.' && passageOf(bv.battle.passes[0].sides[1]) === 'The lamps came on for mock-b, part 1.' && bv.battle.rubric.criteria.length === 3,
+        bv.battle.passes[0].sides.map(passageOf)
+      )
+      // Continue on one side only.
+      battle.continueSide(contents, battleId, 0, 0)
+      bv = await written25()
+      const contReq = log.at(-1)
+      check(
+        'Continue asks only that side to go on, with what it wrote and the continue words',
+        contReq?.model === 'mock-a' && contReq.messages.map((m) => m.role).join() === 'system,user,assistant,user' && contReq.messages[2].content === 'GOOD: The lamps came on for mock-a, part 1.' && contReq.messages[3].content === 'Go on.' &&
+          passageOf(bv.battle.passes[0].sides[0]) === 'GOOD: The lamps came on for mock-a, part 1.\n\nGOOD: The lamps came on for mock-a, part 2.' && bv.battle.passes[0].sides[1].turns.length === 1,
+        { roles: contReq?.messages.map((m) => m.role), a: passageOf(bv.battle.passes[0].sides[0]) }
+      )
+      check('turns join as one passage: a new paragraph, or straight on where a turn was cut mid-sentence', joinTurns(['He said', 'nothing more.', '', 'Then he left.']) === 'He said nothing more.\n\nThen he left.')
+      // Finished locks a side.
+      bv = battle.setFinished(battleId, 0, 0, true)
+      check(
+        'Finished locks a side: it cannot be continued or started again, and a pass with one side open cannot be judged',
+        bv.battle.passes[0].sides[0].finished && /marked finished/.test(refused25(() => battle.continueSide(contents, battleId, 0, 0))) && /marked finished/.test(refused25(() => battle.redoSide(contents, battleId, 0, 0))) &&
+          /isn't marked finished/.test(refused25(() => battle.judgePasses(contents, battleId, [0]))) && battle.getBattle(battleId).battle.passes[0].sides[0].turns.length === 2
+      )
+      battle.setFinished(battleId, 0, 1, true)
+      // A second pass is fresh: nothing of the first reaches the models.
+      const beforePass2 = log.length
+      battle.addPass(contents, battleId)
+      bv = await written25()
+      const pass2Reqs = log.slice(beforePass2)
+      check(
+        'another pass runs the same setup again, fresh',
+        bv.battle.passes.length === 2 && pass2Reqs.length === 2 && pass2Reqs.every((r) => r.messages.length === 2 && !reqText(r).includes('part 1')) && passageOf(bv.battle.passes[1].sides[1]) === 'The lamps came on for mock-b, part 1.',
+        pass2Reqs.map((r) => r.messages.length)
+      )
+      battle.continueSide(contents, battleId, 1, 1)
+      await written25()
+      battle.redoSide(contents, battleId, 1, 1)
+      bv = await written25()
+      check('Start again throws away what a side wrote in that pass and writes it afresh', bv.battle.passes[1].sides[1].turns.length === 1 && log.at(-1)?.messages.length === 2 && bv.battle.passes[0].sides[1].turns.length === 1)
+      battle.setFinished(battleId, 1, 0, true)
+      battle.setFinished(battleId, 1, 1, true)
+      // Judging the passes: each is its own blind comparison, told which pass it is.
+      const beforeJudge25 = log.length
+      bv = battle.judgePasses(contents, battleId, [0, 1])
+      const judgedIds25 = bv.battle.passes.map((p) => p.judgmentId ?? '')
+      for (let i = 0; i < 600 && judgedIds25.some((id) => judge.getJudgment(id).runs.some((r) => r.status === 'streaming')); i++) await new Promise((r) => setTimeout(r, 25))
+      bv = battle.getBattle(battleId)
+      const passJudgments = bv.judgments.filter((j): j is Judgment => !!j)
+      const judgeReqs25 = log.slice(beforeJudge25).map(reqText)
+      check(
+        'each chosen pass is judged as its own blind comparison, with the same rubric and the pass named to the judge',
+        passJudgments.length === 2 && passJudgments.every((j, i) => j.battleId === battleId && j.input.pass === i + 1 && j.input.labelA === 'Alder' && j.input.labelB === 'Birch' && j.rubric.criteria.length === 3 && j.runs.length === 2 && j.runs.every((r) => r.status === 'done') && j.input.title === `Lamps battle · pass ${i + 1}`) &&
+          judgeReqs25.length === 4 && judgeReqs25.filter((t) => t.includes('These two passages are pass 2')).length === 2 && judgeReqs25.every((t) => !t.includes('Alder') && !t.includes('Birch')) &&
+          passJudgments[0].input.passageA.includes('part 2') && !passJudgments[1].input.passageA.includes('part 2'),
+        { n: passJudgments.length, reqs: judgeReqs25.length, runs: passJudgments.map((j) => j.runs.map((r) => r.status)) }
+      )
+      const tally25 = tallyBattle(bv.battle.rubric, passJudgments.map((judgment, pass) => ({ pass, judgment })))
+      check(
+        'the chosen passes are averaged, with the wins and each criterion',
+        tally25.counted === 2 && tally25.winner === 'A' && tally25.winsA === 2 && tally25.winsB === 0 && tally25.averageA === 8 && tally25.averageB === 5 && tally25.notes.includes('A took every pass.') && tally25.criteria.find((c) => c.id === 'prose')?.A === 8,
+        tally25
+      )
+      const fake25 = (a: number, b: number): Judgment => ({
+        ...passJudgments[0],
+        runs: [{ order: 'AB', status: 'done', text: '', scores: { criteria: { prose: { X: a, Y: b }, 'no-id-here': { X: a, Y: b } }, overall: { X: a, Y: b }, winner: a > b ? 'X' : 'Y' } }]
+      })
+      const mixed25 = tallyBattle(bv.battle.rubric, [fake25(8, 5), fake25(5, 8), fake25(9, 6)].map((judgment, pass) => ({ pass, judgment })))
+      check(
+        'passes that disagree are said to, and an uneven writer is pointed out',
+        mixed25.winsA === 2 && mixed25.winsB === 1 && mixed25.winner === 'A' && mixed25.notes[0] === 'The passes disagree: A took pass 1 and 3, B took pass 2.' && mixed25.notes.some((n) => /^A was uneven from pass to pass: its overall score ran from 5\.0 to 9\.0\.$/.test(n)),
+        mixed25.notes
+      )
+      check('a battle is listed with how far it has got, and its passes count on the leaderboard by name', battle.listBattles()[0]?.judged === 2 && battle.listBattles()[0]?.passes === 2 && judge.getLeaderboard().entries.some((e) => e.label === 'Alder' && e.wins === 2))
+      check('the usage ledger counts what the battle wrote along with its judging', usageStats('7d').judge.requests === judgeUsage0 + 5 + 4, { before: judgeUsage0, now: usageStats('7d').judge.requests })
+      // A judged pass stands for its text: change the text and that comparison goes.
+      battle.setFinished(battleId, 0, 0, false)
+      battle.continueSide(contents, battleId, 0, 0)
+      bv = await written25()
+      check(
+        'changing a judged pass removes its comparison, and leaves the other pass judged',
+        bv.judgments[0] === null && !!bv.judgments[1] && !bv.battle.passes[0].judgmentId && !judge.listJudgments().some((j) => j.title === 'Lamps battle · pass 1') && judge.listJudgments().some((j) => j.title === 'Lamps battle · pass 2'),
+        bv.judgments.map((j) => j?.input.title)
+      )
+      // Stop ends a side where it is and keeps what it had.
+      const slowId = battle.createBattle(contents, { ...setup25, title: 'Slow battle', authorPrompt: 'SLOWSTREAM the lamps.' }).battle.id
+      for (let i = 0; i < 200 && !log.slice(-2).every((r) => r.firstTokenAt); i++) await new Promise((r) => setTimeout(r, 25))
+      await new Promise((r) => setTimeout(r, 150))
+      battle.stopSide(slowId, 0, 0)
+      battle.stopSide(slowId, 0, 1)
+      for (let i = 0; i < 200 && battle.getBattle(slowId).battle.passes[0].sides.some(sideWriting); i++) await new Promise((r) => setTimeout(r, 25))
+      const slow25 = battle.getBattle(slowId).battle.passes[0].sides
+      check('Stop ends a side where it is and keeps what it had written', slow25.every((s) => s.turns.length === 1 && s.turns[0].status === 'stopped' && s.turns[0].text.startsWith('tide')), slow25.map((s) => [s.turns[0]?.status, s.turns[0]?.text.length]))
+      battle.deleteBattle(slowId)
+      check('deleting a battle leaves the comparisons that judged its passes', !battle.listBattles().some((b) => b.id === slowId) && battle.listBattles().length === 1 && judge.listJudgments().some((j) => j.title === 'Lamps battle · pass 2'))
+
+      // In the window: set one up, write, continue, lock, add a pass, judge, read a report, delete.
+      await reloadUi()
+      const battleHelpers = `
+        const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+        const until = async (test) => { for (let end = Date.now() + 8000; Date.now() < end && !test(); ) await wait(30) }
+        const type = (el, value) => {
+          Object.getOwnPropertyDescriptor(el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype, 'value').set.call(el, value)
+          el.dispatchEvent(new Event('input', { bubbles: true }))
+        }
+        const side = (letter) => document.querySelector('.battle-side[data-side="' + letter + '"]')
+        const text = (letter) => side(letter)?.querySelector('.battle-text')?.textContent ?? ''
+        const writing = () => !!document.querySelector('.battle-stop')
+        const judgeBtn = () => document.querySelector('.battle-judge-run')
+        const out = {}`
+      const battleForm: Record<string, unknown> = await win.webContents.executeJavaScript(`(async () => {${battleHelpers}
+        document.querySelector('.rail-item[data-mode="judge"]')?.click()
+        await until(() => document.querySelector('.judge-new-battle'))
+        out.listed = [...document.querySelectorAll('.judge-battle-item')].map((b) => b.textContent)
+        out.sidebar = [...document.querySelectorAll('.battle-item')].map((b) => b.textContent)
+        document.querySelector('.judge-new-battle').click()
+        await until(() => document.querySelector('.battle-form'))
+        out.title = document.querySelector('.chat-title')?.textContent
+        out.blockedAtFirst = document.querySelector('.battle-start').disabled
+        type(document.querySelector('.battle-form .field input'), 'Window battle')
+        type(document.querySelector('.battle-prompt'), 'Write the lamps coming on.')
+        type(document.querySelector('.battle-form textarea[placeholder="The system prompt both models are given"]'), 'You write the battle scene.')
+        const pick = (letter, value) => {
+          const select = document.querySelector('.battle-writer[data-writer="' + letter + '"] select')
+          select.value = value
+          select.dispatchEvent(new Event('change', { bubbles: true }))
+        }
+        pick('A', 'mock::mock-a')
+        await wait(100)
+        pick('B', 'mock::mock-b')
+        await wait(150)
+        out.names = [...document.querySelectorAll('.battle-label')].map((i) => i.value)
+        out.ready = !document.querySelector('.battle-start').disabled
+        document.querySelector('.battle-start').click()
+        await until(() => document.querySelector('.battle-sides') && !writing() && text('A').includes('part 1') && text('B').includes('part 1'))
+        out.a = text('A')
+        out.b = text('B')
+        side('A').querySelector('.battle-continue').click()
+        await until(() => !writing() && text('A').includes('part 2'))
+        out.continued = text('A')
+        out.meta = side('A').querySelector('.battle-side-meta')?.textContent ?? ''
+        out.bAlone = text('B')
+        out.judgeBefore = judgeBtn().disabled
+        side('A').querySelector('.battle-finished input').click()
+        await until(() => side('A').classList.contains('battle-locked'))
+        out.locked = side('A').querySelector('.battle-continue').disabled && side('A').querySelector('.battle-redo').disabled && judgeBtn().disabled
+        side('B').querySelector('.battle-finished input').click()
+        await until(() => !judgeBtn().disabled)
+        out.judgeLabel = judgeBtn().textContent.trim()
+        return out
+      })()`)
+      await shot('e2e-battle.png')
+      const battleRun: Record<string, unknown> = await win.webContents.executeJavaScript(`(async () => {${battleHelpers}
+        document.querySelector('.battle-new-pass').click()
+        await until(() => document.querySelectorAll('.battle-pass-tab').length === 2 && !writing() && text('A').includes('part 1') && !text('A').includes('part 2'))
+        out.tabs = [...document.querySelectorAll('.battle-pass-tab')].map((b) => b.textContent + (b.getAttribute('aria-pressed') === 'true' ? '*' : ''))
+        out.fresh = text('A')
+        side('A').querySelector('.battle-finished input').click()
+        side('B').querySelector('.battle-finished input').click()
+        await until(() => judgeBtn().textContent.includes('2 passes'))
+        out.both = judgeBtn().textContent.trim()
+        document.querySelector('.battle-pick[data-pass="2"] input').click()
+        await until(() => judgeBtn().textContent.includes('pass 1'))
+        out.one = judgeBtn().textContent.trim()
+        document.querySelector('.battle-pick[data-pass="2"] input').click()
+        await until(() => judgeBtn().textContent.includes('2 passes'))
+        judgeBtn().click()
+        const rows = () => [...document.querySelectorAll('.battle-table tbody tr[data-pass]')]
+        await until(() => rows().length === 2 && rows().every((r) => !r.textContent.includes('Judging') && /won/.test(r.textContent)))
+        out.rows = rows().map((r) => r.textContent)
+        out.headline = document.querySelector('.battle-result h2')?.textContent ?? ''
+        out.average = document.querySelector('.battle-average')?.textContent ?? ''
+        out.notes = [...document.querySelectorAll('.battle-notes li')].map((l) => l.textContent)
+        out.again = judgeBtn().textContent.trim()
+        rows()[0].querySelector('.link-btn').click()
+        await until(() => document.querySelector('.judge-to-battle'))
+        out.report = document.querySelector('.verdict h2')?.textContent ?? ''
+        out.reportTitle = document.querySelector('.chat-title')?.textContent ?? ''
+        document.querySelector('.judge-to-battle').click()
+        await until(() => document.querySelector('.battle-sides'))
+        out.back = document.querySelector('.chat-title')?.textContent ?? ''
+        document.querySelector('.battle-delete').click()
+        await until(() => /Delete this battle/.test(document.querySelector('.battle-delete')?.textContent ?? ''))
+        document.querySelector('.battle-delete').click()
+        await until(() => document.querySelector('.judge-new-battle'))
+        out.left = [...document.querySelectorAll('.judge-battle-item')].map((b) => b.textContent)
+        return out
+      })()`)
+      check(
+        'the Judge lists battles and sets a new one up: both writers named, and no start until they are',
+        (battleForm.listed as string[]).some((t) => t.includes('Lamps battle') && t.includes('1 of 2 passes judged')) && (battleForm.sidebar as string[]).some((t) => t.includes('Lamps battle')) && battleForm.title === 'New battle' && battleForm.blockedAtFirst === true &&
+          (battleForm.names as string[]).join() === 'mock-a,mock-b' && battleForm.ready === true,
+        battleForm
+      )
+      check(
+        'both models write side by side, and Continue goes to one side only',
+        String(battleForm.a).includes('mock-a, part 1') && String(battleForm.b).includes('mock-b, part 1') && String(battleForm.continued).includes('mock-a, part 2') && /2 parts/.test(String(battleForm.meta)) && !String(battleForm.bAlone).includes('part 2'),
+        battleForm
+      )
+      check('Finished locks a side in the window, and a pass can be judged once both are', battleForm.judgeBefore === true && battleForm.locked === true && battleForm.judgeLabel === 'Judge pass 1', battleForm)
+      check(
+        'a new pass is written fresh in its own tab, and the passes to judge are ticked',
+        (battleRun.tabs as string[]).join() === 'Pass 1,Pass 2*' && !String(battleRun.fresh).includes('part 2') && battleRun.both === 'Judge 2 passes' && battleRun.one === 'Judge pass 1',
+        battleRun
+      )
+      check(
+        'the result lists every pass, averages them and says how they went',
+        (battleRun.rows as string[]).length === 2 && (battleRun.rows as string[]).every((t) => t.includes('A won') && t.includes('8.0') && t.includes('5.0')) && battleRun.headline === 'A · mock-a is ahead on average' && /Average8\.05\.02–0/.test(String(battleRun.average)) &&
+          (battleRun.notes as string[]).includes('A took every pass.') && battleRun.again === 'Judge them again',
+        battleRun
+      )
+      check(
+        "a pass's report opens as a comparison with the way back, and deleting a battle asks first",
+        battleRun.report === 'A is better written' && battleRun.reportTitle === 'Window battle · pass 1' && battleRun.back === 'Window battle' && !(battleRun.left as string[]).some((t) => t.includes('Window battle')) && (battleRun.left as string[]).some((t) => t.includes('Lamps battle')),
+        battleRun
+      )
+      // Out of the way of what follows: the battles and the comparisons that judged their passes.
+      for (const b of battle.listBattles()) battle.deleteBattle(b.id)
+      for (const j of judge.listJudgments()) if (/ · pass \d+$/.test(j.title)) judge.deleteJudgment(j.id)
+      await reloadUi()
+      await win.webContents.executeJavaScript(`(async () => {
+        const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+        document.querySelector('.rail-item[data-mode="judge"]')?.click()
+        for (let end = Date.now() + 4000; Date.now() < end && !document.querySelector('.judgment-item'); ) await wait(30)
+        ;[...document.querySelectorAll('.judgment-item')].find((r) => r.textContent.includes('Lamps test'))?.click()
+        for (let end = Date.now() + 4000; Date.now() < end && !document.querySelector('.verdict h2'); ) await wait(30)
       })()`)
 
       // 26. Choice cards: parsing, the instruction reaching the model, and the card in use.
