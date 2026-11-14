@@ -570,8 +570,14 @@ function JudgeList() {
   const currentId = useJudge((s) => s.current?.id)
   const battleId = useJudge((s) => s.battle?.battle.id)
   const boardOpen = useJudge((s) => s.board !== null)
+  // Nothing open: the start page, with every battle and comparison listed.
+  const atHome = useJudge((s) => !s.current && !s.board && !s.battle && !s.draft && !s.battleDraft)
   return (
     <div className="sidebar-list">
+      <button className="judge-home-item" aria-current={atHome ? 'true' : undefined} title="The list of every battle and comparison" onClick={() => useJudge.getState().home()}>
+        <GridIcon />
+        <span>All comparisons</span>
+      </button>
       <button className="judge-board-item" aria-current={boardOpen ? 'true' : undefined} onClick={() => void useJudge.getState().openBoard(null)}>
         <TrophyIcon />
         <span>Leaderboard</span>

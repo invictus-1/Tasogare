@@ -646,9 +646,8 @@ export function JudgeView() {
   const board = useJudge((s) => s.board)
   const error = useJudge((s) => s.error)
   const toggleSidebar = useStore((s) => s.toggleSidebar)
-  // Past comparisons are listed in the sidebar and, so they are in sight when it is closed, on
-  // the start page; with it closed the header has the way back there.
-  const sidebarOpen = useStore((s) => s.sidebarOpen)
+  // Past comparisons are listed in the sidebar and on the start page; whatever is open, the
+  // header has the way back to that page, and so does the top of the sidebar.
   const list = useJudge((s) => s.list)
   const battles = useJudge((s) => s.battles)
   const battle = useJudge((s) => s.battle)
@@ -676,7 +675,7 @@ export function JudgeView() {
           <SidebarIcon />
         </button>
         <h1 className="chat-title">{title}</h1>
-        {(current || board || battle) && !sidebarOpen && (
+        {(current || board || battle) && (
           <button className="tw-btn tw-btn-ghost tw-btn-sm no-drag judge-home" title="Back to the list of every comparison" onClick={() => useJudge.getState().home()}>
             All comparisons
           </button>

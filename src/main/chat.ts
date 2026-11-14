@@ -154,7 +154,7 @@ export function view(id: string): ConversationView {
 }
 
 /** The settings a model starts with whenever it's picked (Model settings → Save as this model's defaults). */
-function modelDefaultsFor(providerId: string, modelId: string): Partial<ChatSettings> {
+export function modelDefaultsFor(providerId: string, modelId: string): Partial<ChatSettings> {
   return pickModelDefaults(db.kvGet<ModelDefaults>('modelDefaults')?.[modelKey(providerId, modelId)] ?? {})
 }
 

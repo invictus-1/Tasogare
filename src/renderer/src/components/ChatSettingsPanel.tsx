@@ -25,7 +25,7 @@ const SAMPLERS: { key: keyof Samplers; label: string; fallback: number; min: num
 ]
 
 /** Sampler settings for a local model; each off (the server's default) until switched on. */
-function SamplerSettings({ samplers, onChange }: { samplers: Samplers; onChange: (s: Samplers) => void }) {
+export function SamplerSettings({ samplers, onChange }: { samplers: Samplers; onChange: (s: Samplers) => void }) {
   return (
     <div className="sampler-settings">
       {SAMPLERS.map((s) => (
@@ -45,7 +45,7 @@ function SamplerSettings({ samplers, onChange }: { samplers: Samplers; onChange:
   )
 }
 
-function NumberSetting(props: {
+export function NumberSetting(props: {
   label: string
   value: number | null
   fallback: number

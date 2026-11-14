@@ -1,11 +1,14 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
-import { countWords, MAX_PASSES, passageOf, passReady, sideWriting, tallyBattle, type BattlePass, type BattleSetup, type BattleSide, type BattleWriter } from '@shared/battle'
+import { countWords, describeSettings, MAX_PASSES, passageOf, passReady, sideWriting, tallyBattle, writerSettings, type BattlePass, type BattleSetup, type BattleSide, type BattleWriter, type WriterSettings } from '@shared/battle'
+import { modelKey, type ModelDefaults } from '@shared/modelDefaults'
 import { formatTokens } from '@shared/pricing'
+import type { CacheTtl } from '@shared/types'
 import { useJudge } from '../judgeStore'
 import { renderMarkdown, renderMarkdownLive } from '../markdown'
 import { modelName, optionsFor, useStore } from '../store'
 import { readStream, subscribeStream } from '../stream'
-import { CloseIcon, PaperclipIcon, PlusIcon, StopIcon, TrophyIcon } from './Icons'
+import { NumberSetting, SamplerSettings } from './ChatSettingsPanel'
+import { CloseIcon, PaperclipIcon, PlusIcon, SlidersIcon, StopIcon, TrophyIcon } from './Icons'
 
 // A fresh battle (see @shared/battle): the form that sets one up, and the battle itself, where
 // both models write side by side, pass after pass, and the passes you choose are judged.
@@ -25,57 +28,185 @@ async function pickText(): Promise<{ name: string; text: string }[]> {
 
 // ——— Setting up a battle ———
 
-function WriterField({ index }: { index: number }) {
+/** One writer's model settings: what it starts from is that model's usual settings; what is changed here is its own. */
+function WriterSettingsDialog({ index, modelDefaults, onClose }: { index: number; modelDefaults: ModelDefaults; onClose: () => void }) {
   const draft = useJudge((s) => s.battleDraft)!
   const update = useJudge((s) => s.updateBattleDraft)
   const models = useStore((s) => s.models)
   const providers = useStore((s) => s.providers)
+  const usual = useStore((s) => s.defaults)
+  const writer = draft.writers[index]
+  const provider = providers.find((p) => p.id === writer.providerId)
+  const options = optionsFor(models, providers, writer.providerId, writer.modelId)
+  const local = models.find((m) => m.id === writer.modelId && m.providerId === writer.providerId)?.local ?? false
+  const [extra, setExtra] = useState(writer.settings?.extraParams ?? '')
+  if (!usual) return null
+  const shown = writerSettings(usual, modelDefaults[modelKey(writer.providerId, writer.modelId)] ?? {}, writer.settings)
+  const set = (patch: WriterSettings): void => {
+    const writers = draft.writers.map((w, i) => (i === index ? { ...w, settings: { ...w.settings, ...patch } } : w)) as BattleSetup['writers']
+    update({ writers })
+  }
+  const extraError = (() => {
+    if (!extra.trim()) return null
+    try {
+      const v: unknown = JSON.parse(extra)
+      return typeof v === 'object' && v && !Array.isArray(v) ? null : 'Must be a JSON object'
+    } catch {
+      return 'Not valid JSON yet'
+    }
+  })()
+  return (
+    <div className="dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="dialog writer-settings" role="dialog" aria-modal="true" aria-label={`Settings for writer ${LETTERS[index]}`}>
+        <div className="panel-head">
+          <h2 className="t-title">
+            Writer {LETTERS[index]} · {modelName(models, writer.modelId)}
+          </h2>
+          <button className="tw-btn tw-btn-ghost tw-btn-icon" aria-label="Close" onClick={onClose}>
+            <CloseIcon />
+          </button>
+        </div>
+        <p className="field-note">How this model is asked in every pass of the battle. It starts from the model's usual settings; what you change here is for this battle only.</p>
+        <NumberSetting
+          label="Temperature"
+          value={options.temperature ? (shown.temperature ?? null) : null}
+          fallback={0.7}
+          min={0}
+          max={2}
+          step={0.05}
+          disabled={options.temperature ? undefined : 'This model doesn’t accept temperature.'}
+          onChange={(temperature) => set({ temperature })}
+        />
+        <NumberSetting
+          label="Max output tokens"
+          value={shown.maxTokens ?? null}
+          fallback={Math.min(16000, options.maxOutput ?? 16000)}
+          min={256}
+          max={options.maxOutput ?? 128000}
+          step={256}
+          inputStep={1}
+          note={shown.maxTokens ? 'The most one turn can write; Continue goes on from there.' : provider?.kind === 'anthropic' ? `Off: up to ${Math.min(64000, options.maxOutput ?? 64000).toLocaleString()} a turn.` : 'Off: the server decides.'}
+          onChange={(maxTokens) => set({ maxTokens })}
+        />
+        {options.caching && (
+          <div className="field">
+            <label className="check">
+              <input type="checkbox" checked={shown.caching ?? true} onChange={(e) => set({ caching: e.target.checked })} />
+              <span className="t-label">Prompt caching</span>
+            </label>
+            <select value={shown.cacheTtl ?? '1h'} disabled={shown.caching === false} onChange={(e) => set({ cacheTtl: e.target.value as CacheTtl })}>
+              <option value="1h">1 hour (for pauses between turns)</option>
+              <option value="5m">5 minutes (rapid back-and-forth)</option>
+            </select>
+          </div>
+        )}
+        {local && shown.samplers && <SamplerSettings samplers={shown.samplers} onChange={(samplers) => set({ samplers })} />}
+        <label className="field">
+          <span className="field-label">Extra request parameters (JSON)</span>
+          <textarea
+            className="code-input"
+            rows={4}
+            value={extra}
+            placeholder={provider?.kind === 'anthropic' ? '{ "metadata": { "user_id": "me" } }' : '{ "top_k": 40, "min_p": 0.05 }'}
+            onChange={(e) => {
+              setExtra(e.target.value)
+              // Kept as soon as it is a JSON object (or empty); anything else waits until it is.
+              try {
+                const v: unknown = e.target.value.trim() ? JSON.parse(e.target.value) : {}
+                if (typeof v === 'object' && v && !Array.isArray(v)) set({ extraParams: e.target.value })
+              } catch {
+                // Not JSON yet.
+              }
+            }}
+          />
+          <span className={`field-note ${extraError ? 'danger-text' : ''}`}>{extraError ?? 'Merged into the request last, so it can set anything the provider accepts, in its own format.'}</span>
+        </label>
+        <div className="dialog-actions">
+          <button
+            className="tw-btn tw-btn-ghost writer-settings-reset"
+            disabled={!writer.settings}
+            onClick={() => {
+              const writers = draft.writers.map((w, i) => (i === index ? { ...w, settings: undefined } : w)) as BattleSetup['writers']
+              update({ writers })
+              setExtra('')
+            }}
+          >
+            Back to this model's usual settings
+          </button>
+          <button className="tw-btn tw-btn-primary writer-settings-done" disabled={!!extraError} onClick={onClose}>
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function WriterField({ index, modelDefaults }: { index: number; modelDefaults: ModelDefaults }) {
+  const draft = useJudge((s) => s.battleDraft)!
+  const update = useJudge((s) => s.updateBattleDraft)
+  const models = useStore((s) => s.models)
+  const providers = useStore((s) => s.providers)
+  const [editing, setEditing] = useState(false)
   const writer = draft.writers[index]
   const options = optionsFor(models, providers, writer.providerId, writer.modelId)
   const set = (patch: Partial<BattleWriter>): void => {
     const writers = draft.writers.map((w, i) => (i === index ? { ...w, ...patch } : w)) as BattleSetup['writers']
     update({ writers })
   }
+  const own = describeSettings(writer.settings)
   return (
-    <div className="battle-writer" data-writer={LETTERS[index]}>
-      <span className={`tw-pane-tag judge-tag-${LETTERS[index].toLowerCase()}`}>{LETTERS[index]}</span>
-      <label className="field">
-        <span className="field-label">Model</span>
-        <select
-          value={`${writer.providerId}::${writer.modelId}`}
-          onChange={(e) => {
-            const [providerId, modelId] = e.target.value.split('::')
-            // The name follows the model until you have given it one of your own.
-            const named = writer.label && writer.label !== modelName(models, writer.modelId)
-            set({ providerId, modelId, effort: null, ...(named ? {} : { label: modelName(models, modelId) }) })
-          }}
-        >
-          {!models.some((m) => m.providerId === writer.providerId && m.id === writer.modelId) && (
-            <option value={`${writer.providerId}::${writer.modelId}`}>{modelName(models, writer.modelId)}</option>
-          )}
-          {providers.filter((p) => p.enabled).map((p) => (
-            <optgroup key={p.id} label={p.name}>
-              {models.filter((m) => m.providerId === p.id).map((m) => (
-                <option key={m.id} value={`${p.id}::${m.id}`}>{m.name}</option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-      </label>
-      {options.efforts.length > 0 && (
+    <>
+      <div className="battle-writer" data-writer={LETTERS[index]}>
+        <span className={`tw-pane-tag judge-tag-${LETTERS[index].toLowerCase()}`}>{LETTERS[index]}</span>
         <label className="field">
-          <span className="field-label">Effort</span>
-          <select value={writer.effort ?? ''} onChange={(e) => set({ effort: e.target.value || null })}>
-            <option value="">{options.defaultEffort ? `Model default (${options.defaultEffort})` : 'Model default'}</option>
-            {options.efforts.map((l) => <option key={l} value={l}>{l}</option>)}
+          <span className="field-label">Model</span>
+          <select
+            value={`${writer.providerId}::${writer.modelId}`}
+            onChange={(e) => {
+              const [providerId, modelId] = e.target.value.split('::')
+              // The name follows the model until you have given it one of your own. Settings belong
+              // to a model, so another model starts from its own usual ones.
+              const named = writer.label && writer.label !== modelName(models, writer.modelId)
+              const usual = modelDefaults[modelKey(providerId, modelId)]?.effort
+              set({ providerId, modelId, effort: typeof usual === 'string' ? usual : null, settings: undefined, ...(named ? {} : { label: modelName(models, modelId) }) })
+            }}
+          >
+            {!models.some((m) => m.providerId === writer.providerId && m.id === writer.modelId) && (
+              <option value={`${writer.providerId}::${writer.modelId}`}>{modelName(models, writer.modelId)}</option>
+            )}
+            {providers.filter((p) => p.enabled).map((p) => (
+              <optgroup key={p.id} label={p.name}>
+                {models.filter((m) => m.providerId === p.id).map((m) => (
+                  <option key={m.id} value={`${p.id}::${m.id}`}>{m.name}</option>
+                ))}
+              </optgroup>
+            ))}
           </select>
         </label>
-      )}
-      <label className="field">
-        <span className="field-label">Name in the result</span>
-        <input className="battle-label" value={writer.label} placeholder="e.g. the model's name" onChange={(e) => set({ label: e.target.value })} />
-      </label>
-    </div>
+        {options.efforts.length > 0 ? (
+          <label className="field">
+            <span className="field-label">Effort</span>
+            <select value={writer.effort ?? ''} onChange={(e) => set({ effort: e.target.value || null })}>
+              <option value="">{options.defaultEffort ? `Model default (${options.defaultEffort})` : 'Model default'}</option>
+              {options.efforts.map((l) => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </label>
+        ) : (
+          <span />
+        )}
+        <label className="field">
+          <span className="field-label">Name in the result</span>
+          <input className="battle-label" value={writer.label} placeholder="e.g. the model's name" onChange={(e) => set({ label: e.target.value })} />
+        </label>
+        <button className="tw-btn battle-settings" title="Temperature, length and the rest of how this model is asked" onClick={() => setEditing(true)}>
+          <SlidersIcon size={15} />
+          Settings
+        </button>
+      </div>
+      {writer.settings && <p className="field-note battle-own">Changed for this battle{own ? `: ${own}` : ''}</p>}
+      {editing && <WriterSettingsDialog index={index} modelDefaults={modelDefaults} onClose={() => setEditing(false)} />}
+    </>
   )
 }
 
@@ -89,6 +220,9 @@ export function BattleForm() {
   const options = optionsFor(models, providers, draft.judgeProviderId, draft.judgeModelId)
   const rubric = rubrics.find((r) => r.id === draft.rubricId) ?? rubrics[0]
   const contextChars = draft.contextDocs.reduce((n, d) => n + d.text.length, 0) + draft.systemPrompt.length + draft.authorPrompt.length
+  // Each model's saved defaults: what a writer starts from before anything is changed for it.
+  const [modelDefaults, setModelDefaults] = useState<ModelDefaults>({})
+  useEffect(() => void window.twilight.listModelDefaults().then(setModelDefaults), [])
   const labels = draft.writers.map((w) => w.label.trim().toLowerCase())
   const problem = !draft.authorPrompt.trim()
     ? 'Write the prompt both models will answer'
@@ -110,9 +244,12 @@ export function BattleForm() {
       </label>
 
       <h3 className="settings-section">The two writers</h3>
-      <WriterField index={0} />
-      <WriterField index={1} />
-      <p className="field-note">Each writes with your usual chat settings for length and temperature. Search, tools and pictures are off, so nothing but this page reaches them.</p>
+      <WriterField index={0} modelDefaults={modelDefaults} />
+      <WriterField index={1} modelDefaults={modelDefaults} />
+      <p className="field-note">
+        Each writes with that model's usual settings for length and temperature unless you change them under Settings. They are fixed when the battle starts, so every pass is asked the same way. Search, tools and
+        pictures are off, so nothing but this page reaches the writers.
+      </p>
 
       <h3 className="settings-section">What both write from</h3>
       <label className="field">
@@ -370,6 +507,16 @@ export function BattleScreen() {
               <p className="battle-setup-text">{setup.contextDocs.map((d) => d.name).join(', ')}</p>
             </>
           )}
+          <h3 className="ins-card-title">Writers</h3>
+          <ul className="battle-setup-writers">
+            {setup.writers.map((w, i) => (
+              <li key={i}>
+                {LETTERS[i]} · {w.label}: {modelName(models, w.modelId)}
+                {w.effort ? ` · effort ${w.effort}` : ''}
+                {describeSettings(w.settings) ? ` · ${describeSettings(w.settings)}` : ''}
+              </li>
+            ))}
+          </ul>
           <p className="field-note">Continue sends: {setup.continueText}</p>
         </section>
       )}

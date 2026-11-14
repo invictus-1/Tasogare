@@ -1681,9 +1681,9 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
           side().click()
           await until(open)
         }
-        out.noBack = !home()
+        out.withSidebar = !!home() && document.querySelector('.judge-home-item')?.textContent.trim() === 'All comparisons' && !document.querySelector('.judge-home-item[aria-current="true"]')
         side().click()
-        await until(() => home())
+        await until(() => !open())
         out.back = home()?.textContent.trim() ?? ''
         home()?.click()
         await until(() => rows().length > 0)
@@ -1708,12 +1708,15 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         // The sidebar open again and the comparison on screen.
         side().click()
         await until(open)
-        out.hidden = !home()
+        // The sidebar's own All comparisons goes to the same page, and marks itself while there.
+        document.querySelector('.judge-home-item').click()
+        await until(() => document.querySelector('.judge-start-actions'))
+        out.sideHome = !!document.querySelector('.judge-start-actions') && !!document.querySelector('.judge-home-item[aria-current="true"]') && !home()
         ;[...document.querySelectorAll('.judgment-item')].find((r) => r.textContent.includes('Lamps test'))?.click()
         await until(() => document.querySelector('.verdict h2'))
         return out
       })()`)
-      check('with the sidebar closed, the Judge has a way back to every comparison', pastUi.noBack === true && pastUi.back === 'All comparisons' && pastUi.gone === true && pastOpen.hidden === true, { ...pastUi, ...pastOpen })
+      check('the Judge always has a way back to every comparison: in the header and at the top of the sidebar', pastUi.withSidebar === true && pastUi.back === 'All comparisons' && pastUi.gone === true && pastOpen.sideHome === true, { ...pastUi, ...pastOpen })
       check(
         "the Judge's start page lists every past comparison and says they are kept",
         pastUi.heading === 'Judge two passages' && Number(pastUi.stored) >= 1 && (pastUi.rows as string[]).length === pastUi.stored && (pastUi.rows as string[]).some((t) => t.includes('Lamps test')) && pastUi.count === String(pastUi.stored) && /Kept until you delete them/.test(String(pastUi.note)),
@@ -1816,7 +1819,7 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         contextDocs: [{ name: 'Bible.md', text: 'Wren counts lamps.' }],
         continueText: 'Go on.',
         writers: [
-          { providerId: 'mock', modelId: 'mock-a', effort: null, label: 'Alder' },
+          { providerId: 'mock', modelId: 'mock-a', effort: null, label: 'Alder', settings: { temperature: 0.9, maxTokens: 1234 } },
           { providerId: 'mock', modelId: 'mock-b', effort: null, label: 'Birch' }
         ],
         extraInstructions: '',
@@ -1862,10 +1865,20 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         passageOf(bv.battle.passes[0].sides[0]) === 'GOOD: The lamps came on for mock-a, part 1.' && passageOf(bv.battle.passes[0].sides[1]) === 'The lamps came on for mock-b, part 1.' && bv.battle.rubric.criteria.length === 3,
         bv.battle.passes[0].sides.map(passageOf)
       )
+      const bodyOf = (r: LoggedRequest | undefined): Record<string, unknown> => (r?.body ?? {}) as Record<string, unknown>
+      const reqA25 = firstReqs.find((r) => r.model === 'mock-a')
+      const reqB25 = firstReqs.find((r) => r.model === 'mock-b')
       // Continue on one side only.
       battle.continueSide(contents, battleId, 0, 0)
       bv = await written25()
       const contReq = log.at(-1)
+      check(
+        "a writer is asked with its own settings in every turn, and both writers' settings are fixed with the battle",
+        bodyOf(reqA25).temperature === 0.9 && bodyOf(reqA25).max_tokens === 1234 && bodyOf(reqB25).max_tokens !== 1234 && bodyOf(reqB25).temperature !== 0.9 && bodyOf(contReq).temperature === 0.9 && bodyOf(contReq).max_tokens === 1234 &&
+          bv.battle.setup.writers[0].settings?.temperature === 0.9 && bv.battle.setup.writers[1].settings !== undefined && 'maxTokens' in (bv.battle.setup.writers[1].settings ?? {}) && 'extraParams' in (bv.battle.setup.writers[1].settings ?? {}) &&
+          /JSON object/.test(refused25(() => battle.createBattle(contents, { ...setup25, writers: [{ ...setup25.writers[0], settings: { extraParams: '[1]' } }, setup25.writers[1]] }))),
+        { a: [bodyOf(reqA25).temperature, bodyOf(reqA25).max_tokens], b: [bodyOf(reqB25).temperature, bodyOf(reqB25).max_tokens], kept: bv.battle.setup.writers.map((w) => w.settings) }
+      )
       check(
         'Continue asks only that side to go on, with what it wrote and the continue words',
         contReq?.model === 'mock-a' && contReq.messages.map((m) => m.role).join() === 'system,user,assistant,user' && contReq.messages[2].content === 'GOOD: The lamps came on for mock-a, part 1.' && contReq.messages[3].content === 'Go on.' &&
@@ -1988,6 +2001,18 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         pick('B', 'mock::mock-b')
         await wait(150)
         out.names = [...document.querySelectorAll('.battle-label')].map((i) => i.value)
+        // Writer A gets a temperature of its own.
+        out.plain = !document.querySelector('.battle-own')
+        document.querySelector('.battle-writer[data-writer="A"] .battle-settings').click()
+        await until(() => document.querySelector('.writer-settings'))
+        out.dialog = document.querySelector('.writer-settings h2')?.textContent ?? ''
+        const temperature = [...document.querySelectorAll('.writer-settings .num-setting')].find((n) => n.textContent.includes('Temperature'))
+        out.wasOff = !temperature.querySelector('input[type="checkbox"]').checked
+        temperature.querySelector('input[type="checkbox"]').click()
+        await wait(100)
+        document.querySelector('.writer-settings-done').click()
+        await until(() => !document.querySelector('.writer-settings'))
+        out.own = [...document.querySelectorAll('.battle-own')].map((p) => p.textContent)
         out.ready = !document.querySelector('.battle-start').disabled
         document.querySelector('.battle-start').click()
         await until(() => document.querySelector('.battle-sides') && !writing() && text('A').includes('part 1') && text('B').includes('part 1'))
@@ -2008,6 +2033,13 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         return out
       })()`)
       await shot('e2e-battle.png')
+      const windowReqA = log.filter((r) => r.model === 'mock-a' && r.messages[0]?.content === 'You write the battle scene.').at(-1)
+      check(
+        "Settings on a writer changes how that model is asked, for that writer only",
+        battleForm.plain === true && String(battleForm.dialog).startsWith('Writer A') && battleForm.wasOff === true && (battleForm.own as string[]).length === 1 && (battleForm.own as string[])[0] === 'Changed for this battle: temperature 0.7' &&
+          bodyOf(windowReqA).temperature === 0.7 && bodyOf(log.filter((r) => r.model === 'mock-b' && r.messages[0]?.content === 'You write the battle scene.').at(-1)).temperature !== 0.7,
+        { own: battleForm.own, dialog: battleForm.dialog, sent: bodyOf(windowReqA).temperature }
+      )
       const battleRun: Record<string, unknown> = await win.webContents.executeJavaScript(`(async () => {${battleHelpers}
         document.querySelector('.battle-new-pass').click()
         await until(() => document.querySelectorAll('.battle-pass-tab').length === 2 && !writing() && text('A').includes('part 1') && !text('A').includes('part 2'))

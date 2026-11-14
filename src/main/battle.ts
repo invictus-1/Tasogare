@@ -5,10 +5,10 @@
 
 import type { WebContents } from 'electron'
 import { randomUUID } from 'node:crypto'
-import { DEFAULT_CONTINUE, MAX_PASSES, passageOf, passReady, sideWriting, type Battle, type BattleSetup, type BattleSide, type BattleSummary, type BattleTurn, type BattleView, type BattleWriter } from '@shared/battle'
+import { DEFAULT_CONTINUE, MAX_PASSES, passageOf, passReady, sideWriting, writerSettings, type Battle, type BattleSetup, type BattleSide, type BattleSummary, type BattleTurn, type BattleView, type BattleWriter, type WriterSettings } from '@shared/battle'
 import type { JudgeInput } from '@shared/judge'
 import type { ChatSettings, StreamEvent } from '@shared/types'
-import { getDefaults } from './chat'
+import { getDefaults, modelDefaultsFor } from './chat'
 import * as db from './db'
 import * as judge from './judge'
 import { appendLog } from './logs'
@@ -101,11 +101,38 @@ export function deleteBattle(id: string): void {
 
 const text = (v: unknown): string => (typeof v === 'string' ? v : '')
 
+/** What was changed for a writer, with anything that is not a setting of the right kind left out. */
+function ownSettings(raw: unknown): WriterSettings {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+  const out: WriterSettings = {}
+  const number = (v: unknown, min: number, max: number): number | null | undefined =>
+    v === null ? null : typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : undefined
+  const temperature = number(r.temperature, 0, 2)
+  if (temperature !== undefined) out.temperature = temperature
+  const maxTokens = number(r.maxTokens, 1, 1_000_000)
+  if (maxTokens !== undefined) out.maxTokens = maxTokens === null ? null : Math.round(maxTokens)
+  if (typeof r.caching === 'boolean') out.caching = r.caching
+  if (r.cacheTtl === '5m' || r.cacheTtl === '1h') out.cacheTtl = r.cacheTtl
+  if (r.samplers && typeof r.samplers === 'object' && !Array.isArray(r.samplers)) out.samplers = { ...getDefaults().samplers, ...(r.samplers as WriterSettings['samplers']) }
+  if (typeof r.extraParams === 'string') {
+    const extra = r.extraParams.trim()
+    try {
+      const parsed: unknown = extra ? JSON.parse(extra) : {}
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('not an object')
+      out.extraParams = extra
+    } catch {
+      throw new Error('A writer\'s extra request parameters must be a JSON object.')
+    }
+  }
+  return out
+}
+
 function writer(raw: Partial<BattleWriter> | undefined, letter: string): BattleWriter {
   const w = { providerId: text(raw?.providerId), modelId: text(raw?.modelId), effort: typeof raw?.effort === 'string' && raw.effort ? raw.effort : null, label: text(raw?.label).trim() }
   if (!w.providerId || !w.modelId) throw new Error(`Choose a model for writer ${letter}.`)
   if (!w.label) throw new Error(`Give writer ${letter} a name: the result and the leaderboard go by it.`)
-  return w
+  // Fixed here, in full, so every pass and every Continue of this battle is asked the same way.
+  return { ...w, settings: writerSettings(getDefaults(), modelDefaultsFor(w.providerId, w.modelId), ownSettings(raw?.settings)) }
 }
 
 export function createBattle(contents: WebContents, raw: BattleSetup): BattleView {
@@ -213,10 +240,11 @@ function write(contents: WebContents, id: string, pass: number, sideIndex: numbe
     let got = ''
     try {
       const config = getProvider(who.providerId)
-      // Your usual writing settings (length, temperature, caching), with everything that reaches
-      // outside the page off: a battle is the setup and the model, nothing else.
+      // The writer's settings as they were fixed when the battle began, with everything that
+      // reaches outside the page off: a battle is the setup and the model, nothing else.
       const settings: ChatSettings = {
         ...getDefaults(),
+        ...who.settings,
         providerId: who.providerId,
         modelId: who.modelId,
         systemPrompt: setup.systemPrompt,

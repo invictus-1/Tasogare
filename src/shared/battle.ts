@@ -1,5 +1,5 @@
 import { computeVerdict, type Judgment, type Rubric, type Verdict } from './judge'
-import type { Attachment, Usage } from './types'
+import type { Attachment, ChatSettings, Usage } from './types'
 
 // A fresh battle: two models write from the same prompt, system prompt and reference files, with
 // no chat behind them, and the Judge compares what they wrote. Each side is written in turns (the
@@ -8,12 +8,43 @@ import type { Attachment, Usage } from './types'
 // not decide it: every pass is judged as its own blind comparison, and the passes you choose are
 // averaged.
 
+/** The model settings a writer can be given: how the model is asked, never what it is told. */
+export const WRITER_KEYS = ['temperature', 'maxTokens', 'caching', 'cacheTtl', 'samplers', 'extraParams'] as const satisfies readonly (keyof ChatSettings)[]
+export type WriterSettings = Partial<Pick<ChatSettings, (typeof WRITER_KEYS)[number]>>
+
 /** One of the two writers: the model, how hard it thinks, and its name on the leaderboard. */
 export interface BattleWriter {
   providerId: string
   modelId: string
   effort: string | null
   label: string
+  /**
+   * In a battle being set up: what you changed from that model's usual settings. Once the battle
+   * begins: every setting it is written with, so each pass and each Continue is asked the same way
+   * whatever your defaults become later.
+   */
+  settings?: WriterSettings
+}
+
+/** A writer's settings in full: your usual chat settings, then that model's own defaults, then what was changed for this writer. */
+export function writerSettings(usual: ChatSettings, model: Partial<ChatSettings>, own?: WriterSettings): WriterSettings {
+  const all = { ...usual, ...model, ...own }
+  const out: WriterSettings = {}
+  for (const k of WRITER_KEYS) (out as Record<string, unknown>)[k] = all[k]
+  return out
+}
+
+/** Settings in a few words, for the page: only what is switched on or unusual is said. */
+export function describeSettings(s: WriterSettings | undefined): string {
+  if (!s) return ''
+  const parts: string[] = []
+  if (s.temperature != null) parts.push(`temperature ${s.temperature}`)
+  if (s.maxTokens != null) parts.push(`up to ${s.maxTokens.toLocaleString()} tokens a turn`)
+  if (s.caching === false) parts.push('caching off')
+  const samplers = Object.entries(s.samplers ?? {}).filter(([, v]) => v !== null && v !== undefined)
+  if (samplers.length) parts.push(samplers.map(([k, v]) => `${k} ${v}`).join(', '))
+  if (s.extraParams?.trim()) parts.push('extra request parameters')
+  return parts.join(' · ')
 }
 
 /** What a battle is written from and judged with. */
