@@ -4,11 +4,13 @@ import { modelKey, type ModelDefaults } from '@shared/modelDefaults'
 import { formatTokens } from '@shared/pricing'
 import type { CacheTtl } from '@shared/types'
 import { useJudge } from '../judgeStore'
+import { useLibrary } from '../libraryStore'
 import { renderMarkdown, renderMarkdownLive } from '../markdown'
 import { modelName, optionsFor, useStore } from '../store'
 import { readStream, subscribeStream } from '../stream'
 import { NumberSetting, SamplerSettings } from './ChatSettingsPanel'
 import { CloseIcon, PaperclipIcon, PlusIcon, SlidersIcon, StopIcon, TrophyIcon } from './Icons'
+import { RubricActions } from './Rubrics'
 
 // A fresh battle (see @shared/battle): the form that sets one up, and the battle itself, where
 // both models write side by side, pass after pass, and the passes you choose are judged.
@@ -223,6 +225,17 @@ export function BattleForm() {
   // Each model's saved defaults: what a writer starts from before anything is changed for it.
   const [modelDefaults, setModelDefaults] = useState<ModelDefaults>({})
   useEffect(() => void window.twilight.listModelDefaults().then(setModelDefaults), [])
+  // Your saved prompts and personas (Settings → Personas and prompts), to write from again.
+  const prompts = useLibrary((l) => l.prompts)
+  const personas = useLibrary((l) => l.personas)
+  useEffect(() => void useLibrary.getState().refresh(), [])
+  // The name being given to this prompt as it is saved; null when it is not being saved.
+  const [savingAs, setSavingAs] = useState<string | null>(null)
+  const sameName = savingAs === null ? undefined : prompts.find((p) => p.name.trim().toLowerCase() === savingAs.trim().toLowerCase())
+  const savePrompt = async (): Promise<void> => {
+    if (!savingAs?.trim() || !draft.authorPrompt.trim()) return
+    if (await useLibrary.getState().savePrompt({ id: sameName?.id ?? '', name: savingAs.trim(), text: draft.authorPrompt })) setSavingAs(null)
+  }
   const labels = draft.writers.map((w) => w.label.trim().toLowerCase())
   const problem = !draft.authorPrompt.trim()
     ? 'Write the prompt both models will answer'
@@ -252,24 +265,89 @@ export function BattleForm() {
       </p>
 
       <h3 className="settings-section">What both write from</h3>
-      <label className="field">
-        <span className="field-label">Prompt</span>
+      <div className="field">
+        <span className="field-label judge-row">
+          Prompt
+          <span className="chip-actions">
+            {prompts.length > 0 && (
+              <select
+                className="battle-saved-prompts"
+                value=""
+                aria-label="Use a saved prompt"
+                onChange={(e) => {
+                  const saved = prompts.find((p) => p.id === e.target.value)
+                  if (saved) update({ authorPrompt: saved.text })
+                }}
+              >
+                <option value="">Use a saved prompt…</option>
+                {prompts.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            )}
+            <button
+              type="button"
+              className="chip-action battle-save-prompt"
+              disabled={!draft.authorPrompt.trim() || savingAs !== null}
+              title="Keeps this prompt with your saved prompts, to write from again"
+              onClick={() => setSavingAs('')}
+            >
+              <PlusIcon size={12} />
+              Save this prompt
+            </button>
+          </span>
+        </span>
+        {savingAs !== null && (
+          <div className="battle-save-row">
+            <input
+              autoFocus
+              className="battle-save-name"
+              value={savingAs}
+              placeholder="A name for this prompt"
+              onChange={(e) => setSavingAs(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void savePrompt()
+                if (e.key === 'Escape') setSavingAs(null)
+              }}
+            />
+            <button className="tw-btn tw-btn-primary tw-btn-sm battle-save-confirm" disabled={!savingAs.trim()} onClick={() => void savePrompt()}>
+              {sameName ? 'Replace' : 'Save'}
+            </button>
+            <button className="tw-btn tw-btn-ghost tw-btn-sm" onClick={() => setSavingAs(null)}>
+              Cancel
+            </button>
+            <span className="field-note">{sameName ? 'A prompt is already saved under this name; this replaces it.' : 'Saved prompts are changed and removed in Settings, under Personas and prompts.'}</span>
+          </div>
+        )}
         <textarea className="battle-prompt" rows={6} value={draft.authorPrompt} placeholder="The prompt both models answer" onChange={(e) => update({ authorPrompt: e.target.value })} />
-      </label>
+      </div>
       <div className="field">
         <span className="field-label judge-row">
           Writing system prompt
-          {folders.some((f) => f.systemPrompt.trim()) && (
-            <select value="" onChange={(e) => {
-              const ws = folders.find((f) => f.id === e.target.value)
-              if (ws) update({ systemPrompt: ws.systemPrompt })
-            }}>
-              <option value="">Use a workspace's prompt…</option>
-              {folders.filter((f) => f.systemPrompt.trim()).map((f) => (
-                <option key={f.id} value={f.id}>{f.name}</option>
-              ))}
-            </select>
-          )}
+          <span className="chip-actions">
+            {personas.length > 0 && (
+              <select className="battle-personas" value="" aria-label="Use a persona's prompt" onChange={(e) => {
+                const persona = personas.find((p) => p.id === e.target.value)
+                if (persona) update({ systemPrompt: persona.systemPrompt })
+              }}>
+                <option value="">Use a persona's prompt…</option>
+                {personas.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            )}
+            {folders.some((f) => f.systemPrompt.trim()) && (
+              <select value="" aria-label="Use a workspace's prompt" onChange={(e) => {
+                const ws = folders.find((f) => f.id === e.target.value)
+                if (ws) update({ systemPrompt: ws.systemPrompt })
+              }}>
+                <option value="">Use a workspace's prompt…</option>
+                {folders.filter((f) => f.systemPrompt.trim()).map((f) => (
+                  <option key={f.id} value={f.id}>{f.name}</option>
+                ))}
+              </select>
+            )}
+          </span>
         </span>
         <textarea rows={4} value={draft.systemPrompt} placeholder="The system prompt both models are given" onChange={(e) => update({ systemPrompt: e.target.value })} />
       </div>
@@ -331,12 +409,15 @@ export function BattleForm() {
             </select>
           </label>
         )}
-        <label className="field">
-          <span className="field-label">Rubric</span>
-          <select value={draft.rubricId} onChange={(e) => update({ rubricId: e.target.value })}>
+        <div className="field">
+          <span className="field-label judge-row">
+            Rubric
+            <RubricActions rubric={rubric} onPick={(id) => update({ rubricId: id })} />
+          </span>
+          <select className="battle-rubric" value={draft.rubricId} onChange={(e) => update({ rubricId: e.target.value })}>
             {rubrics.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
-        </label>
+        </div>
       </div>
       {rubric && <p className="field-note">{rubric.description} {rubric.criteria.length} criteria: {rubric.criteria.map((c) => c.name).join(', ')}. Every pass is judged with the rubric as it is now.</p>}
       <label className="field">

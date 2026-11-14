@@ -2,6 +2,13 @@
 
 Each version's section becomes its release notes on the releases page (`npm run release`), and Tasogare shows them in Settings > Updates.
 
+## Unreleased
+
+- **A new battle changes its rubric in place:** Edit (or View or copy, for the built-in one), Export and Import sit beside the rubric picker in New battle, as they do in New comparison.
+- **Saved prompts in New battle:** Save this prompt keeps what both models write from with your saved prompts, under a name, and Use a saved prompt fills the box from them. The writing system prompt can be filled from a persona as well as from a workspace. They are the same prompts and personas as in Settings, under Personas and prompts, where you change and remove them.
+- **Rubrics in Settings:** Judge rubrics lists every rubric, to change your own, copy the built-in one, start a new one, and import or export them.
+- **The rubric's actions fit the theme:** Edit, Export and Import are small chips beside the picker, in place of the plain underlined links spread across the row.
+
 ## 1.8.0
 
 **Fresh battles in the Judge**

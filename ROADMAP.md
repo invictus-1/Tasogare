@@ -190,6 +190,7 @@ What's shipped, what's next, and ideas not yet committed to. Tasogare shows this
 - [x] **Installer** · Core — Windows installer and portable zip, with Tasogare artwork
 
 ## Next
+- [~] **Rubrics and saved prompts within reach** · Judge — done, in the next release: a new battle changes its rubric in place and writes from your saved prompts, and Settings has a page for rubrics
 - [~] **Your feedback on 1.0** · Core — fixes from real use
 
 ## Later

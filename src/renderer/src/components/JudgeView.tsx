@@ -1,5 +1,5 @@
 import { useState, useSyncExternalStore } from 'react'
-import { computeVerdict, ELO_K, ELO_START, keepSide, MAX_PASSAGES, passageLetter, roundPairs, sameRubric, type JudgeInput, type Judgment, type Rubric, type RubricCriterion } from '@shared/judge'
+import { computeVerdict, ELO_K, ELO_START, keepSide, MAX_PASSAGES, passageLetter, roundPairs, sameRubric, type JudgeInput, type Judgment } from '@shared/judge'
 import { formatTokens } from '@shared/pricing'
 import { battleState, judgmentState, useJudge } from '../judgeStore'
 import { renderMarkdown, renderMarkdownLive } from '../markdown'
@@ -8,6 +8,7 @@ import { readStream, subscribeStream } from '../stream'
 import { CloseIcon, PaperclipIcon, PlusIcon, SidebarIcon, TrashIcon, TrophyIcon } from './Icons'
 import { ArenaBoard } from './Arena'
 import { BattleForm, BattleScreen } from './Battle'
+import { RubricActions } from './Rubrics'
 
 const words = (s: string): number => s.match(/\S+/g)?.length ?? 0
 const fmt = (n: number | null): string => (n === null ? '–' : n.toFixed(1))
@@ -84,7 +85,6 @@ function JudgeForm() {
   const models = useStore((s) => s.models)
   const providers = useStore((s) => s.providers)
   const folders = useStore((s) => s.folders)
-  const [editing, setEditing] = useState<Rubric | null>(null)
   const options = optionsFor(models, providers, draft.judgeProviderId, draft.judgeModelId)
   const saved = rubrics.find((r) => r.id === draft.rubricId)
   // A draft made from an earlier comparison is judged with the rubric as it was then, while that
@@ -218,41 +218,16 @@ function JudgeForm() {
             </select>
           </label>
         )}
-        <label className="field">
+        <div className="field">
           <span className="field-label judge-row">
             Rubric
-            {rubric && !asJudged && (
-              <button className="link-btn" onClick={() => setEditing(rubric)}>
-                {rubric.builtIn ? 'View or copy' : 'Edit'}
-              </button>
-            )}
-            {rubric && !asJudged && !rubric.builtIn && (
-              <button className="link-btn" title="Save this rubric to a file" onClick={() => void window.twilight.exportRubric(rubric.id).catch(() => undefined)}>
-                Export
-              </button>
-            )}
-            <button
-              className="link-btn"
-              title="Add a rubric from a file"
-              onClick={async () => {
-                try {
-                  const result = await window.twilight.importRubric()
-                  if (!result) return
-                  useJudge.getState().setRubrics(result.rubrics)
-                  update({ rubricId: result.id })
-                } catch (err) {
-                  useStore.getState().setError(err instanceof Error ? err.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(err))
-                }
-              }}
-            >
-              Import
-            </button>
+            <RubricActions rubric={rubric} locked={asJudged} onPick={(id) => update({ rubricId: id })} />
           </span>
           <select value={draft.rubricId} onChange={(e) => update({ rubricId: e.target.value })}>
             {kept && !saved && <option value={kept.id}>{kept.name} (as judged before)</option>}
             {rubrics.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
-        </label>
+        </div>
       </div>
       {rubric && <p className="field-note">{rubric.description} {rubric.criteria.length} criteria: {rubric.criteria.map((c) => c.name).join(', ')}.</p>}
       {asJudged && (
@@ -283,90 +258,6 @@ function JudgeForm() {
         >
           {round ? `Start ${pairs} judgments (${runs} runs)` : `Judge ${draft.bothOrders ? '(2 runs)' : ''}`}
         </button>
-      </div>
-      {editing && <RubricEditor rubric={editing} onClose={() => setEditing(null)} />}
-    </div>
-  )
-}
-
-// ——— Rubric editor ———
-
-function RubricEditor({ rubric, onClose }: { rubric: Rubric; onClose: () => void }) {
-  const copy = rubric.builtIn
-  const [draft, setDraft] = useState<Rubric>(copy ? { ...rubric, id: `custom-${Date.now()}`, name: `${rubric.name} (my copy)`, builtIn: false } : rubric)
-  const setCriterion = (i: number, patch: Partial<RubricCriterion>): void =>
-    setDraft((d) => ({ ...d, criteria: d.criteria.map((c, j) => (j === i ? { ...c, ...patch } : c)) }))
-
-  return (
-    <div className="dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="dialog rubric-dialog" role="dialog" aria-modal="true" aria-label="Rubric">
-        <div className="panel-head">
-          <h2 className="t-title">{copy ? 'Copy rubric' : 'Edit rubric'}</h2>
-          <button className="tw-btn tw-btn-ghost tw-btn-icon" aria-label="Close" onClick={onClose}>
-            <CloseIcon />
-          </button>
-        </div>
-        {copy && <p className="field-note">Built-in rubrics stay as they are; changes save as your own copy.</p>}
-        <label className="field">
-          <span className="field-label">Name</span>
-          <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
-        </label>
-        <label className="field">
-          <span className="field-label">Description</span>
-          <input value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
-        </label>
-        {draft.criteria.map((c, i) => (
-          <div key={i} className="criterion">
-            <div className="criterion-head">
-              <input value={c.name} placeholder="Criterion" onChange={(e) => setCriterion(i, { name: e.target.value })} />
-              <label className="criterion-weight">
-                weight
-                <input type="number" min={0.5} max={5} step={0.5} value={c.weight} onChange={(e) => setCriterion(i, { weight: Number(e.target.value) || 1 })} />
-              </label>
-              <button className="tw-btn tw-btn-ghost tw-btn-icon" aria-label={`Remove ${c.name}`} onClick={() => setDraft({ ...draft, criteria: draft.criteria.filter((_, j) => j !== i) })}>
-                <TrashIcon size={14} />
-              </button>
-            </div>
-            <textarea rows={3} value={c.guide} placeholder="What the judge should look for" onChange={(e) => setCriterion(i, { guide: e.target.value })} />
-          </div>
-        ))}
-        <button
-          className="tw-btn tw-btn-sm"
-          onClick={() => setDraft({ ...draft, criteria: [...draft.criteria, { id: `c${Date.now()}`, name: '', weight: 1, guide: '' }] })}
-        >
-          <PlusIcon size={14} />
-          Add criterion
-        </button>
-        <div className="dialog-actions">
-          {!copy && (
-            <button
-              className="tw-btn tw-btn-ghost danger-text"
-              onClick={async () => {
-                useJudge.getState().setRubrics(await window.twilight.deleteRubric(rubric.id))
-                useJudge.getState().updateDraft({ rubricId: 'general-fiction' })
-                onClose()
-              }}
-            >
-              Delete rubric
-            </button>
-          )}
-          <span className="tw-spacer" />
-          <button className="tw-btn tw-btn-ghost" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            className="tw-btn tw-btn-primary"
-            disabled={!draft.name.trim() || draft.criteria.length === 0 || draft.criteria.some((c) => !c.name.trim())}
-            onClick={async () => {
-              const cleaned = { ...draft, criteria: draft.criteria.map((c) => ({ ...c, id: c.id || c.name.toLowerCase().replace(/\W+/g, '-') })) }
-              useJudge.getState().setRubrics(await window.twilight.saveRubric(cleaned))
-              useJudge.getState().updateDraft({ rubricId: cleaned.id })
-              onClose()
-            }}
-          >
-            Save
-          </button>
-        </div>
       </div>
     </div>
   )

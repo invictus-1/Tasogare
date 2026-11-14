@@ -1797,6 +1797,15 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         await until(() => !document.querySelector('.judge-as-judged'))
         out.savedNow = [...document.querySelectorAll('.judge-form .field-note')].find((p) => /criteria:/.test(p.textContent))?.textContent ?? ''
         out.noteGone = !document.querySelector('.judge-as-judged')
+        // The rubric's actions are chips, and Edit opens the rubric.
+        const chips = () => [...document.querySelectorAll('.judge-form .rubric-actions .chip-action')].map((b) => b.textContent.trim())
+        out.chips = chips()
+        out.plainLinks = document.querySelectorAll('.judge-form .rubric-actions .link-btn').length
+        document.querySelector('.judge-form .rubric-edit')?.click()
+        await until(() => document.querySelector('.rubric-dialog'))
+        out.editor = document.querySelector('.rubric-dialog h2')?.textContent ?? ''
+        ;[...document.querySelectorAll('.rubric-dialog .dialog-actions .tw-btn')].find((b) => b.textContent.trim() === 'Cancel')?.click()
+        await until(() => !document.querySelector('.rubric-dialog'))
         ;[...document.querySelectorAll('.judge-form .dialog-actions .tw-btn')].find((b) => b.textContent.trim() === 'Cancel')?.click()
         await wait(200)
         return out
@@ -1813,6 +1822,7 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         /has since changed/.test(String(keepUi.asJudged)) && /^From a file 3 criteria/.test(String(keepUi.criteria)) && /^From a file 1 criteria/.test(String(keepUi.savedNow)) && keepUi.noteGone === true,
         keepUi
       )
+      check("a rubric's actions beside its picker are chips in the theme, and Edit opens the rubric", (keepUi.chips as string[]).join() === 'Edit,Export,Import' && keepUi.plainLinks === 0 && keepUi.editor === 'Edit rubric', keepUi)
       // The rubric back as it was, and the window back on the comparison.
       judge.saveRubric(imported)
       await reloadUi()
@@ -2030,7 +2040,7 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         const writing = () => !!document.querySelector('.battle-stop')
         const judgeBtn = () => document.querySelector('.battle-judge-run')
         const out = {}`
-      const battleForm: Record<string, unknown> = await win.webContents.executeJavaScript(`(async () => {${battleHelpers}
+      const battleSetup: Record<string, unknown> = await win.webContents.executeJavaScript(`(async () => {${battleHelpers}
         document.querySelector('.rail-item[data-mode="judge"]')?.click()
         await until(() => document.querySelector('.judge-new-battle'))
         out.listed = [...document.querySelectorAll('.judge-battle-item')].map((b) => b.textContent)
@@ -2047,6 +2057,43 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         type(document.querySelector('.battle-form .field input'), 'Window battle')
         type(document.querySelector('.battle-prompt'), 'Write the lamps coming on.')
         type(document.querySelector('.battle-form textarea[placeholder="The system prompt both models are given"]'), 'You write the battle scene.')
+        // The rubric is changed from here: a copy of the built-in one becomes the battle's.
+        const rubricPick = document.querySelector('.battle-rubric')
+        rubricPick.value = 'general-fiction'
+        rubricPick.dispatchEvent(new Event('change', { bubbles: true }))
+        const battleChips = () => [...document.querySelectorAll('.battle-form .rubric-actions .chip-action')].map((b) => b.textContent.trim())
+        await until(() => battleChips()[0] === 'View or copy')
+        out.builtInChips = battleChips()
+        document.querySelector('.battle-form .rubric-edit').click()
+        await until(() => document.querySelector('.rubric-dialog'))
+        out.copyTitle = document.querySelector('.rubric-dialog h2')?.textContent ?? ''
+        document.querySelector('.rubric-save').click()
+        await until(() => !document.querySelector('.rubric-dialog') && document.querySelector('.battle-rubric').value.startsWith('custom-'))
+        out.copyPicked = document.querySelector('.battle-rubric').selectedOptions[0]?.textContent ?? ''
+        out.ownChips = battleChips()
+        // The prompt is saved, and a saved one fills the box.
+        out.noSaved = !document.querySelector('.battle-saved-prompts option[value]:not([value=""])') || ![...document.querySelectorAll('.battle-saved-prompts option')].some((o) => o.textContent === 'Lamps prompt')
+        document.querySelector('.battle-save-prompt').click()
+        await until(() => document.querySelector('.battle-save-name'))
+        type(document.querySelector('.battle-save-name'), 'Lamps prompt')
+        await wait(80)
+        document.querySelector('.battle-save-confirm').click()
+        const savedOption = () => [...document.querySelectorAll('.battle-saved-prompts option')].find((o) => o.textContent === 'Lamps prompt')
+        await until(() => savedOption() && !document.querySelector('.battle-save-name'))
+        out.saved = !!savedOption()
+        type(document.querySelector('.battle-prompt'), 'Something else entirely.')
+        await wait(80)
+        const savedPick = document.querySelector('.battle-saved-prompts')
+        savedPick.value = savedOption().value
+        savedPick.dispatchEvent(new Event('change', { bubbles: true }))
+        await until(() => document.querySelector('.battle-prompt').value === 'Write the lamps coming on.')
+        out.refilled = document.querySelector('.battle-prompt').value
+        document.querySelector('.battle-prompt').closest('.field').scrollIntoView({ block: 'start' })
+        await wait(200)
+        return out
+      })()`)
+      await shot('e2e-battle-form.png')
+      const battleForm: Record<string, unknown> = { ...battleSetup, ...((await win.webContents.executeJavaScript(`(async () => {${battleHelpers}
         const pick = (letter, value) => {
           const select = document.querySelector('.battle-writer[data-writer="' + letter + '"] select')
           select.value = value
@@ -2087,9 +2134,19 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         await until(() => !judgeBtn().disabled)
         out.judgeLabel = judgeBtn().textContent.trim()
         return out
-      })()`)
+      })()`)) as Record<string, unknown>) }
       await shot('e2e-battle.png')
       check('a side that stopped at the output limit says so in the window, and one that went on does not', (battleForm.cutNote as string[])[0] === '' && /stopped at the output limit/.test((battleForm.cutNote as string[])[1]), battleForm.cutNote)
+      check(
+        "a new battle changes its rubric in place: a copy of the built-in one becomes the battle's rubric",
+        (battleForm.builtInChips as string[]).join() === 'View or copy,Import' && battleForm.copyTitle === 'Copy rubric' && battleForm.copyPicked === 'General fiction (my copy)' && (battleForm.ownChips as string[]).join() === 'Edit,Export,Import',
+        battleForm
+      )
+      check(
+        'a battle prompt is kept with your saved prompts and fills the box again from the list',
+        battleForm.noSaved === true && battleForm.saved === true && battleForm.refilled === 'Write the lamps coming on.' && library.getLibrary().prompts.some((p) => p.name === 'Lamps prompt' && p.text === 'Write the lamps coming on.'),
+        { saved: battleForm.saved, refilled: battleForm.refilled, prompts: library.getLibrary().prompts.map((p) => p.name) }
+      )
       const windowReqA = log.filter((r) => r.model === 'mock-a' && r.messages[0]?.content === 'You write the battle scene.').at(-1)
       check(
         "Settings on a writer changes how that model is asked, for that writer only",
@@ -2161,6 +2218,39 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         battleRun.report === 'A is better written' && battleRun.reportTitle === 'Window battle · pass 1' && battleRun.back === 'Window battle' && !(battleRun.left as string[]).some((t) => t.includes('Window battle')) && (battleRun.left as string[]).some((t) => t.includes('Lamps battle')),
         battleRun
       )
+      const rubricSettings: Record<string, unknown> = await win.webContents.executeJavaScript(`(async () => {${battleHelpers}
+        document.querySelector('.rail [data-rail="settings"]').click()
+        await until(() => document.querySelector('.settings-nav-item'))
+        ;[...document.querySelectorAll('.settings-nav-item')].find((b) => b.textContent.startsWith('Judge rubrics'))?.click()
+        await until(() => document.querySelector('[data-kind="rubrics"]'))
+        const rows = () => [...document.querySelectorAll('[data-rubric]')]
+        out.rows = rows().map((r) => r.dataset.rubric + ': ' + r.querySelector('.library-name').textContent.trim())
+        document.querySelector('.rubric-new').click()
+        await until(() => document.querySelector('.rubric-dialog'))
+        out.newTitle = document.querySelector('.rubric-dialog h2')?.textContent ?? ''
+        out.newBlocked = document.querySelector('.rubric-save').disabled
+        ;[...document.querySelectorAll('.rubric-dialog .dialog-actions .tw-btn')].find((b) => b.textContent.trim() === 'Cancel')?.click()
+        await until(() => !document.querySelector('.rubric-dialog'))
+        rows().find((r) => r.dataset.rubric === 'test-serial').querySelector('.library-actions .tw-btn').click()
+        await until(() => document.querySelector('.rubric-dialog'))
+        out.editTitle = document.querySelector('.rubric-dialog h2')?.textContent ?? ''
+        type(document.querySelector('.rubric-dialog .field input'), 'Test serial, edited')
+        await wait(80)
+        document.querySelector('.rubric-save').click()
+        await until(() => !document.querySelector('.rubric-dialog') && rows().some((r) => r.textContent.includes('Test serial, edited')))
+        out.after = rows().map((r) => r.querySelector('.library-name').textContent.trim())
+        return out
+      })()`)
+      check(
+        'Settings lists the rubrics, the built-in one and your own, and changes them there',
+        (rubricSettings.rows as string[]).some((r) => r.startsWith('general-fiction: General fiction') && r.includes('Built in')) && (rubricSettings.rows as string[]).includes('test-serial: Test serial') && rubricSettings.newTitle === 'New rubric' && rubricSettings.newBlocked === true &&
+          rubricSettings.editTitle === 'Edit rubric' && (rubricSettings.after as string[]).includes('Test serial, edited') && judge.listRubrics().some((r) => r.id === 'test-serial' && r.name === 'Test serial, edited'),
+        rubricSettings
+      )
+      // The rubrics and prompts as the checks found them.
+      for (const r of judge.listRubrics()) if (r.id.startsWith('custom-')) judge.deleteRubric(r.id)
+      judge.saveRubric(imported)
+      for (const p of library.getLibrary().prompts) if (p.name === 'Lamps prompt') library.deletePrompt(p.id)
       // Out of the way of what follows: the battles and the comparisons that judged their passes.
       for (const b of battle.listBattles()) battle.deleteBattle(b.id)
       for (const j of judge.listJudgments()) if (/ · pass \d+$/.test(j.title)) judge.deleteJudgment(j.id)

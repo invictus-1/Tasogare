@@ -511,7 +511,20 @@ body.resizing .resize-handle { pointer-events: auto; }
 .judge-passage textarea:focus-visible, .judge-label:focus-visible { box-shadow: var(--focus-ring); }
 .judge-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .judge-row select { height: var(--control-sm); font-size: 12px; }
-.judge-settings { display: grid; grid-template-columns: 2fr 1fr 2fr; gap: var(--space-3); }
+/* Small actions beside a field's label (a rubric's, a saved prompt's), as chips in the theme's colours */
+.chip-actions { display: inline-flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.chip-action { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 var(--space-2); border: 1px solid var(--line-strong); border-radius: var(--radius-full); background: color-mix(in srgb, var(--iris) 8%, var(--surface-raised)); color: var(--ink-muted); font: inherit; font-size: 12px; font-weight: 500; line-height: 1; white-space: nowrap; cursor: pointer; }
+.chip-action:hover:not(:disabled) { border-color: var(--iris); color: var(--ink); }
+.chip-action:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.chip-action:disabled { opacity: .5; cursor: default; }
+/* A picker in a label's row (a saved prompt, a persona, a workspace's prompt) is a chip too; said with .field so it outranks the field's own select. */
+.field .judge-row select { height: 22px; max-width: 240px; padding: 0 var(--space-2); border: 1px solid var(--line-strong); border-radius: var(--radius-full); background: color-mix(in srgb, var(--iris) 8%, var(--surface-raised)); color: var(--ink-muted); font-size: 12px; font-weight: 500; cursor: pointer; }
+.field .judge-row select:hover { border-color: var(--iris); color: var(--ink); }
+/* The labels of the judge's row share one height, so the pickers under them line up beside a label that holds chips. */
+.judge-settings .field-label { display: flex; align-items: center; min-height: 22px; }
+.battle-save-row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
+.field .battle-save-row input { flex: 1 1 220px; height: var(--control-sm); }
+.judge-settings { display: grid; grid-template-columns: 2fr 1fr 2fr; align-items: end; gap: var(--space-3); }
 .judge-error { margin: var(--space-3) var(--space-6) 0; cursor: pointer; }
 .verdict { background: var(--surface-raised); border-radius: var(--radius-lg); padding: var(--space-4) var(--space-6); display: flex; flex-direction: column; gap: var(--space-2); }
 .verdict-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }

@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ShortcutsSection } from './ShortcutsSection'
 import { PricesSection } from './PricesSection'
 import { LibrarySection } from './LibrarySection'
+import { RubricSettings } from './Rubrics'
 import { UsageSection } from './UsageSection'
 import type { ModelInfo, ProviderConfig } from '@shared/types'
 import { readGameFormat, writeGameFormat } from '../gameFormatSettings'
@@ -26,7 +27,7 @@ import { ChipIcon, CloseIcon, CloudIcon, PenIcon, PlusIcon, RefreshIcon, TrashIc
 // The Settings page: a section list on the left, one section on the right. Each section opens
 // with a line saying what it's for.
 
-type Section = 'providers' | 'local' | 'tools' | 'voice' | 'prices' | 'usage' | 'general' | 'appearance' | 'library' | 'writing' | 'data' | 'shortcuts' | 'extras' | 'updates' | 'roadmap' | 'about'
+type Section = 'providers' | 'local' | 'tools' | 'voice' | 'prices' | 'usage' | 'general' | 'appearance' | 'library' | 'rubrics' | 'writing' | 'data' | 'shortcuts' | 'extras' | 'updates' | 'roadmap' | 'about'
 
 // Grouped by what people come looking for: how the app behaves and looks, what you write with,
 // the models, and Tasogare itself. Each page holds one kind of thing, named the way you'd ask for it.
@@ -38,6 +39,7 @@ const SECTIONS: { id: Section; group: string; label: string; description: string
   { id: 'shortcuts', group: 'App', label: 'Keyboard shortcuts', description: 'Every shortcut Tasogare knows, and your own bindings.' },
   { id: 'extras', group: 'App', label: 'Extras', description: "Just for fun: the sky through the day, small motions and celebrations. None of them change how anything works; each has its own switch." },
   { id: 'library', group: 'Writing', label: 'Personas and prompts', description: 'Your personas and prompts. A persona starts a chat with its instructions; a prompt goes into the message box from the composer.' },
+  { id: 'rubrics', group: 'Writing', label: 'Judge rubrics', description: 'What the Judge scores against. Change your own rubrics, copy the built-in one, and move them between installs as files.' },
   { id: 'writing', group: 'Writing', label: 'Documents', description: 'Where your documents live, and the document library that finds passages for your messages. Point it at an Obsidian vault and both apps edit the same files.' },
   { id: 'providers', group: 'Models', label: 'Model providers', description: 'Connect cloud APIs and local servers, test them, and choose which models appear in the picker.' },
   { id: 'local', group: 'Models', label: 'Models on this PC', description: 'Find models on Hugging Face, see which sizes this PC can run, download them, and run them with llama.cpp. Nothing leaves this PC once a model is here.' },
@@ -744,6 +746,7 @@ export function SettingsView() {
           {section === 'general' && <GeneralSection />}
           {section === 'appearance' && <AppearanceSection />}
           {section === 'library' && <LibrarySection />}
+          {section === 'rubrics' && <RubricSettings />}
           {section === 'writing' && <WritingSection />}
           {section === 'data' && (
             <>
