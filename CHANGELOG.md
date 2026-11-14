@@ -2,6 +2,11 @@
 
 Each version's section becomes its release notes on the releases page (`npm run release`), and Tasogare shows them in Settings > Updates.
 
+## Unreleased
+
+- **Model search in the Judge:** the judge model, and each writer in a battle, are picked from the same menu as in chat: type to filter the list, by provider, with a refresh. Before, they were plain lists to scroll.
+- **The picker's last line opens Model providers:** "Add or find models…" at the foot of the model menu goes to Settings → Model providers, where an API is added, with Models on this PC the page under it. It used to open Models on this PC.
+
 ## 1.8.1
 
 - **A new battle changes its rubric in place:** Edit (or View or copy, for the built-in one), Export and Import sit beside the rubric picker in New battle, as they do in New comparison.

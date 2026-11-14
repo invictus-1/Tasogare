@@ -8,6 +8,7 @@ import { readStream, subscribeStream } from '../stream'
 import { CloseIcon, PaperclipIcon, PlusIcon, SidebarIcon, TrashIcon, TrophyIcon } from './Icons'
 import { ArenaBoard } from './Arena'
 import { BattleForm, BattleScreen } from './Battle'
+import { ModelField } from './ModelPicker'
 import { RubricActions } from './Rubrics'
 
 const words = (s: string): number => s.match(/\S+/g)?.length ?? 0
@@ -188,27 +189,15 @@ function JudgeForm() {
 
       <h3 className="settings-section">Judge</h3>
       <div className="judge-settings">
-        <label className="field">
+        <div className="field">
           <span className="field-label">Judge model</span>
-          <select
-            value={`${draft.judgeProviderId}::${draft.judgeModelId}`}
-            onChange={(e) => {
-              const [judgeProviderId, judgeModelId] = e.target.value.split('::')
-              update({ judgeProviderId, judgeModelId, effort: null })
-            }}
-          >
-            {!models.some((m) => m.providerId === draft.judgeProviderId && m.id === draft.judgeModelId) && (
-              <option value={`${draft.judgeProviderId}::${draft.judgeModelId}`}>{modelName(models, draft.judgeModelId)}</option>
-            )}
-            {providers.filter((p) => p.enabled).map((p) => (
-              <optgroup key={p.id} label={p.name}>
-                {models.filter((m) => m.providerId === p.id).map((m) => (
-                  <option key={m.id} value={`${p.id}::${m.id}`}>{m.name}</option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-        </label>
+          <ModelField
+            label="Judge model"
+            providerId={draft.judgeProviderId}
+            modelId={draft.judgeModelId}
+            onPick={(judgeProviderId, judgeModelId) => update({ judgeProviderId, judgeModelId, effort: null })}
+          />
+        </div>
         {options.efforts.length > 0 && (
           <label className="field">
             <span className="field-label">Effort</span>

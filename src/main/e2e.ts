@@ -1797,6 +1797,22 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         await until(() => !document.querySelector('.judge-as-judged'))
         out.savedNow = [...document.querySelectorAll('.judge-form .field-note')].find((p) => /criteria:/.test(p.textContent))?.textContent ?? ''
         out.noteGone = !document.querySelector('.judge-as-judged')
+        // The judge model is picked from a list that typing filters.
+        const modelBox = () => document.querySelector('.judge-form .model-field-btn')
+        out.judgeWas = modelBox()?.textContent.trim() ?? ''
+        modelBox()?.click()
+        await until(() => document.querySelector('.judge-form .picker-search input'))
+        const filterBox = document.querySelector('.judge-form .picker-search input')
+        out.filterFocused = document.activeElement === filterBox
+        const offered = () => [...document.querySelectorAll('.judge-form .tw-menu-item[role="option"] .picker-name')].map((o) => o.textContent)
+        out.offeredAll = offered().length
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(filterBox, 'mock-b')
+        filterBox.dispatchEvent(new Event('input', { bubbles: true }))
+        await until(() => offered().length > 0 && offered().every((o) => o.includes('mock-b')))
+        out.offered = offered()
+        ;[...document.querySelectorAll('.judge-form .tw-menu-item[role="option"]')].find((o) => o.querySelector('.picker-name').textContent === 'mock-b')?.click()
+        await until(() => !document.querySelector('.judge-form .picker-menu'))
+        out.judgeNow = modelBox()?.textContent.trim() ?? ''
         // The rubric's actions are chips, and Edit opens the rubric.
         const chips = () => [...document.querySelectorAll('.judge-form .rubric-actions .chip-action')].map((b) => b.textContent.trim())
         out.chips = chips()
@@ -1821,6 +1837,11 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         'when the saved rubric has changed, the new comparison says it is judged with the rubric as it was, and can use the saved one',
         /has since changed/.test(String(keepUi.asJudged)) && /^From a file 3 criteria/.test(String(keepUi.criteria)) && /^From a file 1 criteria/.test(String(keepUi.savedNow)) && keepUi.noteGone === true,
         keepUi
+      )
+      check(
+        'the judge model is picked from a list that typing filters',
+        keepUi.judgeWas === 'mock-a' && keepUi.filterFocused === true && Number(keepUi.offeredAll) > (keepUi.offered as string[]).length && (keepUi.offered as string[]).includes('mock-b') && !(keepUi.offered as string[]).includes('mock-a') && keepUi.judgeNow === 'mock-b',
+        { was: keepUi.judgeWas, all: keepUi.offeredAll, offered: keepUi.offered, now: keepUi.judgeNow }
       )
       check("a rubric's actions beside its picker are chips in the theme, and Edit opens the rubric", (keepUi.chips as string[]).join() === 'Edit,Export,Import' && keepUi.plainLinks === 0 && keepUi.editor === 'Edit rubric', keepUi)
       // The rubric back as it was, and the window back on the comparison.
@@ -2094,15 +2115,23 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
       })()`)
       await shot('e2e-battle-form.png')
       const battleForm: Record<string, unknown> = { ...battleSetup, ...((await win.webContents.executeJavaScript(`(async () => {${battleHelpers}
-        const pick = (letter, value) => {
-          const select = document.querySelector('.battle-writer[data-writer="' + letter + '"] select')
-          select.value = value
-          select.dispatchEvent(new Event('change', { bubbles: true }))
+        // Each writer's model is found by typing in its picker.
+        const pick = async (letter, name) => {
+          const row = '.battle-writer[data-writer="' + letter + '"] '
+          document.querySelector(row + '.model-field-btn').click()
+          await until(() => document.querySelector(row + '.picker-search input'))
+          type(document.querySelector(row + '.picker-search input'), name)
+          const offered = () => [...document.querySelectorAll(row + '.tw-menu-item[role="option"] .picker-name')].map((o) => o.textContent)
+          await until(() => offered().length > 0 && offered().every((o) => o.includes(name)))
+          const shown = offered()
+          ;[...document.querySelectorAll(row + '.tw-menu-item[role="option"]')].find((o) => o.querySelector('.picker-name').textContent === name).click()
+          await until(() => !document.querySelector(row + '.picker-menu'))
+          return shown
         }
-        pick('A', 'mock::mock-a')
-        await wait(100)
-        pick('B', 'mock::mock-b')
+        out.offeredA = await pick('A', 'mock-a')
+        out.offeredB = await pick('B', 'mock-b')
         await wait(150)
+        out.pickedModels = [...document.querySelectorAll('.battle-writer .model-field-btn')].map((b) => b.textContent.trim())
         out.names = [...document.querySelectorAll('.battle-label')].map((i) => i.value)
         // Writer A gets a temperature of its own.
         out.plain = !document.querySelector('.battle-own')
@@ -2137,6 +2166,11 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
       })()`)) as Record<string, unknown>) }
       await shot('e2e-battle.png')
       check('a side that stopped at the output limit says so in the window, and one that went on does not', (battleForm.cutNote as string[])[0] === '' && /stopped at the output limit/.test((battleForm.cutNote as string[])[1]), battleForm.cutNote)
+      check(
+        "a battle's writers are picked from the same list, filtered by typing",
+        (battleForm.offeredB as string[]).includes('mock-b') && !(battleForm.offeredB as string[]).includes('mock-a') && (battleForm.offeredA as string[]).includes('mock-a') && (battleForm.pickedModels as string[]).join() === 'mock-a,mock-b',
+        { a: battleForm.offeredA, b: battleForm.offeredB, picked: battleForm.pickedModels }
+      )
       check(
         "a new battle changes its rubric in place: a copy of the built-in one becomes the battle's rubric",
         (battleForm.builtInChips as string[]).join() === 'View or copy,Import' && battleForm.copyTitle === 'Copy rubric' && battleForm.copyPicked === 'General fiction (my copy)' && (battleForm.ownChips as string[]).join() === 'Edit,Export,Import',
@@ -6302,11 +6336,13 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         for (let end = Date.now() + 3000; Date.now() < end && !document.querySelector('.picker .tw-chip'); ) await wait(50)
         document.querySelector('.picker .tw-chip')?.click()
         for (let end = Date.now() + 2000; Date.now() < end && !document.querySelector('.picker-find'); ) await wait(50)
+        const label = document.querySelector('.picker-find')?.textContent.trim()
         document.querySelector('.picker-find')?.click()
-        for (let end = Date.now() + 3000; Date.now() < end && !document.querySelector('.local-hardware'); ) await wait(50)
-        return !!document.querySelector('.local-hardware')
+        const at = () => document.querySelector('.settings-nav-item[aria-current="true"]')?.textContent ?? ''
+        for (let end = Date.now() + 3000; Date.now() < end && !at().startsWith('Model providers'); ) await wait(50)
+        return label === 'Add or find models…' && at().startsWith('Model providers') && !document.querySelector('.local-hardware')
       })()`)
-      check('the model picker opens Models on this PC to find a model', find49)
+      check('the model picker opens Model providers, the top of the Models settings, to add or find a model', find49)
       await key('Escape')
       await js(`document.querySelector('.rail-item[data-mode="chat"]')?.click()`)
       local.stopEngine()

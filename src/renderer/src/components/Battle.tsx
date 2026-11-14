@@ -10,6 +10,7 @@ import { modelName, optionsFor, useStore } from '../store'
 import { readStream, subscribeStream } from '../stream'
 import { NumberSetting, SamplerSettings } from './ChatSettingsPanel'
 import { CloseIcon, PaperclipIcon, PlusIcon, SlidersIcon, StopIcon, TrophyIcon } from './Icons'
+import { ModelField } from './ModelPicker'
 import { RubricActions } from './Rubrics'
 
 // A fresh battle (see @shared/battle): the form that sets one up, and the battle itself, where
@@ -161,31 +162,21 @@ function WriterField({ index, modelDefaults }: { index: number; modelDefaults: M
     <>
       <div className="battle-writer" data-writer={LETTERS[index]}>
         <span className={`tw-pane-tag judge-tag-${LETTERS[index].toLowerCase()}`}>{LETTERS[index]}</span>
-        <label className="field">
+        <div className="field">
           <span className="field-label">Model</span>
-          <select
-            value={`${writer.providerId}::${writer.modelId}`}
-            onChange={(e) => {
-              const [providerId, modelId] = e.target.value.split('::')
+          <ModelField
+            label={`Writer ${LETTERS[index]} model`}
+            providerId={writer.providerId}
+            modelId={writer.modelId}
+            onPick={(providerId, modelId) => {
               // The name follows the model until you have given it one of your own. Settings belong
               // to a model, so another model starts from its own usual ones.
               const named = writer.label && writer.label !== modelName(models, writer.modelId)
               const usual = modelDefaults[modelKey(providerId, modelId)]?.effort
               set({ providerId, modelId, effort: typeof usual === 'string' ? usual : null, settings: undefined, ...(named ? {} : { label: modelName(models, modelId) }) })
             }}
-          >
-            {!models.some((m) => m.providerId === writer.providerId && m.id === writer.modelId) && (
-              <option value={`${writer.providerId}::${writer.modelId}`}>{modelName(models, writer.modelId)}</option>
-            )}
-            {providers.filter((p) => p.enabled).map((p) => (
-              <optgroup key={p.id} label={p.name}>
-                {models.filter((m) => m.providerId === p.id).map((m) => (
-                  <option key={m.id} value={`${p.id}::${m.id}`}>{m.name}</option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-        </label>
+          />
+        </div>
         {options.efforts.length > 0 ? (
           <label className="field">
             <span className="field-label">Effort</span>
@@ -379,27 +370,15 @@ export function BattleForm() {
 
       <h3 className="settings-section">Judge</h3>
       <div className="judge-settings">
-        <label className="field">
+        <div className="field">
           <span className="field-label">Judge model</span>
-          <select
-            value={`${draft.judgeProviderId}::${draft.judgeModelId}`}
-            onChange={(e) => {
-              const [judgeProviderId, judgeModelId] = e.target.value.split('::')
-              update({ judgeProviderId, judgeModelId, effort: null })
-            }}
-          >
-            {!models.some((m) => m.providerId === draft.judgeProviderId && m.id === draft.judgeModelId) && (
-              <option value={`${draft.judgeProviderId}::${draft.judgeModelId}`}>{modelName(models, draft.judgeModelId)}</option>
-            )}
-            {providers.filter((p) => p.enabled).map((p) => (
-              <optgroup key={p.id} label={p.name}>
-                {models.filter((m) => m.providerId === p.id).map((m) => (
-                  <option key={m.id} value={`${p.id}::${m.id}`}>{m.name}</option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-        </label>
+          <ModelField
+            label="Judge model"
+            providerId={draft.judgeProviderId}
+            modelId={draft.judgeModelId}
+            onPick={(judgeProviderId, judgeModelId) => update({ judgeProviderId, judgeModelId, effort: null })}
+          />
+        </div>
         {options.efforts.length > 0 && (
           <label className="field">
             <span className="field-label">Effort</span>
