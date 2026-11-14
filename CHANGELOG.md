@@ -2,7 +2,7 @@
 
 Each version's section becomes its release notes on the releases page (`npm run release`), and Tasogare shows them in Settings > Updates.
 
-## Unreleased
+## 1.8.0
 
 **Fresh battles in the Judge**
 

@@ -4,6 +4,13 @@ What's shipped, what's next, and ideas not yet committed to. Tasogare shows this
 
 ## Shipped
 
+### 1.8.0 · November 2026
+- [x] **Fresh battles** · Judge — two models write from one prompt and its files with no chat behind them, each side continued and locked on its own, run again as further passes, and the passes you choose judged and averaged
+- [x] **Past comparisons in sight** · Judge — the Judge's start page lists every past comparison, and All comparisons in the header and the sidebar goes back to it
+- [x] **Keep one side of a comparison** · Judge — keep A or B and judge a new passage against it with the same prompt, reference files, judge and rubric as it was then
+- [x] **Each writer's own settings** · Judge — temperature, length, caching and extra parameters for either model in a battle, fixed when it starts so every pass is asked the same way
+- [x] **A judge that runs out of room carries on** · Judge — a report cut off at the output limit goes on from where it stopped instead of the run being lost
+
 ### 1.7.0 · November 2026
 - [x] **Story analysis of chosen files** · Writing — tick the files to analyse, a file a model will not read is set aside instead of ending the scan, any model can read what is missing without reading the rest again, and a note goes to the model
 
@@ -183,9 +190,6 @@ What's shipped, what's next, and ideas not yet committed to. Tasogare shows this
 - [x] **Installer** · Core — Windows installer and portable zip, with Tasogare artwork
 
 ## Next
-- [~] **Fresh battles** · Judge — done, in the next release: two models write from one prompt and its files with no chat behind them, each side continued and locked on its own, run again as further passes, and the passes you choose judged and averaged
-- [~] **Past comparisons in sight** · Judge — done, in the next release: the Judge's start page lists every past comparison, and All comparisons in the header and the sidebar goes back to it
-- [~] **Keep one side of a comparison** · Judge — done, in the next release: keep A or B and judge a new passage against it with the same prompt, reference files, judge and rubric as it was then
 - [~] **Your feedback on 1.0** · Core — fixes from real use
 
 ## Later
