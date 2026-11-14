@@ -518,7 +518,7 @@ body.resizing .resize-handle { pointer-events: auto; }
 .chip-action:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .chip-action:disabled { opacity: .5; cursor: default; }
 /* A picker in a label's row (a saved prompt, a persona, a workspace's prompt) is a chip too; said with .field so it outranks the field's own select. */
-.field .judge-row select { height: 22px; max-width: 240px; padding: 0 var(--space-2); border: 1px solid var(--line-strong); border-radius: var(--radius-full); background: color-mix(in srgb, var(--iris) 8%, var(--surface-raised)); color: var(--ink-muted); font-size: 12px; font-weight: 500; cursor: pointer; }
+.field .judge-row select { height: 22px; max-width: 240px; padding: 0 var(--space-2); border: 1px solid var(--line-strong); border-radius: var(--radius-full); background-color: color-mix(in srgb, var(--iris) 8%, var(--surface-raised)); background-position: right 8px center; color: var(--ink-muted); font-size: 12px; font-weight: 500; cursor: pointer; }
 .field .judge-row select:hover { border-color: var(--iris); color: var(--ink); }
 /* The labels of the judge's row share one height, so the pickers under them line up beside a label that holds chips. */
 .judge-settings .field-label { display: flex; align-items: center; min-height: 22px; }
