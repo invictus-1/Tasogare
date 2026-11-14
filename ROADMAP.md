@@ -4,6 +4,9 @@ What's shipped, what's next, and ideas not yet committed to. Tasogare shows this
 
 ## Shipped
 
+### 1.8.1 · November 2026
+- [x] **Rubrics and saved prompts within reach** · Judge — a new battle changes its rubric in place and writes from your saved prompts, and Settings has a page for rubrics
+
 ### 1.8.0 · November 2026
 - [x] **Fresh battles** · Judge — two models write from one prompt and its files with no chat behind them, each side continued and locked on its own, run again as further passes, and the passes you choose judged and averaged
 - [x] **Past comparisons in sight** · Judge — the Judge's start page lists every past comparison, and All comparisons in the header and the sidebar goes back to it
@@ -190,7 +193,6 @@ What's shipped, what's next, and ideas not yet committed to. Tasogare shows this
 - [x] **Installer** · Core — Windows installer and portable zip, with Tasogare artwork
 
 ## Next
-- [~] **Rubrics and saved prompts within reach** · Judge — done, in the next release: a new battle changes its rubric in place and writes from your saved prompts, and Settings has a page for rubrics
 - [~] **Your feedback on 1.0** · Core — fixes from real use
 
 ## Later
