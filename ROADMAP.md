@@ -4,6 +4,9 @@ What's shipped, what's next, and ideas not yet committed to. Tasogare shows this
 
 ## Shipped
 
+### 1.8.2 · November 2026
+- [x] **Model search in the Judge** · Judge — the judge and a battle's writers are picked from the chat's menu, filtered by typing, and its last line opens Model providers
+
 ### 1.8.1 · November 2026
 - [x] **Rubrics and saved prompts within reach** · Judge — a new battle changes its rubric in place and writes from your saved prompts, and Settings has a page for rubrics
 
@@ -193,7 +196,6 @@ What's shipped, what's next, and ideas not yet committed to. Tasogare shows this
 - [x] **Installer** · Core — Windows installer and portable zip, with Tasogare artwork
 
 ## Next
-- [~] **Model search in the Judge** · Judge — done, in the next release: the judge and a battle's writers are picked from the chat's menu, filtered by typing, and its last line opens Model providers
 - [~] **Your feedback on 1.0** · Core — fixes from real use
 
 ## Later
