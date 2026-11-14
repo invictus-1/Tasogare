@@ -39,7 +39,7 @@ import * as docs from './docs'
 import { extractChoices } from '@shared/choices'
 import { gameFormat } from '@shared/gameFormat'
 import { compareTexts, plainProse, wordDiff } from '@shared/diff'
-import { computeVerdict, keepSide, type Judgment } from '@shared/judge'
+import { computeVerdict, keepSide, type Judgment, type JudgeInput } from '@shared/judge'
 import * as judge from './judge'
 import * as library from './library'
 import { parseLibrary } from '@shared/library'
@@ -59,7 +59,7 @@ import * as insights from './insights'
 import * as battle from './battle'
 import * as insightsAi from './insightsAi'
 import * as reports from './reports'
-import { joinTurns, passageOf, sideWriting, tallyBattle, type BattleSetup, type BattleView } from '@shared/battle'
+import { joinTurns, passageOf, sideCut, sideWriting, tallyBattle, type BattleSetup, type BattleView } from '@shared/battle'
 import { ACHIEVEMENTS, analyzeText, overallStory } from '@shared/insights'
 import type { Usage, UsageRange, UsageTotals } from '@shared/types'
 import { usageStats } from './usage'
@@ -543,18 +543,35 @@ function startMockServer(log: LoggedRequest[]): Promise<Server> {
       }
       const system = parsed.messages[0]?.content ?? ''
       let reply: string
+      // Set when this reply is to end as one cut off at the output limit.
+      let cutReply = false
       if (system.startsWith('You are a line editor')) {
         // Writing tools get a plausible edit of the passage.
         reply = `No one ever saw who lit them (${parsed.model}).`
       } else if (system.startsWith('You are an exacting fiction editor')) {
         // The judge: the passage containing GOOD scores 8, the other 5; "explicit" doesn't apply.
         const ids = [...system.matchAll(/^- ([\w-]+) · /gm)].map((m) => m[1])
-        const x = /<passage id="X">\n([\s\S]*?)\n<\/passage>/.exec(lastUser)?.[1] ?? ''
+        // The passages are in the first message; a report asked to go on has more messages after it.
+        const judgedText = parsed.messages.find((m) => m.role === 'user')?.content ?? ''
+        const x = /<passage id="X">\n([\s\S]*?)\n<\/passage>/.exec(judgedText)?.[1] ?? ''
         const xGood = x.includes('GOOD')
         const criteria = ids.map((id) => (id === 'explicit' ? { id, X: null, Y: null } : { id, X: xGood ? 8 : 5, Y: xGood ? 5 : 8 }))
         reply =
           `### Prose — X ${xGood ? 8 : 5} · Y ${xGood ? 5 : 8}\nX quotes "${x.slice(0, 20)}".\n\n### Verdict\n${xGood ? 'X' : 'Y'} is better.\n\n` +
           '```json\n' + JSON.stringify({ criteria, overall: { X: xGood ? 8 : 5, Y: xGood ? 5 : 8 }, winner: xGood ? 'X' : 'Y', confidence: 'high' }) + '\n```'
+        // A judge that runs out of room: JUDGECUT stops before the verdict and finishes once asked to
+        // go on; JUDGEENDLESS never gets to its scores.
+        if (judgedText.includes('JUDGEENDLESS')) {
+          reply = 'Still weighing the prose. '
+          cutReply = true
+        } else if (judgedText.includes('JUDGECUT')) {
+          const verdictAt = reply.indexOf('### Verdict')
+          if (parsed.messages.some((m) => m.role === 'assistant')) reply = reply.slice(verdictAt)
+          else {
+            reply = reply.slice(0, verdictAt)
+            cutReply = true
+          }
+        }
       } else if (system.startsWith('You write the battle scene')) {
         // A fresh battle's writers: one of them writes the line the mock judge prefers, and each part is numbered.
         reply = `${parsed.model === 'mock-a' ? 'GOOD: ' : ''}The lamps came on for ${parsed.model}, part ${parsed.messages.filter((m) => m.role === 'assistant').length + 1}.`
@@ -625,7 +642,7 @@ function startMockServer(log: LoggedRequest[]): Promise<Server> {
         res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: w }, ...(logprobs ? { logprobs } : {}) }] })}\n\n`)
       }
       // A reply that ran into the max output tokens says so.
-      if (lastUser.includes('CUTOFF')) res.write(`data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: 'length' }] })}\n\n`)
+      if (lastUser.includes('CUTOFF') || cutReply) res.write(`data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: 'length' }] })}\n\n`)
       // A server that searched cites its sources as url_citation annotations.
       if (lastUser.includes('WEBCITE') && !toolResult) {
         const annotations = [{ type: 'url_citation', url_citation: { url: 'https://example.com/lamps', title: 'Lamps at dusk', start_index: 0, end_index: 5 } }]
@@ -1812,6 +1829,27 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
       // 25d. Fresh battles: two models write from one setup with no chat behind them, each side
       // is continued and locked on its own, the setup is run again as further passes, and the
       // passes chosen are judged one by one and averaged.
+      // A judge's report that stops at the output limit has no scores yet: it is asked to go on.
+      const cutBase: JudgeInput = { ...judged.input, title: 'Cut report', passageA: 'GOOD: JUDGECUT The lamps came on one by one.', bothOrders: false }
+      let beforeCutReport = log.length
+      const cutJ = await finished25(judge.runJudge(contents, cutBase).id)
+      const cutReqs = log.slice(beforeCutReport)
+      const cutRun = cutJ.runs[0]
+      check(
+        'a judge report cut off at the output limit goes on from where it stopped, and the run counts',
+        cutReqs.length === 2 && cutReqs[1].messages.map((m) => m.role).join() === 'system,user,assistant,user' && cutReqs[1].messages[3].content.startsWith('Continue from exactly where you stopped') &&
+          cutRun.status === 'done' && !cutRun.error && !!cutRun.scores && cutRun.text.split('### Verdict').length === 2 && cutRun.text.startsWith(cutReqs[1].messages[2].content) && cutRun.text.trimEnd().endsWith('```') &&
+          computeVerdict(cutJ.rubric, cutJ.runs).winner === 'A' && !cutRun.usage?.cutOff && (cutRun.usage?.output ?? 0) > 0 && (cutReqs[1].body as { max_tokens?: number }).max_tokens === 32000,
+        { reqs: cutReqs.length, status: cutRun.status, error: cutRun.error, text: cutRun.text.slice(0, 160) }
+      )
+      beforeCutReport = log.length
+      const endlessJ = await finished25(judge.runJudge(contents, { ...cutBase, title: 'Endless report', passageA: 'GOOD: JUDGEENDLESS The lamps.' }).id)
+      check(
+        'a report still cut off after going on twice says so and is not counted',
+        log.length - beforeCutReport === 3 && !endlessJ.runs[0].scores && /cut off at the output limit/.test(endlessJ.runs[0].error ?? '') && computeVerdict(endlessJ.rubric, endlessJ.runs).winner === null,
+        { reqs: log.length - beforeCutReport, error: endlessJ.runs[0].error }
+      )
+      for (const j of [cutJ, endlessJ]) judge.deleteJudgment(j.id)
       const setup25: BattleSetup = {
         title: 'Lamps battle',
         authorPrompt: 'Write the lamps coming on.',
@@ -1963,7 +2001,20 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
       const slow25 = battle.getBattle(slowId).battle.passes[0].sides
       check('Stop ends a side where it is and keeps what it had written', slow25.every((s) => s.turns.length === 1 && s.turns[0].status === 'stopped' && s.turns[0].text.startsWith('tide')), slow25.map((s) => [s.turns[0]?.status, s.turns[0]?.text.length]))
       battle.deleteBattle(slowId)
-      check('deleting a battle leaves the comparisons that judged its passes', !battle.listBattles().some((b) => b.id === slowId) && battle.listBattles().length === 1 && judge.listJudgments().some((j) => j.title === 'Lamps battle · pass 2'))
+      const cutId = battle.createBattle(contents, { ...setup25, title: 'Cut battle', authorPrompt: 'CUTOFF the lamps.' }).battle.id
+      const settled25 = async (): Promise<void> => {
+        for (let i = 0; i < 400 && battle.getBattle(cutId).battle.passes[0].sides.some(sideWriting); i++) await new Promise((r) => setTimeout(r, 25))
+      }
+      await settled25()
+      battle.continueSide(contents, cutId, 0, 0)
+      await settled25()
+      const cutSides = battle.getBattle(cutId).battle.passes[0].sides
+      check(
+        'a turn that stops at the output limit is marked, and what follows joins on without a paragraph break',
+        cutSides[0].turns[0].usage?.cutOff === true && !cutSides[0].turns[1].usage?.cutOff && passageOf(cutSides[0]) === 'GOOD: The lamps came on for mock-a, part 1. GOOD: The lamps came on for mock-a, part 2.' && sideCut(cutSides[1]) && !sideCut(cutSides[0]),
+        cutSides.map((sd) => [sd.turns.map((t) => t.usage?.cutOff), passageOf(sd)])
+      )
+      check('deleting a battle leaves the comparisons that judged its passes', !battle.listBattles().some((b) => b.id === slowId) && battle.listBattles().length === 2 && judge.listJudgments().some((j) => j.title === 'Lamps battle · pass 2'))
 
       // In the window: set one up, write, continue, lock, add a pass, judge, read a report, delete.
       await reloadUi()
@@ -1984,6 +2035,11 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         await until(() => document.querySelector('.judge-new-battle'))
         out.listed = [...document.querySelectorAll('.judge-battle-item')].map((b) => b.textContent)
         out.sidebar = [...document.querySelectorAll('.battle-item')].map((b) => b.textContent)
+        ;[...document.querySelectorAll('.judge-battle-item')].find((b) => b.textContent.includes('Cut battle'))?.click()
+        await until(() => document.querySelector('.battle-sides'))
+        out.cutNote = [side('A'), side('B')].map((el) => el?.querySelector('.battle-cut')?.textContent ?? '')
+        document.querySelector('.judge-home').click()
+        await until(() => document.querySelector('.judge-new-battle'))
         document.querySelector('.judge-new-battle').click()
         await until(() => document.querySelector('.battle-form'))
         out.title = document.querySelector('.chat-title')?.textContent
@@ -2033,6 +2089,7 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         return out
       })()`)
       await shot('e2e-battle.png')
+      check('a side that stopped at the output limit says so in the window, and one that went on does not', (battleForm.cutNote as string[])[0] === '' && /stopped at the output limit/.test((battleForm.cutNote as string[])[1]), battleForm.cutNote)
       const windowReqA = log.filter((r) => r.model === 'mock-a' && r.messages[0]?.content === 'You write the battle scene.').at(-1)
       check(
         "Settings on a writer changes how that model is asked, for that writer only",

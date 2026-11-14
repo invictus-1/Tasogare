@@ -21,6 +21,7 @@ import { getDefaults } from './chat'
 import * as db from './db'
 import { appendLog } from './logs'
 import { getApiKey, getProvider, implFor, modelOptions } from './providers'
+import type { GenerateResult } from './providers/types'
 import { describeAnthropicError } from './providers/anthropic'
 
 // ——— Rubrics ———
@@ -295,6 +296,12 @@ export function runPasses(contents: WebContents, inputs: JudgeInput[], battleId:
 
 const PAIRS_AT_ONCE = 3
 
+/** A run's output limit: a report is a few thousand tokens, and a model's thinking counts against the same limit. */
+const JUDGE_MAX_TOKENS = 32000
+/** How often a report cut off at that limit is asked to go on. */
+const MAX_CONTINUES = 2
+const CONTINUE_REPORT = 'Continue from exactly where you stopped, and finish the report.'
+
 /**
  * The rubric an earlier comparison used, when a new one made from it still has that rubric
  * chosen: it is judged with the rubric as it was then, whatever has happened to the saved one.
@@ -394,7 +401,7 @@ function startRun(
         modelId: input.judgeModelId,
         systemPrompt: '',
         effort: input.effort,
-        maxTokens: 16000,
+        maxTokens: JUDGE_MAX_TOKENS,
         messageLimit: null,
         temperature: null,
         extraParams: '',
@@ -403,37 +410,58 @@ function startRun(
         webFetch: false
       }
       const content = buildContent(input, order, settings.caching ? settings.cacheTtl : null)
-      const result = await implFor(config).generate({
-        config,
-        apiKey: getApiKey(config.id),
-        system: `${RULES}\n\n${rubricText(rubric)}`,
-        history: [
-          {
-            id: nodeId, conversation_id: 'judge', parent_id: null, role: 'user', text: content.map((b) => b.text).join('\n\n'),
-            content: JSON.stringify(content), thinking: null, model: null, provider_id: null, usage: null, status: 'done',
-            error: null, active_child_id: null, created_at: Date.now()
-          }
-        ],
-        settings,
-        options,
-        signal: controller.signal,
-        onText: (delta) => {
-          markStarted()
-          text += delta
-          emit({ kind: 'text', conversationId: 'judge', nodeId, delta })
-        },
-        onThinking: () => markStarted()
+      const row = (rowId: string, role: 'user' | 'assistant', blocks: { type: 'text'; text: string }[]): db.NodeRow => ({
+        id: rowId, conversation_id: 'judge', parent_id: null, role, text: blocks.map((b) => b.text).join('\n\n'),
+        content: JSON.stringify(blocks), thinking: null, model: null, provider_id: null, usage: null, status: 'done',
+        error: null, active_child_id: null, created_at: Date.now()
       })
-      const scores = parseScores(result.text) ?? undefined
+      const asked = row(nodeId, 'user', content)
+      const ask = (history: db.NodeRow[]): Promise<GenerateResult> =>
+        implFor(config).generate({
+          config,
+          apiKey: getApiKey(config.id),
+          system: `${RULES}\n\n${rubricText(rubric)}`,
+          history,
+          settings,
+          options,
+          signal: controller.signal,
+          onText: (delta) => {
+            markStarted()
+            text += delta
+            emit({ kind: 'text', conversationId: 'judge', nodeId, delta })
+          },
+          onThinking: () => markStarted()
+        })
+      let result = await ask([asked])
+      let report = result.text
+      let usage = result.usage
+      // The scores are the last thing in a report, so one that stops at the output limit has none.
+      // It is asked to go on from where it stopped, a few times at most, rather than being lost.
+      for (let more = 0; more < MAX_CONTINUES && result.usage.cutOff && !result.error && !controller.signal.aborted && !parseScores(report); more++) {
+        result = await ask([asked, row(`${nodeId}:a${more}`, 'assistant', [{ type: 'text', text: report }]), row(`${nodeId}:u${more}`, 'user', [{ type: 'text', text: CONTINUE_REPORT }])])
+        report += result.text
+        usage = {
+          ...result.usage,
+          input: usage.input + result.usage.input,
+          output: usage.output + result.usage.output,
+          cacheRead: usage.cacheRead + result.usage.cacheRead,
+          cacheWrite: usage.cacheWrite + result.usage.cacheWrite,
+          ms: usage.ms + result.usage.ms
+        }
+      }
+      const scores = parseScores(report) ?? undefined
+      const unread = usage.cutOff
+        ? "The judge's report was cut off at the output limit before its scores, so this run isn't counted. Lower the judge's effort and judge it again."
+        : "The judge's report has no readable score block, so this run isn't counted."
       finish({
-        text: result.text,
+        text: report,
         status: controller.signal.aborted ? 'stopped' : result.error ? 'error' : 'done',
-        error: result.error ?? (scores ? undefined : "The judge's report has no readable score block, so this run isn't counted."),
+        error: result.error ?? (scores ? undefined : unread),
         scores,
         modelId: result.modelId,
-        usage: result.usage
+        usage
       })
-      appendLog({ kind: 'judge', judgment: id, order, rubric: rubric.id, model: result.modelId, title: input.title, response: result.text })
+      appendLog({ kind: 'judge', judgment: id, order, rubric: rubric.id, model: result.modelId, title: input.title, response: report })
     } catch (err) {
       finish({ text, status: controller.signal.aborted ? 'stopped' : 'error', error: describeAnthropicError(err) ?? (err instanceof Error ? err.message : String(err)) })
     } finally {

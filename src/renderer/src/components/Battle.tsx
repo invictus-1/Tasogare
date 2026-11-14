@@ -1,5 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
-import { countWords, describeSettings, MAX_PASSES, passageOf, passReady, sideWriting, tallyBattle, writerSettings, type BattlePass, type BattleSetup, type BattleSide, type BattleWriter, type WriterSettings } from '@shared/battle'
+import { countWords, describeSettings, MAX_PASSES, passageOf, passReady, sideCut, sideWriting, tallyBattle, writerSettings, type BattlePass, type BattleSetup, type BattleSide, type BattleWriter, type WriterSettings } from '@shared/battle'
 import { modelKey, type ModelDefaults } from '@shared/modelDefaults'
 import { formatTokens } from '@shared/pricing'
 import type { CacheTtl } from '@shared/types'
@@ -406,6 +406,9 @@ function SidePanel({ id, pass, index, side, writer, judged }: { id: string; pass
         <div className="tw-msg-error">
           <strong>{last.status === 'stopped' ? 'Stopped.' : 'Problem.'}</strong> {last.error}
         </div>
+      )}
+      {!writing && !side.finished && sideCut(side) && (
+        <p className="field-note battle-cut">This turn stopped at the output limit, so it may be mid-sentence. Continue goes on from there.</p>
       )}
       <footer className="battle-side-foot">
         {writing ? (

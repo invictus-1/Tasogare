@@ -120,21 +120,29 @@ export const MAX_PASSES = 6
 export const DEFAULT_CONTINUE = 'Continue.'
 
 /**
- * A side's turns as one passage. A turn that stopped in the middle of a sentence (the token limit
- * cut it) is joined to the next with a space; otherwise the next turn starts a new paragraph.
+ * A side's turns as one passage. A turn that stopped in the middle of a sentence is joined to the
+ * next with a space: one the provider says was cut off at the output limit, or (where it does not
+ * say) one that ends without closing punctuation. Otherwise the next turn starts a new paragraph.
  */
-export function joinTurns(texts: string[]): string {
+export function joinParts(parts: { text: string; cut?: boolean }[]): string {
   let out = ''
-  for (const raw of texts) {
-    const text = raw.trim()
+  let cut = false
+  for (const part of parts) {
+    const text = part.text.trim()
     if (!text) continue
     if (!out) out = text
-    else out += (/[.!?…:;"”’')\]*_~`—–-]$/.test(out) ? '\n\n' : ' ') + text
+    else out += (cut || !/[.!?…:;"”’')\]*_~`—–-]$/.test(out) ? ' ' : '\n\n') + text
+    cut = !!part.cut
   }
   return out
 }
 
-export const passageOf = (side: BattleSide): string => joinTurns(side.turns.map((t) => t.text))
+export const joinTurns = (texts: string[]): string => joinParts(texts.map((text) => ({ text })))
+
+export const passageOf = (side: BattleSide): string => joinParts(side.turns.map((t) => ({ text: t.text, cut: t.usage?.cutOff })))
+
+/** The side's last turn stopped at the output limit, so there is more to come if it is continued. */
+export const sideCut = (side: BattleSide): boolean => !!side.turns.filter((t) => t.text.trim()).at(-1)?.usage?.cutOff
 
 export const sideWriting = (side: BattleSide): boolean => side.turns.some((t) => t.status === 'streaming')
 
