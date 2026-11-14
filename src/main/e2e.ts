@@ -39,7 +39,7 @@ import * as docs from './docs'
 import { extractChoices } from '@shared/choices'
 import { gameFormat } from '@shared/gameFormat'
 import { compareTexts, plainProse, wordDiff } from '@shared/diff'
-import { computeVerdict } from '@shared/judge'
+import { computeVerdict, keepSide, type Judgment } from '@shared/judge'
 import * as judge from './judge'
 import * as library from './library'
 import { parseLibrary } from '@shared/library'
@@ -1658,6 +1658,148 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
       check('result screen shows the verdict, blind', fromSplit.headline === 'A is better written' && fromSplit.rows === 3, fromSplit)
       await new Promise((r) => setTimeout(r, 200))
       await shot('e2e-judge.png')
+
+      // 25b. Past comparisons are kept and in sight: listed on the Judge's start page as well as in
+      // the sidebar, with a way back to that page when the sidebar is closed.
+      const pastHelpers = `
+        const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+        const until = async (test) => { for (let end = Date.now() + 4000; Date.now() < end && !test(); ) await wait(30) }
+        const side = () => document.querySelector('.judge [aria-label="Toggle sidebar (Ctrl+B)"]')
+        const home = () => document.querySelector('.judge-home')
+        const open = () => !document.querySelector('.app.sidebar-closed')
+        const rows = () => [...document.querySelectorAll('.judge-past-item')]
+        const out = {}`
+      const pastUi: Record<string, unknown> = await win.webContents.executeJavaScript(`(async () => {${pastHelpers}
+        // Whichever way the sidebar was left, start from open.
+        out.wasOpen = open()
+        if (!open()) {
+          side().click()
+          await until(open)
+        }
+        out.noBack = !home()
+        side().click()
+        await until(() => home())
+        out.back = home()?.textContent.trim() ?? ''
+        home()?.click()
+        await until(() => rows().length > 0)
+        out.heading = document.querySelector('.judge .empty h2')?.textContent ?? ''
+        out.rows = rows().map((r) => r.textContent)
+        out.stored = (await window.twilight.listJudgments()).length
+        out.count = document.querySelector('.judge-past-title span')?.textContent ?? ''
+        out.note = document.querySelector('.judge-past .field-note')?.textContent ?? ''
+        out.gone = !home()
+        return out
+      })()`)
+      await shot('e2e-judge-past.png')
+      const pastOpen: Record<string, unknown> = await win.webContents.executeJavaScript(`(async () => {${pastHelpers}
+        rows().find((r) => r.textContent.includes('Lamps test'))?.click()
+        await until(() => document.querySelector('.verdict h2'))
+        out.opened = document.querySelector('.verdict h2')?.textContent ?? ''
+        home()?.click()
+        await until(() => document.querySelector('.judge-start-actions'))
+        ;[...document.querySelectorAll('.judge-start-actions .tw-btn')].find((b) => b.textContent.trim() === 'Leaderboard')?.click()
+        await until(() => document.querySelector('.leaderboard'))
+        out.board = !!document.querySelector('.leaderboard') && !!home()
+        // The sidebar open again and the comparison on screen.
+        side().click()
+        await until(open)
+        out.hidden = !home()
+        ;[...document.querySelectorAll('.judgment-item')].find((r) => r.textContent.includes('Lamps test'))?.click()
+        await until(() => document.querySelector('.verdict h2'))
+        return out
+      })()`)
+      check('with the sidebar closed, the Judge has a way back to every comparison', pastUi.noBack === true && pastUi.back === 'All comparisons' && pastUi.gone === true && pastOpen.hidden === true, { ...pastUi, ...pastOpen })
+      check(
+        "the Judge's start page lists every past comparison and says they are kept",
+        pastUi.heading === 'Judge two passages' && Number(pastUi.stored) >= 1 && (pastUi.rows as string[]).length === pastUi.stored && (pastUi.rows as string[]).some((t) => t.includes('Lamps test')) && pastUi.count === String(pastUi.stored) && /Kept until you delete them/.test(String(pastUi.note)),
+        pastUi
+      )
+      check('a past comparison and the leaderboard open from the start page', pastOpen.opened === 'A is better written' && pastOpen.board === true, pastOpen)
+
+      // 25c. One side of an earlier comparison kept for a new one: its passage and label, the
+      // prompts, the reference files, the judge, and the rubric as it was then, even if the saved
+      // rubric has been edited since.
+      const kept25 = keepSide(judged, 'B')
+      check(
+        'keeping one side carries its passage and label and all it was judged with, and leaves the other side empty',
+        kept25.passageA === 'The lamps turned on.' && kept25.labelA === 'Sonnet Secret' && kept25.passageB === '' && kept25.labelB === '' && kept25.authorPrompt === 'Write the lamps.' && kept25.systemPrompt === 'You are a co-writer.' &&
+          kept25.contextDocs[0]?.name === 'Bible.md' && kept25.rubricId === 'test-serial' && kept25.judgeModelId === 'mock-a' && kept25.bothOrders === true && kept25.rubricAsJudged?.criteria.length === 3 && judged.input.passageB === 'The lamps turned on.',
+        { ...kept25, contextDocs: kept25.contextDocs.length }
+      )
+      const finished25 = async (id: string): Promise<Judgment> => {
+        for (let i = 0; i < 400 && judge.getJudgment(id).runs.some((r) => r.status === 'streaming'); i++) await new Promise((r) => setTimeout(r, 25))
+        return judge.getJudgment(id)
+      }
+      // The saved rubric loses two of its criteria after the comparison was made.
+      judge.saveRubric({ ...imported, criteria: imported.criteria.slice(0, 1) })
+      const again25 = await finished25(judge.runJudge(contents, { ...kept25, passageB: 'GOOD: A newer hand wrote the lamps.', labelB: 'New Secret' }).id)
+      check(
+        'a comparison made from an earlier one is judged with the rubric as it was then',
+        again25.rubric.criteria.length === 3 && !('rubricAsJudged' in again25.input) && again25.input.labelA === 'Sonnet Secret' && again25.runs.every((r) => r.status === 'done') && computeVerdict(again25.rubric, again25.runs).winner === 'B',
+        { criteria: again25.rubric.criteria.length, runs: again25.runs.map((r) => r.status) }
+      )
+      const plain25 = await finished25(judge.runJudge(contents, { ...kept25, rubricAsJudged: undefined, passageB: 'GOOD: A newer hand wrote the lamps.', labelB: 'New Secret' }).id)
+      const other25 = await finished25(judge.runJudge(contents, { ...kept25, rubricId: 'general-fiction', passageB: 'GOOD: A newer hand wrote the lamps.', labelB: 'New Secret' }).id)
+      check('without that, or with another rubric chosen, the saved rubric is used', plain25.rubric.criteria.length === 1 && other25.rubric.id === 'general-fiction', { plain: plain25.rubric.criteria.length, other: other25.rubric.id })
+      for (const j of [again25, plain25, other25]) judge.deleteJudgment(j.id)
+      // In the window, with the saved rubric still changed.
+      await reloadUi()
+      const keepUi: Record<string, unknown> = await win.webContents.executeJavaScript(`(async () => {
+        const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+        const until = async (test) => { for (let end = Date.now() + 4000; Date.now() < end && !test(); ) await wait(30) }
+        const out = {}
+        document.querySelector('.rail-item[data-mode="judge"]')?.click()
+        await until(() => document.querySelector('.judgment-item'))
+        ;[...document.querySelectorAll('.judgment-item')].find((r) => r.textContent.includes('Lamps test'))?.click()
+        await until(() => document.querySelectorAll('.judge-keep').length === 2)
+        const keeps = () => [...document.querySelectorAll('.judge-keep')].map((b) => b.textContent.trim())
+        out.blind = keeps()
+        ;[...document.querySelectorAll('.verdict .tw-btn')].find((b) => b.textContent.includes('Reveal'))?.click()
+        await until(() => keeps().some((t) => t.includes('Secret')))
+        out.named = keeps()
+        document.querySelector('.judge-keep[data-side="B"]').click()
+        await until(() => document.querySelector('.judge-form'))
+        out.areas = [...document.querySelectorAll('.judge-passage textarea')].map((t) => t.value)
+        out.labels = [...document.querySelectorAll('.judge-label')].map((i) => i.value)
+        out.author = document.querySelector('.judge-form textarea[placeholder="The prompt both models answered"]')?.value ?? ''
+        out.system = document.querySelector('.judge-form textarea[placeholder^="The system prompt both models had"]')?.value ?? ''
+        out.files = document.querySelector('.judge-form .tw-attach')?.textContent ?? ''
+        out.carried = document.querySelector('.judge-carried')?.textContent ?? ''
+        out.blocked = document.querySelector('.judge-run')?.disabled === true
+        out.asJudged = document.querySelector('.judge-as-judged')?.textContent ?? ''
+        out.criteria = [...document.querySelectorAll('.judge-form .field-note')].find((p) => /criteria:/.test(p.textContent))?.textContent ?? ''
+        document.querySelector('.judge-as-judged .link-btn')?.click()
+        await until(() => !document.querySelector('.judge-as-judged'))
+        out.savedNow = [...document.querySelectorAll('.judge-form .field-note')].find((p) => /criteria:/.test(p.textContent))?.textContent ?? ''
+        out.noteGone = !document.querySelector('.judge-as-judged')
+        ;[...document.querySelectorAll('.judge-form .dialog-actions .tw-btn')].find((b) => b.textContent.trim() === 'Cancel')?.click()
+        await wait(200)
+        return out
+      })()`)
+      check('a finished comparison offers to keep either side, by letter until the names are revealed', (keepUi.blind as string[]).join() === 'Keep A,Keep B' && (keepUi.named as string[]).join() === 'Keep A · Opus Secret,Keep B · Sonnet Secret', keepUi)
+      check(
+        'keeping a side opens a new comparison with it first, the other side empty and the rest carried over',
+        (keepUi.areas as string[]).join('|') === 'The lamps turned on.|' && (keepUi.labels as string[]).join('|') === 'Sonnet Secret|' && keepUi.author === 'Write the lamps.' && keepUi.system === 'You are a co-writer.' && String(keepUi.files).includes('Bible.md') &&
+          /carried over/.test(String(keepUi.carried)) && /Add the new passage as B/.test(String(keepUi.carried)) && keepUi.blocked === true,
+        keepUi
+      )
+      check(
+        'when the saved rubric has changed, the new comparison says it is judged with the rubric as it was, and can use the saved one',
+        /has since changed/.test(String(keepUi.asJudged)) && /^From a file 3 criteria/.test(String(keepUi.criteria)) && /^From a file 1 criteria/.test(String(keepUi.savedNow)) && keepUi.noteGone === true,
+        keepUi
+      )
+      // The rubric back as it was, and the window back on the comparison.
+      judge.saveRubric(imported)
+      await reloadUi()
+      await win.webContents.executeJavaScript(`(async () => {
+        const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+        document.querySelector('.rail-item[data-mode="judge"]')?.click()
+        for (let end = Date.now() + 4000; Date.now() < end && !document.querySelector('.judgment-item'); ) await wait(30)
+        ;[...document.querySelectorAll('.judgment-item')].find((r) => r.textContent.includes('Lamps test'))?.click()
+        for (let end = Date.now() + 4000; Date.now() < end && !document.querySelector('.verdict h2'); ) await wait(30)
+        // The sidebar as these checks found it.
+        ${pastUi.wasOpen === false ? `document.querySelector('.judge [aria-label="Toggle sidebar (Ctrl+B)"]')?.click(); await wait(200)` : ''}
+      })()`)
 
       // 26. Choice cards: parsing, the instruction reaching the model, and the card in use.
       const parsedChoices = extractChoices('Story.\n\n```choices\nWhat now?\n1. Go left\n2. Go right\n```')

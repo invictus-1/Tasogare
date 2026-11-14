@@ -30,6 +30,13 @@ interface JudgeState {
   setRubrics(rubrics: Rubric[]): void
 }
 
+const WINNER_TEXT = { A: 'A won', B: 'B won', tie: 'Tie', close: 'Too close to call' } as const
+
+/** How a comparison stands, in a couple of words, for the lists of them. */
+export function judgmentState(j: JudgmentSummary): string {
+  return j.status === 'running' ? 'Judging…' : j.status === 'error' ? 'Failed' : j.winner ? WINNER_TEXT[j.winner] : 'No verdict'
+}
+
 const message = (err: unknown): string =>
   (err instanceof Error ? err.message : String(err)).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
 

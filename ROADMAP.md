@@ -183,6 +183,8 @@ What's shipped, what's next, and ideas not yet committed to. Tasogare shows this
 - [x] **Installer** · Core — Windows installer and portable zip, with Tasogare artwork
 
 ## Next
+- [~] **Past comparisons in sight** · Judge — done, in the next release: the Judge's start page lists every past comparison, and with the sidebar closed there is a way back to that list
+- [~] **Keep one side of a comparison** · Judge — done, in the next release: keep A or B and judge a new passage against it with the same prompt, reference files, judge and rubric as it was then
 - [~] **Your feedback on 1.0** · Core — fixes from real use
 
 ## Later

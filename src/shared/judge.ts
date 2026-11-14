@@ -44,6 +44,12 @@ export interface JudgeInput {
   bothOrders: boolean
   /** Passages C, D… for a round: every pair is then judged as its own judgment. Drafts only. */
   morePassages?: { passage: string; label: string }[]
+  /**
+   * Drafts made from an earlier comparison: the rubric exactly as that comparison used it. While
+   * it is still the rubric chosen, the new one is judged with it, so the measure is the same even
+   * if the saved rubric has been edited or deleted since.
+   */
+  rubricAsJudged?: Rubric
 }
 
 /** The most passages a round takes (15 pairs). */
@@ -88,6 +94,30 @@ export interface Judgment {
   roundId?: string
   /** The round's own title, before the pair was added to it. */
   roundTitle?: string
+}
+
+/** Whether two rubrics measure the same way: the same criteria, weights and guides. */
+export function sameRubric(a: Rubric, b: Rubric): boolean {
+  const shape = (r: Rubric): string => JSON.stringify(r.criteria.map((c) => [c.id, c.name, c.weight, c.guide]))
+  return shape(a) === shape(b)
+}
+
+/**
+ * A new comparison from one side of an earlier one: that passage and its label go first, the
+ * other side is left empty, and everything it was judged with (the prompts, the reference files,
+ * the rubric as it was, the judge and its settings) is carried over, so a new passage is measured
+ * the same way the kept one was.
+ */
+export function keepSide(j: Judgment, side: 'A' | 'B'): JudgeInput {
+  const { input } = j
+  return {
+    ...input,
+    passageA: side === 'A' ? input.passageA : input.passageB,
+    labelA: side === 'A' ? input.labelA : input.labelB,
+    passageB: '',
+    labelB: '',
+    rubricAsJudged: j.rubric
+  }
 }
 
 export interface JudgmentSummary {

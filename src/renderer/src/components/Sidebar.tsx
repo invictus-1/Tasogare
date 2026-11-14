@@ -3,7 +3,7 @@ import type { ChatFolder, ConversationSummary, DocEntry } from '@shared/types'
 import { modelName, useStore } from '../store'
 import { useBlind } from './Arena'
 import { useInsights, type InsightsPage } from '../insightsStore'
-import { useJudge } from '../judgeStore'
+import { judgmentState, useJudge } from '../judgeStore'
 import { useWriting } from '../writingStore'
 import { useCode } from '../codeStore'
 import {
@@ -564,8 +564,6 @@ function DocList({ creating, onCreated }: { creating: boolean; onCreated: () => 
 
 // ——— Judge ———
 
-const WINNER_TEXT = { A: 'A won', B: 'B won', tie: 'Tie', close: 'Too close to call' } as const
-
 function JudgeList() {
   const list = useJudge((s) => s.list)
   const currentId = useJudge((s) => s.current?.id)
@@ -585,8 +583,7 @@ function JudgeList() {
         >
           <span className="tw-conv-title">{j.title}</span>
           <span className="tw-conv-meta">
-            {j.status === 'running' ? 'Judging…' : j.status === 'error' ? 'Failed' : j.winner ? WINNER_TEXT[j.winner] : 'No verdict'} ·{' '}
-            {relativeTime(j.createdAt)}
+            {judgmentState(j)} · {relativeTime(j.createdAt)}
           </span>
         </div>
       ))}

@@ -2,6 +2,12 @@
 
 Each version's section becomes its release notes on the releases page (`npm run release`), and Tasogare shows them in Settings > Updates.
 
+## Unreleased
+
+- **Keep one side, judge a new passage against it:** a finished comparison has Keep A and Keep B. Either starts a new comparison with that passage and its label first and the other side empty, and carries over everything it was judged with: the prompt, the system prompt, the reference files, the rubric, and the judge model with its settings. Paste a new model's passage as B and it is measured the same way the kept one was. The earlier comparison is left as it is.
+- **The same rubric, even if you have edited it since:** a comparison made from an earlier one (Keep A, Keep B, or Edit and re-run) is judged with the rubric exactly as it was then. If the saved rubric has changed or been deleted, the form says so and offers the saved one instead. Before, a re-run quietly used the rubric as it is now, or General fiction if it was gone.
+- **Past comparisons in sight:** the Judge keeps every comparison until you delete it, but they were listed only in the sidebar, so with the sidebar closed there was no sign of them. The Judge's start page now lists them all, with the verdict and the date, beside New comparison and the leaderboard. With the sidebar closed, an open comparison or leaderboard has an All comparisons button that goes back to that list. Open one and use Edit and re-run to judge a new model against the same passages and prompts.
+
 ## 1.7.0
 
 **Story analysis of the files you choose**

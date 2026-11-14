@@ -207,7 +207,7 @@ Caching is a prefix match, so requests are built to be the previous request plus
 
 After `npm run build`, each runs the real app in a throwaway profile and never touches your data:
 
-- `TWILIGHT_E2E=<folder> npx electron .` starts a fake OpenAI-compatible model server (plus fake MCP and embedding servers) and drives the app through every feature, writing `e2e.json` (781 checks) and screenshots.
+- `TWILIGHT_E2E=<folder> npx electron .` starts a fake OpenAI-compatible model server (plus fake MCP and embedding servers) and drives the app through every feature, writing `e2e.json` (790 checks) and screenshots.
 - `node scripts/bench.cjs <label>` times startup, opening screens, memory and scrolling on the packaged app.
 - `TWILIGHT_SELFTEST=<folder> npx electron .` scrolls a ~350k-token chat one step per frame and writes frame timings.
 - `TWILIGHT_SHOWCASE=<folder> npx electron .` fills a profile with an invented story and captures the screenshots in `docs/screenshots/`.

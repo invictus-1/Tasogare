@@ -274,6 +274,20 @@ export function runRound(contents: WebContents, input: JudgeInput): { roundId: s
 
 const PAIRS_AT_ONCE = 3
 
+/**
+ * The rubric an earlier comparison used, when a new one made from it still has that rubric
+ * chosen: it is judged with the rubric as it was then, whatever has happened to the saved one.
+ */
+function keptRubric(kept: unknown, id: string): Rubric | null {
+  if (!kept || typeof kept !== 'object' || (kept as Rubric).id !== id) return null
+  try {
+    const checked = parseRubric(JSON.stringify(kept))
+    return (kept as Rubric).builtIn ? { ...checked, builtIn: true } : checked
+  } catch {
+    return null
+  }
+}
+
 // Strictly increasing, so the pairs of a round (started in the same millisecond) keep their
 // order wherever judgments are sorted by age, the leaderboard's replay included.
 let lastCreated = 0
@@ -284,9 +298,9 @@ function startJudgment(
   round: { roundId?: string; roundTitle?: string; after?: Promise<void> } = {}
 ): { judgment: Judgment; started: Promise<void>; done: Promise<void> } {
   if (!input.passageA.trim() || !input.passageB.trim()) throw new Error('Both passages need text.')
-  // Extra passages belong to the draft; each stored judgment holds only its own pair.
-  const { morePassages: _more, ...pairInput } = input
-  const rubric = listRubrics().find((r) => r.id === pairInput.rubricId) ?? GENERAL
+  // Extra passages and a kept rubric belong to the draft; each stored judgment holds only its own pair.
+  const { morePassages: _more, rubricAsJudged, ...pairInput } = input
+  const rubric = keptRubric(rubricAsJudged, pairInput.rubricId) ?? listRubrics().find((r) => r.id === pairInput.rubricId) ?? GENERAL
   const orders: JudgeOrder[] = pairInput.bothOrders ? ['AB', 'BA'] : ['AB']
   lastCreated = Math.max(Date.now(), lastCreated + 1)
   const judgment: Judgment = {

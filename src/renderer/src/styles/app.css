@@ -449,6 +449,22 @@ body.resizing .resize-handle { pointer-events: auto; }
 
 /* Judge */
 .judge-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+/* From a finished comparison: keep one side and judge a new passage against it */
+.verdict-next { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); padding-top: var(--space-3); border-top: 1px solid var(--line); }
+.verdict-next .field-note { flex: 1 1 260px; }
+.judge-carried { padding: var(--space-2) var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-raised); }
+/* The Judge's start page: every past comparison, in sight even with the sidebar closed */
+.judge-start-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); }
+.judge-past { width: min(560px, 100%); margin-top: var(--space-6); display: flex; flex-direction: column; gap: var(--space-2); text-align: left; }
+.judge-past-title { margin: 0; font-size: 12px; line-height: 16px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); }
+.judge-past-title span { margin-left: var(--space-1); font-weight: 500; letter-spacing: 0; color: var(--ink-faint); }
+.judge-past-list { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface-raised); overflow: hidden; }
+.judge-past-item { display: flex; align-items: baseline; gap: var(--space-3); padding: var(--space-2) var(--space-3); border: 0; border-top: 1px solid var(--line); background: none; color: var(--ink); font: inherit; font-size: 13px; line-height: 18px; text-align: left; cursor: pointer; }
+.judge-past-item:first-child { border-top: 0; }
+.judge-past-item:hover { background: var(--surface-hover); }
+.judge-past-item:focus-visible { outline: 2px solid var(--iris); outline-offset: -2px; }
+.judge-past-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.judge-past-meta { flex: none; font-size: 12px; color: var(--ink-muted); }
 .judge-form, .judge-result { max-width: 1100px; margin: 0 auto; padding: var(--space-6); display: flex; flex-direction: column; gap: var(--space-3); }
 .judge-form .field input, .judge-form .field textarea { background: var(--surface-raised); }
 .judge-passages { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-3); }

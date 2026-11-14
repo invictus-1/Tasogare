@@ -1,7 +1,7 @@
 import { useState, useSyncExternalStore } from 'react'
-import { computeVerdict, ELO_K, ELO_START, MAX_PASSAGES, passageLetter, roundPairs, type JudgeInput, type Judgment, type Rubric, type RubricCriterion } from '@shared/judge'
+import { computeVerdict, ELO_K, ELO_START, keepSide, MAX_PASSAGES, passageLetter, roundPairs, sameRubric, type JudgeInput, type Judgment, type Rubric, type RubricCriterion } from '@shared/judge'
 import { formatTokens } from '@shared/pricing'
-import { useJudge } from '../judgeStore'
+import { judgmentState, useJudge } from '../judgeStore'
 import { renderMarkdown, renderMarkdownLive } from '../markdown'
 import { modelName, optionsFor, useStore } from '../store'
 import { readStream, subscribeStream } from '../stream'
@@ -85,7 +85,12 @@ function JudgeForm() {
   const folders = useStore((s) => s.folders)
   const [editing, setEditing] = useState<Rubric | null>(null)
   const options = optionsFor(models, providers, draft.judgeProviderId, draft.judgeModelId)
-  const rubric = rubrics.find((r) => r.id === draft.rubricId) ?? rubrics[0]
+  const saved = rubrics.find((r) => r.id === draft.rubricId)
+  // A draft made from an earlier comparison is judged with the rubric as it was then, while that
+  // rubric is still the one chosen: the saved one may have been edited or deleted since.
+  const kept = draft.rubricAsJudged && draft.rubricAsJudged.id === draft.rubricId ? draft.rubricAsJudged : null
+  const asJudged = !!kept && (!saved || !sameRubric(kept, saved))
+  const rubric = (asJudged ? kept : null) ?? saved ?? rubrics[0]
   const contextChars = draft.contextDocs.reduce((n, d) => n + d.text.length, 0) + draft.systemPrompt.length + draft.authorPrompt.length
   const passages = draftPassages(draft)
   const ready = passages.every((p) => p.passage.trim())
@@ -98,6 +103,12 @@ function JudgeForm() {
 
   return (
     <div className="judge-form">
+      {draft.rubricAsJudged && (
+        <p className="field-note judge-carried">
+          From an earlier comparison: its prompts, reference files, rubric and judge are carried over, so this one is measured the same way.
+          {!draft.passageB.trim() ? ' Add the new passage as B.' : ''}
+        </p>
+      )}
       <label className="field">
         <span className="field-label">Title</span>
         <input value={draft.title} placeholder="e.g. Chapter 7 opening — Opus 5.5 vs Sonnet 5.5" onChange={(e) => update({ title: e.target.value })} />
@@ -209,12 +220,12 @@ function JudgeForm() {
         <label className="field">
           <span className="field-label judge-row">
             Rubric
-            {rubric && (
+            {rubric && !asJudged && (
               <button className="link-btn" onClick={() => setEditing(rubric)}>
                 {rubric.builtIn ? 'View or copy' : 'Edit'}
               </button>
             )}
-            {rubric && !rubric.builtIn && (
+            {rubric && !asJudged && !rubric.builtIn && (
               <button className="link-btn" title="Save this rubric to a file" onClick={() => void window.twilight.exportRubric(rubric.id).catch(() => undefined)}>
                 Export
               </button>
@@ -237,11 +248,22 @@ function JudgeForm() {
             </button>
           </span>
           <select value={draft.rubricId} onChange={(e) => update({ rubricId: e.target.value })}>
+            {kept && !saved && <option value={kept.id}>{kept.name} (as judged before)</option>}
             {rubrics.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
         </label>
       </div>
       {rubric && <p className="field-note">{rubric.description} {rubric.criteria.length} criteria: {rubric.criteria.map((c) => c.name).join(', ')}.</p>}
+      {asJudged && (
+        <p className="field-note judge-as-judged">
+          Judging with this rubric as it was in the earlier comparison: the saved one has since {saved ? 'changed' : 'been deleted'}.{' '}
+          {saved && (
+            <button className="link-btn" onClick={() => update({ rubricAsJudged: undefined })}>
+              Use the saved one
+            </button>
+          )}
+        </p>
+      )}
       <label className="check">
         <input type="checkbox" checked={draft.bothOrders} onChange={(e) => update({ bothOrders: e.target.checked })} />
         Judge twice with the order swapped (judges tend to favour whichever passage comes first)
@@ -547,6 +569,22 @@ function JudgeResult() {
             A was {input.labelA || 'unlabelled'} · B was {input.labelB || 'unlabelled'}
           </p>
         )}
+        {!running && (
+          <div className="verdict-next">
+            <span className="field-note">Test another passage against one of these, measured the same way: same prompt, reference files, rubric and judge.</span>
+            {(['A', 'B'] as const).map((side) => (
+              <button
+                key={side}
+                className="tw-btn tw-btn-sm judge-keep"
+                data-side={side}
+                title={`Starts a new comparison with passage ${side} kept and the other side empty`}
+                onClick={() => useJudge.getState().newDraft(keepSide(judgment, side))}
+              >
+                Keep {name(side)}
+              </button>
+            ))}
+          </div>
+        )}
       </section>
 
       <table className="criteria-table">
@@ -588,6 +626,10 @@ export function JudgeView() {
   const board = useJudge((s) => s.board)
   const error = useJudge((s) => s.error)
   const toggleSidebar = useStore((s) => s.toggleSidebar)
+  // Past comparisons are listed in the sidebar and, so they are in sight when it is closed, on
+  // the start page; with it closed the header has the way back there.
+  const sidebarOpen = useStore((s) => s.sidebarOpen)
+  const list = useJudge((s) => s.list)
   const running = current?.runs.some((r) => r.status === 'streaming')
   const roundRunning = board?.judgments.filter((j) => j.status === 'running') ?? []
   const title = draft
@@ -607,6 +649,11 @@ export function JudgeView() {
           <SidebarIcon />
         </button>
         <h1 className="chat-title">{title}</h1>
+        {(current || board) && !sidebarOpen && (
+          <button className="tw-btn tw-btn-ghost tw-btn-sm no-drag judge-home" title="Back to the list of every comparison" onClick={() => useJudge.setState({ current: null, board: null, draft: null })}>
+            All comparisons
+          </button>
+        )}
         {current?.roundId && (
           <button className="tw-btn tw-btn-ghost tw-btn-sm no-drag" onClick={() => void useJudge.getState().openBoard(current.roundId)}>
             <TrophyIcon />
@@ -625,7 +672,7 @@ export function JudgeView() {
         )}
         {current && !running && (
           <>
-            <button className="tw-btn tw-btn-ghost tw-btn-sm no-drag" onClick={() => useJudge.getState().newDraft(current.input)}>
+            <button className="tw-btn tw-btn-ghost tw-btn-sm no-drag" onClick={() => useJudge.getState().newDraft({ ...current.input, rubricAsJudged: current.rubric })}>
               Edit and re-run
             </button>
             <button className="tw-btn tw-btn-ghost tw-btn-sm no-drag" onClick={() => void useJudge.getState().remove(current.id)}>
@@ -652,10 +699,36 @@ export function JudgeView() {
           <div className="empty">
             <h2 className="t-display">Judge two passages</h2>
             <p className="empty-sub">Blind, rubric-scored, judged in both orders. Or use “Judge A vs B” from a split chat.</p>
-            <button className="tw-btn tw-btn-primary" onClick={() => useJudge.getState().newDraft()}>
-              <PlusIcon />
-              New comparison
-            </button>
+            <div className="judge-start-actions">
+              <button className="tw-btn tw-btn-primary" onClick={() => useJudge.getState().newDraft()}>
+                <PlusIcon />
+                New comparison
+              </button>
+              {list.length > 0 && (
+                <button className="tw-btn" onClick={() => void useJudge.getState().openBoard(null)}>
+                  <TrophyIcon />
+                  Leaderboard
+                </button>
+              )}
+            </div>
+            {list.length > 0 && (
+              <section className="judge-past" aria-label="Past comparisons">
+                <h3 className="judge-past-title">
+                  Past comparisons<span>{list.length}</span>
+                </h3>
+                <p className="field-note">Kept until you delete them. Open one to read it again, or to edit and re-run it with a new model's passages.</p>
+                <div className="judge-past-list">
+                  {list.map((j) => (
+                    <button key={j.id} className="judge-past-item" onClick={() => void useJudge.getState().open(j.id)}>
+                      <span className="judge-past-name">{j.title}</span>
+                      <span className="judge-past-meta">
+                        {judgmentState(j)} · {new Date(j.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
         )}
       </div>
