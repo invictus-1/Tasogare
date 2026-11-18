@@ -4,6 +4,9 @@ What's shipped, what's next, and ideas not yet committed to. Tasogare shows this
 
 ## Shipped
 
+### 1.9.1 · November 2026
+- [x] **Take a file out of a chat** · Core — a × on each attached file takes it out, so an old copy of a document can leave before the new one is sent; the chip stays to put it back where it was
+
 ### 1.9.0 · November 2026
 - [x] **Space, under the sky** · Core — a colony on a cratered moon under a ringed giant: domes, a station, ships in their lanes, a shuttle lifting off, a rover on its road
 - [x] **The cyberpunk city, repainted** · Core — its street a true mirror of the towers, signs mounted on their buildings, neon haze and searchlights over the roofs
