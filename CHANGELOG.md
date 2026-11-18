@@ -2,6 +2,11 @@
 
 Each version's section becomes its release notes on the releases page (`npm run release`), and Tasogare shows them in Settings > Updates.
 
+## Unreleased
+
+- **Taking a file out no longer stops Claude from replying:** in 1.9.1, after a file was taken out of a chat, the next message to Claude failed with "Invalid signature in thinking block". Claude signs its thinking against everything sent before it, so thinking written below the file, with the file still there, no longer matched. That thinking is now left out of what is sent (the replies themselves stay), and thinking written afterwards is kept.
+- **Recovering when Claude refuses old thinking:** the same refusal can follow any change to what came before a reply, such as a message deleted from the middle of a chat, or tools switched on or off part-way through. When it happens, the request is sent again once without earlier thinking, and the chat carries on.
+
 ## 1.9.1
 
 - **Take a file out of a chat:** every file on a message of yours now has a × on its chip. It takes the file out of the chat, so nothing sent from then on holds it: when a document changes mid-chat, take the old copy out and attach the new one to your next message. The chip stays on the message, struck through, with an arrow that puts the file back exactly where it was. In a compacted chat the file leaves the summary that carried it too. The messages after the file are read fresh once, not from cache, the next time you send.

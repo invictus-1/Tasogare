@@ -439,6 +439,9 @@ function codeAgentReply(messages: { role: string; content: string | null }[], re
   res.end('data: [DONE]\n\n')
 }
 
+/** Messages already refused once as thinking that no longer matches (see STALETHINKING below). */
+const refusedOnce = new Set<string>()
+
 function startMockServer(log: LoggedRequest[]): Promise<Server> {
   const server = createServer((req, res) => {
     if (req.url?.startsWith('/gh/')) return mockGithub(req.url, `http://${req.headers.host}/gh`, res)
@@ -471,6 +474,13 @@ function startMockServer(log: LoggedRequest[]): Promise<Server> {
       if (parsed.messages[0]?.content?.startsWith('You are the context scout')) return scoutReply(parsed.messages, res)
       const lastUser =[...parsed.messages].reverse().find((m) => m.role === 'user')?.content ?? ''
       const toolResult = parsed.messages.at(-1)?.role === 'tool' ? parsed.messages.at(-1)?.content : null
+      // Claude's refusal of thinking whose conversation has changed, the first time a message asks for it.
+      if (lastUser.includes('STALETHINKING') && !refusedOnce.has(lastUser)) {
+        refusedOnce.add(lastUser)
+        res.writeHead(400, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: { message: 'messages.1.content.0: Invalid `signature` in `thinking` block. The block is bound to a different conversation.' } }))
+        return
+      }
       if (!toolResult && lastUser.includes('TOOLCHOICE') && (parsed as { tools?: unknown[] }).tools?.length) {
         const args = JSON.stringify({
           groups: [
@@ -1453,6 +1463,55 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
           ccBack.path.find((n) => n.compaction)?.compaction?.carried === 1 &&
           backReq.includes('Nine lamps on the quay.'),
         { out: ccOut.path.find((n) => n.compaction)?.compaction, sent: carriedReq.slice(0, 300), back: backReq.slice(0, 300) }
+      )
+      // Claude signs thinking against everything before it: below a file taken out or put back,
+      // thinking written before then is no longer sent; what is written after is.
+      const thought = (text: string): string => JSON.stringify([{ type: 'thinking', thinking: 'Counting lamps.', signature: 'sig' }, { type: 'text', text }])
+      const sentThinking = (id: string): string =>
+        toMessages(chat.freshThinking(id, db.ancestors(db.loadNodes(id), chat.view(id).path.at(-1)!.id).filter((n) => n.role !== 'root')))
+          .filter((m) => m.role === 'assistant')
+          .map((m) => (m.content.some((b) => b.type === 'thinking') ? 'thinking' : 'none'))
+          .join()
+      const cThink = chat.create(null).id
+      chat.send(contents, cThink, 'Before any file')
+      await idle(cThink)
+      chat.send(contents, cThink, 'Here is the note', 'a', [{ name: 'Lamps.md', text: 'Nine lamps on the quay.' }])
+      await idle(cThink)
+      chat.send(contents, cThink, 'And after it')
+      await idle(cThink)
+      for (const n of chat.view(cThink).path) if (n.role === 'assistant') db.updateNode(n.id, { content: thought(n.text) })
+      const allThinking = sentThinking(cThink)
+      const thinkFile = chat.view(cThink).path[2].id
+      await new Promise((r) => setTimeout(r, 5))
+      const thinkOut = chat.setAttachmentRemoved(cThink, thinkFile, 0, true)
+      const afterOut = sentThinking(cThink)
+      await new Promise((r) => setTimeout(r, 5))
+      chat.send(contents, cThink, 'With the file out')
+      await idle(cThink)
+      db.updateNode(chat.view(cThink).path.at(-1)!.id, { content: thought('Written with the file out.') })
+      const afterReply = sentThinking(cThink)
+      await new Promise((r) => setTimeout(r, 5))
+      chat.setAttachmentRemoved(cThink, thinkFile, 0, false)
+      check(
+        'thinking written below a file before it was taken out or put back is no longer sent; thinking above it, and written since, is',
+        allThinking === 'thinking,thinking,thinking' && afterOut === 'thinking,none,none' && afterReply === 'thinking,none,none,thinking' && sentThinking(cThink) === 'thinking,none,none,none' && !JSON.stringify(thinkOut).includes('toggledAt'),
+        { allThinking, afterOut, afterReply, back: sentThinking(cThink) }
+      )
+      // A request refused because thinking no longer matches goes again once without it, and
+      // thinking from before that reply stays out from then on.
+      const cStale = chat.create(null).id
+      chat.send(contents, cStale, 'A first question')
+      await idle(cStale)
+      db.updateNode(chat.view(cStale).path[1].id, { content: thought('A first answer.') })
+      const beforeStale = log.length
+      chat.send(contents, cStale, 'STALETHINKING a second question')
+      await idle(cStale)
+      const staleReply = chat.view(cStale).path.at(-1)!
+      db.updateNode(staleReply.id, { content: thought(staleReply.text) })
+      check(
+        'a request refused for thinking that no longer matches is sent again without it, and the reply arrives',
+        staleReply.status === 'done' && !staleReply.error && log.slice(beforeStale).filter((r) => r.messages.at(-1)?.content === 'STALETHINKING a second question').length === 2 && sentThinking(cStale) === 'none,thinking',
+        { status: staleReply.status, error: staleReply.error, sent: sentThinking(cStale) }
       )
       // On the message, a file's chip takes it out and puts it back.
       await reloadUi()

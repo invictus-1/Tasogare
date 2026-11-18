@@ -7,7 +7,7 @@ import { signalDone } from './doneNotice'
 import { getApiKey, getProvider, implFor, modelOptions } from './providers'
 import { appendLog } from './logs'
 import { compactAnthropic, describeAnthropicError } from './providers/anthropic'
-import { compactionOf, sinceCompaction } from './providers/compactionBlocks'
+import { compactionOf, sinceCompaction, withoutThinking } from './providers/compactionBlocks'
 import { toWorkspace, workspaceSystemPrompt } from './workspaces'
 import { getPersona } from './library'
 import { CHOICES_INSTRUCTION, CHOICES_TOOL_INSTRUCTION } from '@shared/choices'
@@ -553,6 +553,32 @@ interface StoredAttachment {
   kind?: AttachmentKind
   bytes?: number
   removed?: { block: FileBlock; carried: { nodeId: string; at: number }[] }
+  /** When it was last taken out or put back: thinking written below it before then is no longer sent. */
+  toggledAt?: number
+}
+
+const thinkingCutKey = (id: string): string => `thinkingCut:${id}`
+
+/** Claude's refusal of thinking whose conversation has changed since it was written. */
+const staleThinking = (err: unknown): boolean => /signature\W+in\W+thinking\W+block/i.test(err instanceof Error ? err.message : String(err))
+
+/**
+ * A chat's path as it can be sent. Claude signs each block of thinking against everything sent
+ * before it and refuses it once any of that has changed, so thinking that no longer matches is
+ * left out: a reply below a message whose file was taken out or put back, written before that;
+ * and every reply from before a request was refused for this (whatever had changed) and sent
+ * again without thinking. Replies written since keep theirs: they were made from the chat as it
+ * is now sent.
+ */
+export function freshThinking(id: string, path: db.NodeRow[]): db.NodeRow[] {
+  let cut = db.kvGet<number>(thinkingCutKey(id)) ?? 0
+  return path.map((n) => {
+    if (n.role === 'user' && n.attachments?.includes('"toggledAt"')) {
+      for (const a of JSON.parse(n.attachments) as StoredAttachment[]) cut = Math.max(cut, a.toggledAt ?? 0)
+      return n
+    }
+    return n.role === 'assistant' && n.created_at < cut ? withoutThinking(n) : n
+  })
 }
 
 const isFileBlock = (b: FileBlock): boolean =>
@@ -573,6 +599,7 @@ function changeCarried(node: db.NodeRow, change: (carried: FileBlock[]) => void)
  * it, so nothing sent from then on holds it. The block is kept beside the message's list of files
  * and goes back exactly where it was, in the message and in those summaries. Either way the
  * messages after it are read fresh once; the cache still holds up to the message the file was in.
+ * Thinking in the replies below, written with the chat as it was, is no longer sent (freshThinking).
  */
 export function setAttachmentRemoved(id: string, nodeId: string, index: number, removed: boolean): ConversationView {
   if (isRunning(id)) throw new Error(removed ? 'Wait for the reply to finish before removing a file.' : 'Wait for the reply to finish before putting a file back.')
@@ -616,6 +643,7 @@ export function setAttachmentRemoved(id: string, nodeId: string, index: number, 
       })
     }
     item.removed = { block, carried }
+    item.toggledAt = Date.now()
     db.updateNode(node.id, { content, attachments: JSON.stringify(list) })
   } else {
     const { block, carried } = item.removed!
@@ -633,6 +661,7 @@ export function setAttachmentRemoved(id: string, nodeId: string, index: number, 
       })
     }
     delete item.removed
+    item.toggledAt = Date.now()
     db.updateNode(node.id, { content: JSON.stringify(blocks), attachments: JSON.stringify(list) })
   }
   return view(id)
@@ -995,7 +1024,7 @@ function generate(
       const nodes = db.loadNodes(conversationId)
       // From the newest summary on, once the chat has been compacted.
       const history = trimHistory(
-        sinceCompaction(db.ancestors(nodes, userNodeId).filter((n) => n.role !== 'root')),
+        sinceCompaction(freshThinking(conversationId, db.ancestors(nodes, userNodeId).filter((n) => n.role !== 'root'))),
         settings.messageLimit
       )
       const config = getProvider(settings.providerId)
@@ -1009,13 +1038,13 @@ function generate(
         if (!firstTokenAt) firstTokenAt = Date.now()
         markStarted()
       }
-      const result = await implFor(config).generate({
+      const ask = (sent: db.NodeRow[]): ReturnType<ReturnType<typeof implFor>['generate']> => implFor(config).generate({
         config,
         apiKey: getApiKey(config.id),
         // This pane's own system prompt (chats from before it was editable kept it on the root).
         system: systemFor(settings, nodes.get(conv.root_id)?.text ?? ''),
         options: modelOptions(settings.providerId, settings.modelId),
-        history,
+        history: sent,
         settings,
         signal: controller.signal,
         prefill,
@@ -1051,6 +1080,18 @@ function generate(
             }
           : {})
       })
+      let result: Awaited<ReturnType<typeof ask>>
+      try {
+        result = await ask(history)
+      } catch (err) {
+        // Something sent before a block of thinking has changed since it was written (a message
+        // deleted from the middle, the tools or the system prompt changed), and Claude refuses the
+        // block before writing anything. The request goes again once without earlier thinking,
+        // and no thinking from before this reply is sent from here on, so the next one passes.
+        if (!staleThinking(err) || text || thinking || controller.signal.aborted) throw err
+        db.kvSet(thinkingCutKey(conversationId), assistant.created_at)
+        result = await ask(history.map(withoutThinking))
+      }
       if (result.logprobs?.length) db.setLogprobs(assistant.id, JSON.stringify({ offset: prefill?.length ?? 0, tokens: result.logprobs } satisfies ReplyConfidence))
       db.updateNode(assistant.id, {
         text: result.text,
@@ -1220,7 +1261,7 @@ async function compactNow(id: string, pane: Pane, signal: AbortSignal): Promise<
   const leaf = path.at(-1)
   if (!leaf || leaf.role !== 'assistant' || leaf.status !== 'done' || leaf.compaction) throw new Error('Compact after a finished reply.')
   const nodes = db.loadNodes(id)
-  const all = sinceCompaction(db.ancestors(nodes, leaf.id).filter((n) => n.role !== 'root'))
+  const all = sinceCompaction(freshThinking(id, db.ancestors(nodes, leaf.id).filter((n) => n.role !== 'root')))
   // The latest exchange (your last message and what followed it) stays word for word; everything
   // before it is what gets summarized.
   const lastAsk = all.findLastIndex((n) => n.role === 'user')
@@ -1345,7 +1386,7 @@ async function passageEdit(id: string, nodeId: string, passage: string, instruct
   const base = nodes.get(nodeId)
   if (!base) throw new Error('That reply is gone.')
   const request = { ...base, id: randomUUID(), role: 'user', text: ask, content: JSON.stringify([{ type: 'text', text: ask }]), status: 'done' } as db.NodeRow
-  const history = withChat ? trimHistory([...sinceCompaction(passagePath(conv, nodes, nodeId, pane)), request], settings.messageLimit) : [request]
+  const history = withChat ? trimHistory([...sinceCompaction(freshThinking(id, passagePath(conv, nodes, nodeId, pane))), request], settings.messageLimit) : [request]
   // A server that won't connect leaves its tools out rather than failing the edit.
   const clientTools = withChat ? (await toolsFor(settings).catch(() => ({ clientTools: [] as ClientToolDef[] }))).clientTools : []
   const result = await implFor(config).generate({

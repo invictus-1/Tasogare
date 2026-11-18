@@ -435,8 +435,8 @@ export function toView(node: NodeRow, nodes: Map<string, NodeRow>): NodeView {
  * entry (to go back where it was); the list shown says only that it is out.
  */
 export function attachmentsView(stored: string): NonNullable<NodeView['attachments']> {
-  const list = JSON.parse(stored) as (Omit<NonNullable<NodeView['attachments']>[number], 'removed'> & { removed?: unknown })[]
-  return list.map(({ removed, ...shown }) => (removed ? { ...shown, removed: true } : shown))
+  const list = JSON.parse(stored) as (Omit<NonNullable<NodeView['attachments']>[number], 'removed'> & { removed?: unknown; toggledAt?: number })[]
+  return list.map(({ removed, toggledAt: _, ...shown }) => (removed ? { ...shown, removed: true } : shown))
 }
 
 /** A summary node, as the window shows it: how many things it carried over. */

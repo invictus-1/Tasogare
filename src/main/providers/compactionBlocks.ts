@@ -34,8 +34,11 @@ export function compactionOf(node: Pick<NodeRow, 'role' | 'content' | 'text'>): 
   return { block, text: node.text, local: block.local === true, carried, kept }
 }
 
-/** A kept reply without its thinking: thinking from before a summary can't be checked against it. */
-function withoutThinking<T extends Pick<NodeRow, 'role' | 'content' | 'text'>>(node: T): T {
+/**
+ * A reply without its thinking. Claude signs thinking against everything sent before it, so it
+ * can't go back once that has changed: after a summary, or after an earlier message was changed.
+ */
+export function withoutThinking<T extends Pick<NodeRow, 'role' | 'content' | 'text'>>(node: T): T {
   if (node.role !== 'assistant' || !node.content?.includes('thinking')) return node
   try {
     const blocks = (JSON.parse(node.content) as Block[]).filter((b) => b.type !== 'thinking' && b.type !== 'redacted_thinking')
