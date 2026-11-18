@@ -4,6 +4,12 @@ What's shipped, what's next, and ideas not yet committed to. Tasogare shows this
 
 ## Shipped
 
+### 1.9.0 · November 2026
+- [x] **Space, under the sky** · Core — a colony on a cratered moon under a ringed giant: domes, a station, ships in their lanes, a shuttle lifting off, a rover on its road
+- [x] **The cyberpunk city, repainted** · Core — its street a true mirror of the towers, signs mounted on their buildings, neon haze and searchlights over the roofs
+- [x] **A moon worth looking at** · Core — seas, craters, a glow and a ring of haze, and tonight's real phase if you ask for it; star dust along the galaxy's band
+- [x] **Water that answers the sky** · Core — the sun's or the moon's path on every scene's water, the city's river showing its towers, the mountains' lake mirroring them again under snow caps and pines
+
 ### 1.8.2 · November 2026
 - [x] **Model search in the Judge** · Judge — the judge and a battle's writers are picked from the chat's menu, filtered by typing, and its last line opens Model providers
 

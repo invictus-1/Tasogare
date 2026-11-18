@@ -2,7 +2,7 @@
 
 Each version's section becomes its release notes on the releases page (`npm run release`), and Tasogare shows them in Settings > Updates.
 
-## Unreleased
+## 1.9.0
 
 - **Space, under the sky:** a new scene in Extras → Under the sky. A colony on a cratered moon under a ringed giant: glass domes with a town inside, habitats, a comms tower, solar panels and a landing pad; a nebula, a ring station, asteroids and a small blue world rising; ships crossing in their lanes, a shuttle that lifts off the pad and climbs away, a rover on its road, and now and then a ship jumping away far off. Painted once in the theme's colours, at every hour of the sky.
 - **The cyberpunk city's street is a true mirror:** the water now shows the towers that stand over it, dark shapes in the sky's glow, wobbling a little more with every row, their lights smeared down the wet ground. Before, it was rows of bars that matched nothing above them.
