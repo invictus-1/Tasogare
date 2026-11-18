@@ -50,6 +50,29 @@ export function runActShots(win: BrowserWindow, outDir: string): void {
   win.webContents.once('did-finish-load', async () => {
     const js = <T,>(code: string): Promise<T> => win.webContents.executeJavaScript(code)
     const wait = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
+    // TWILIGHT_ACTS_SCENES: no visitors, just each scene under the sky at each hour, one picture
+    // apiece (all of them, or the ones listed like "cyberpunk,space"; hours from TWILIGHT_ACTS_SKY,
+    // which may list several here; TWILIGHT_ACTS_EXTRAS is more Extras as JSON, like {"moonPhase":true}).
+    const scenes = process.env.TWILIGHT_ACTS_SCENES
+    if (scenes) {
+      const which = scenes === '1' ? ['grid', 'ocean', 'mountains', 'city', 'dunes', 'cyberpunk', 'space'] : scenes.split(',')
+      for (const horizon of which) {
+        for (const sky of (process.env.TWILIGHT_ACTS_SKY ?? 'dawn,day,dusk,night').split(',')) {
+          await js(`localStorage.setItem('twilight.extras', JSON.stringify({ ...JSON.parse(localStorage.getItem('twilight.extras') || '{}'), horizon: '${horizon}', easterEggs: false, sky: '${sky}', ...${process.env.TWILIGHT_ACTS_EXTRAS ?? '{}'} })); ${process.env.TWILIGHT_ACTS_THEME ? `localStorage.setItem('twilight.theme', '${process.env.TWILIGHT_ACTS_THEME}'); ` : ''}localStorage.removeItem('twilight.e2eEgg'); localStorage.setItem('twilight.e2eWeather', '${process.env.TWILIGHT_ACTS_WEATHER ?? ''}')`)
+          win.webContents.reload()
+          await new Promise((r) => win.webContents.once('did-finish-load', () => r(null)))
+          // The heavy scenery is drawn in an idle moment after the page opens.
+          await wait(Number(process.env.TWILIGHT_ACTS_WAIT ?? 1800))
+          if (process.env.TWILIGHT_ACTS_PROBE) writeFileSync(join(outDir, `${horizon}-${sky}-probe.json`), JSON.stringify(await js(process.env.TWILIGHT_ACTS_PROBE).catch((err: Error) => err.message), null, 1))
+          try {
+            writeFileSync(join(outDir, `${horizon}-${sky}.png`), (await win.webContents.capturePage()).toPNG())
+          } catch {
+            // A refused capture is skipped.
+          }
+        }
+      }
+      return app.quit()
+    }
     for (const [egg, horizon, ms] of ACTS) {
       if (only && !only.includes(`${egg}:${horizon}`)) continue
       await js(`localStorage.setItem('twilight.extras', JSON.stringify({ ...JSON.parse(localStorage.getItem('twilight.extras') || '{}'), horizon: '${horizon}', easterEggs: true, sky: '${process.env.TWILIGHT_ACTS_SKY ?? 'dusk'}' })); ${process.env.TWILIGHT_ACTS_THEME ? `localStorage.setItem('twilight.theme', '${process.env.TWILIGHT_ACTS_THEME}'); ` : ''}localStorage.setItem('twilight.e2eEgg', '${egg}'); localStorage.setItem('twilight.e2eWeather', '${process.env.TWILIGHT_ACTS_WEATHER ?? ''}')`)

@@ -70,7 +70,7 @@ import { placement } from './windowState'
 import { shouldSignal } from './doneNotice'
 import { sinceCompaction } from './providers/compactionBlocks'
 import { locatePassage } from '@shared/passage'
-import { clockTime, seasonFor, weatherFor, WEATHER_SPELL_MS } from '@shared/sky'
+import { clockTime, moonPhase, seasonFor, weatherFor, WEATHER_SPELL_MS } from '@shared/sky'
 import { modelKey, pickModelDefaults } from '@shared/modelDefaults'
 
 // Dev-only end-to-end check, run with TWILIGHT_E2E=<output folder> (and a throwaway profile, see
@@ -4597,7 +4597,7 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
       extrasUi.clock = await js<string>(`document.querySelector('.empty .empty-sky')?.dataset.sky ?? ''`)
       check(
         'Extras: the sky holds a time you pick or follows the clock, seasons show, and the warm light switches on and off',
-        extrasUi.switches === 13 && extrasUi.held === 'night' && /sky-halloween|sky-snow|sky-petals|sky-fireflies|sky-leaves|sky-newyear/.test(extrasUi.season ?? '') && extrasUi.clock === clockTime() && extrasUi.warm && extrasUi.warmOff,
+        extrasUi.switches === 14 && extrasUi.held === 'night' && /sky-halloween|sky-snow|sky-petals|sky-fireflies|sky-leaves|sky-newyear/.test(extrasUi.season ?? '') && extrasUi.clock === clockTime() && extrasUi.warm && extrasUi.warmOff,
         extrasUi
       )
       const glideUi = await js<{ shown: boolean; matches: boolean }>(`(async () => {
@@ -6951,7 +6951,7 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
       await key('N', ['control'])
       await new Promise((r) => setTimeout(r, 300))
       const scenes57: Record<string, unknown> = {}
-      for (const horizon57 of ['ocean', 'mountains', 'city', 'dunes', 'cyberpunk', 'grid']) {
+      for (const horizon57 of ['ocean', 'mountains', 'city', 'dunes', 'cyberpunk', 'space', 'grid']) {
         await key(',', ['control'])
         scenes57[horizon57] = await js(`(async () => {
           const wait = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -6966,7 +6966,39 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
           await wait(1200)
           const sky = document.querySelector('.empty .empty-sky')
           const canvas = sky?.querySelector('.hz-cyber-canvas')
+          // The pixel city's street begins at the kerb (the painter says which row). A mirror
+          // shows, a few rows below it, the row as far above: where a wall is dark the water
+          // is dark, where a window or a far tower is bright the water is bright. Measured as how
+          // closely the two rows' brightness follow each other across the city (1 is exactly).
+          const mirror = (() => {
+            if (!canvas) return null
+            const ctx = canvas.getContext('2d')
+            const w = canvas.width
+            const px = ctx.getImageData(0, 0, w, canvas.height).data
+            const at = (x, y) => { const i = (y * w + x) * 4; return { a: px[i + 3], l: px[i] * 0.3 + px[i + 1] * 0.6 + px[i + 2] * 0.1 } }
+            const kerb = Number(canvas.dataset.kerb ?? -1)
+            if (kerb < 8) return { kerb }
+            const follows = (d) => {
+              const up = [], down = []
+              for (let x = 0; x < w; x++) { const above = at(x, kerb - 1 - d); if (above.a === 255) { up.push(above.l); down.push(at(x, kerb + d).l) } }
+              const mean = (v) => v.reduce((n, x) => n + x, 0) / Math.max(1, v.length)
+              const mu = mean(up), md = mean(down)
+              let top = 0, su = 0, sd = 0
+              for (let i = 0; i < up.length; i++) { top += (up[i] - mu) * (down[i] - md); su += (up[i] - mu) ** 2; sd += (down[i] - md) ** 2 }
+              return { walls: up.length, r: su && sd ? +(top / Math.sqrt(su * sd)).toFixed(2) : 0 }
+            }
+            return { kerb, near: follows(3), further: follows(6) }
+          })()
+          const space = sky?.querySelector('.hz-space-canvas')
+          const ground = space ? space.getContext('2d').getImageData(Math.floor(space.width / 2), Math.floor(space.height * 0.9), 1, 1).data[3] : 0
+          const lake = sky?.querySelector('.hz-lake')?.getBoundingClientRect()
+          const lakeFloor = sky?.querySelector('.hz-floor-mountains')?.getBoundingClientRect()
           return {
+            mirror,
+            space: space ? { size: [space.width, space.height], ground, ships: sky.querySelectorAll('.hz-ship').length, beacons: sky.querySelectorAll('.hz-space-beacon').length, launch: !!sky.querySelector('.hz-launch'), rover: !!sky.querySelector('.hz-rover'), sprites: [...sky.querySelectorAll('.hz-ship')].every((el) => el.style.backgroundImage.startsWith('url("data:image/png')) } : null,
+            lake: lake && lakeFloor ? Math.round(lake.top - lakeFloor.top) : null,
+            snow: sky?.querySelectorAll('.hz-snow').length ?? 0,
+            path: !!sky?.querySelector('.hz-path'),
             pressed,
             attr: sky?.dataset.horizon,
             grid: !!sky?.querySelector('.empty-grid'),
@@ -6981,7 +7013,7 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         })()`)
         await shot(`e2e-horizon-${horizon57}.png`)
       }
-      const s57 = scenes57 as Record<string, { pressed: string; attr: string; grid: boolean; ocean: boolean; ridges: number; buildings: number; dunes: number; canvas: number[] | null; cars: number; neon: number }>
+      const s57 = scenes57 as Record<string, { pressed: string; attr: string; grid: boolean; ocean: boolean; ridges: number; buildings: number; dunes: number; canvas: number[] | null; cars: number; neon: number; mirror: { kerb: number; near?: { walls: number; r: number }; further?: { walls: number; r: number } } | null; space: { size: number[]; ground: number; ships: number; beacons: number; launch: boolean; rover: boolean; sprites: boolean } | null; lake: number | null; snow: number; path: boolean }>
       check(
         'Extras → Under the sky draws each scene on the horizon',
         Object.entries(s57).every(([k, v]) => v.pressed === k && v.attr === k) &&
@@ -6989,6 +7021,77 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         s57
       )
       check('the cyberpunk city is drawn as pixel art with flying cars and flickering neon', !!s57.cyberpunk.canvas && s57.cyberpunk.canvas[0] > 100 && s57.cyberpunk.cars === 8 && s57.cyberpunk.neon > 0, s57.cyberpunk)
+      const mirror57 = s57.cyberpunk.mirror
+      check(
+        'the wet street under the cyberpunk city is a true mirror: each row of water follows the row of the city as far above the kerb',
+        !!mirror57 && (mirror57.near?.walls ?? 0) > 60 && (mirror57.near?.r ?? 0) > 0.6 && (mirror57.further?.r ?? 0) > 0.5,
+        mirror57
+      )
+      const space57 = s57.space.space
+      check(
+        'the space scene is painted on its canvas, with ships in their lanes, a shuttle on the pad, the rover and beacons',
+        !!space57 && space57.size[0] > 300 && space57.ground === 255 && space57.ships === 7 && space57.sprites && space57.beacons >= 3 && space57.launch && space57.rover,
+        space57
+      )
+      check(
+        "the mountains' lake mirrors them below the waterline (not up behind them), with snow on the peaks; scenes with water carry the sun's path",
+        s57.mountains.lake !== null && Math.abs(s57.mountains.lake) <= 1 && s57.mountains.snow > 6 && s57.mountains.path && s57.city.path && s57.cyberpunk.path,
+        { lake: s57.mountains.lake, snow: s57.mountains.snow }
+      )
+      // The moon: its phase from the date; shown at night when asked for; its path on the water under it.
+      const phase57 = { new: moonPhase(new Date(Date.UTC(2026, 10, 9, 7, 2))), full: moonPhase(new Date(Date.UTC(2026, 10, 24, 14, 53))), growing: moonPhase(new Date(Date.UTC(2026, 10, 17))), shrinking: moonPhase(new Date(Date.UTC(2026, 10, 30))) }
+      check(
+        "the moon's phase follows the date: dark at new moon, whole at full, growing then shrinking between",
+        phase57.new.lit < 0.02 && phase57.full.lit > 0.98 && phase57.growing.waxing && phase57.growing.lit > 0.3 && phase57.growing.lit < 0.8 && !phase57.shrinking.waxing,
+        phase57
+      )
+      await key(',', ['control'])
+      const moon57 = await js<{ out: { switch: boolean; attr: string | null; shade: string; pathRight: boolean; night: string }; was: { time: string; horizon: string }; wasOn: boolean }>(`(async () => {
+        const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+        const until = async (test) => { for (let end = Date.now() + 3000; Date.now() < end && !test(); ) await wait(25) }
+        await until(() => document.querySelector('.settings-nav'))
+        ;[...document.querySelectorAll('.settings-nav button')].find((b) => b.textContent === 'Extras')?.click()
+        await until(() => document.querySelector('.extras-horizon'))
+        const times = [...document.querySelectorAll('[aria-label="Time of day in the sky"] button')]
+        const was = { time: times.find((b) => b.getAttribute('aria-pressed') === 'true')?.textContent ?? '', horizon: document.querySelector('.extras-horizon [aria-pressed="true"]')?.dataset.horizon ?? '' }
+        times.find((b) => b.textContent === 'Night')?.click()
+        document.querySelector('.extras-horizon [data-horizon="city"]')?.click()
+        await wait(50)
+        const box = [...document.querySelectorAll('.extras-switch')].find((el) => el.textContent.includes('The moon keeps its phase'))?.querySelector('input')
+        const wasOn = !!box?.checked
+        if (box && !box.checked) box.click()
+        await wait(50)
+        document.querySelector('.rail-item[data-mode="chat"]')?.click()
+        await until(() => document.querySelector('.empty .empty-sky .hz-path'))
+        await wait(200)
+        const sky = document.querySelector('.empty .empty-sky')
+        const s = sky.getBoundingClientRect()
+        const p = sky.querySelector('.hz-path').getBoundingClientRect()
+        return { out: { switch: !!box, attr: sky.dataset.moon ?? null, shade: sky.style.getPropertyValue('--moon-shade').slice(0, 24), pathRight: p.left + p.width / 2 > s.left + s.width / 2 + 40, night: sky.dataset.sky }, was, wasOn }
+      })()`)
+      // Back to the sky as it was.
+      await key(',', ['control'])
+      await js(`(async () => {
+        const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+        const until = async (test) => { for (let end = Date.now() + 3000; Date.now() < end && !test(); ) await wait(25) }
+        await until(() => document.querySelector('.settings-nav'))
+        ;[...document.querySelectorAll('.settings-nav button')].find((b) => b.textContent === 'Extras')?.click()
+        await until(() => document.querySelector('.extras-horizon'))
+        ;[...document.querySelectorAll('[aria-label="Time of day in the sky"] button')].find((b) => b.textContent === ${JSON.stringify(moon57.was.time)})?.click()
+        document.querySelector('.extras-horizon [data-horizon="' + ${JSON.stringify(moon57.was.horizon)} + '"]')?.click()
+        const box = [...document.querySelectorAll('.extras-switch')].find((el) => el.textContent.includes('The moon keeps its phase'))?.querySelector('input')
+        if (box && box.checked && !${moon57.wasOn}) box.click()
+        await wait(50)
+        document.querySelector('.rail-item[data-mode="chat"]')?.click()
+        await wait(200)
+      })()`)
+      // A moon within a day or so of full is shown whole, with no dark side to shape.
+      const whole57 = moonPhase().lit > 0.97
+      check(
+        "at night the moon can keep tonight's phase (its dark side shaped by the sky), and its path on the water lies under it, off to the right",
+        moon57.out.switch && moon57.out.night === 'night' && (whole57 ? moon57.out.attr === null : moon57.out.attr === 'phase' && moon57.out.shade.startsWith('url("data:image/svg')) && moon57.out.pathRight,
+        { ...moon57.out, whole: whole57 }
+      )
       // The city on wide windows (a 4K screen at 150%, and wider): no tower top cut off.
       const size57 = win.getSize()
       const pickHorizon57 = async (h: string): Promise<void> => {
@@ -7256,13 +7359,14 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         summerAnyTime: spells57('2026-07-01T00:00:00', 'always'),
         winter: spells57('2026-12-10T00:00:00', 'winter'),
         desert: spells57('2026-12-10T00:00:00', 'always', 'dunes'),
+        space: spells57('2026-12-10T00:00:00', 'always', 'space'),
         steady: new Set([0, 1, 5, 19].map((m) => weatherFor(new Date(Math.floor(Date.now() / WEATHER_SPELL_MS) * WEATHER_SPELL_MS + m * 60_000), 'city', 'always'))).size
       }
       check(
-        'weather is mostly clear, rains now and then, snows in winter (or any time if asked), never over the desert, and holds through a spell',
+        'weather is mostly clear, rains now and then, snows in winter (or any time if asked), never over the desert or in space, and holds through a spell',
         roll57.summer.snow === 0 && roll57.summer.rain > 250 && roll57.summer.rain < 550 && roll57.summer.clear > 1300 &&
           roll57.summerAnyTime.snow > 100 && roll57.winter.snow > 300 && roll57.winter.snow > roll57.winter.rain &&
-          roll57.desert.clear === 2000 && roll57.steady === 1,
+          roll57.desert.clear === 2000 && roll57.space.clear === 2000 && roll57.steady === 1,
         roll57
       )
       // Drawn: rain clouds the sky over with three layers of streaks; snow falls in three layers of flakes.

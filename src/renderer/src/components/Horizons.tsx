@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Horizon } from '../extras'
 import { carColours, carSprite, paintCity, PX, readPalette, type CityLayout } from '../pixelCity'
+import { paintSpace, SHIP_SIZE, spaceSprites, type ShipKind, type SpaceLayout, type SpaceSprites } from '../spaceScene'
 
 // What stands under the sky (Extras → Under the sky): the neon grid, an ocean with a lighthouse,
-// low-poly mountains, a city skyline, desert dunes, or a pixel-art cyberpunk city. Each sits on the
-// horizon in front of the sun and takes the theme's colours. The scenes are drawn once (SVG, or a
-// canvas for the pixel city); what moves is transforms and opacity, and it all stands still under
-// Gentle and Off motion.
+// low-poly mountains, a city skyline, desert dunes, a pixel-art cyberpunk city, or a colony on a
+// moon under a ringed giant. Each sits on the horizon in front of the sun and takes the theme's
+// colours. The scenes are drawn once (SVG, or a canvas for the pixel city and for space); what
+// moves is transforms and opacity, and it all stands still under Gentle and Off motion.
 
 function seeded(seed: number): () => number {
   let t = seed
@@ -43,6 +44,42 @@ const RIDGES = [
 /** The ridges' points (0–1000 across, 200 the horizon), for the acts that ride or peek over them. */
 export const mountainRidges = (): [number, number][][] => RIDGES.map((r) => r.points)
 
+/** Snow on a ridge's peaks above `line`: a cap a third of the way down each slope, its lower edge notched. */
+function snowCaps(points: [number, number][], line: number): { lit: string; shade: string }[] {
+  const caps: { lit: string; shade: string }[] = []
+  const r = (n: number): number => Math.round(n * 10) / 10
+  for (let i = 1; i < points.length - 1; i++) {
+    const [x, y] = points[i]
+    const [lx, ly] = points[i - 1]
+    const [rx, ry] = points[i + 1]
+    if (y >= ly || y >= ry || y > line) continue
+    const left = [x + (lx - x) * 0.34, y + (ly - y) * 0.34]
+    const right = [x + (rx - x) * 0.34, y + (ry - y) * 0.34]
+    const drop = Math.min(left[1], right[1]) - y
+    caps.push({
+      lit: `${x},${y} ${r(left[0])},${r(left[1])} ${r(x - (x - left[0]) * 0.45)},${r(y + drop * 0.6)} ${x},${r(y + drop * 0.86)}`,
+      shade: `${x},${y} ${x},${r(y + drop * 0.86)} ${r(x + (right[0] - x) * 0.5)},${r(y + drop * 0.56)} ${r(right[0])},${r(right[1])}`
+    })
+  }
+  return caps
+}
+const SNOW: Record<string, { lit: string; shade: string }[]> = { far: snowCaps(RIDGES[0].points, 96), mid: snowCaps(RIDGES[1].points, 118), near: [] }
+// Pines along the lake's shore, in stands with gaps between, and one cabin with its lamp lit.
+const PINES = (() => {
+  const rand = seeded(61)
+  const trees: { x: number; h: number; w: number }[] = []
+  for (let x = 4; x < 1000; ) {
+    const stand = 3 + Math.floor(rand() * 9)
+    for (let i = 0; i < stand && x < 996; i++) {
+      trees.push({ x: Math.round(x * 10) / 10, h: Math.round(7 + rand() * 9), w: 3.2 + rand() * 1.6 })
+      x += 3 + rand() * 4
+    }
+    x += 18 + rand() * 70
+  }
+  // Clear ground for the cabin.
+  return trees.filter((t) => t.x < 664 || t.x > 690)
+})()
+
 function Ridges({ className }: { className: string }) {
   return (
     <svg className={className} viewBox="0 0 1000 200" preserveAspectRatio="none">
@@ -52,8 +89,24 @@ function Ridges({ className }: { className: string }) {
             const [x1, y1] = r.points[i]
             return <polygon key={i} className={y2 < y1 ? 'lit' : 'shade'} points={`${x1},${y1} ${x2},${y2} ${x2},200 ${x1},200`} />
           })}
+          {SNOW[r.cls].map((cap, i) => (
+            <g key={`s${i}`} className="hz-snow">
+              <polygon className="lit" points={cap.lit} />
+              <polygon className="shade" points={cap.shade} />
+            </g>
+          ))}
         </g>
       ))}
+      <g className="hz-pines">
+        {PINES.map((t, i) => (
+          <polygon key={i} points={`${t.x - t.w / 2},200 ${t.x},${200 - t.h} ${t.x + t.w / 2},200`} />
+        ))}
+      </g>
+      <g className="hz-cabin">
+        <polygon points="668,193 677,186 686,193" />
+        <rect x="670" y="193" width="14" height="7" />
+        <rect className="hz-cabin-lamp" x="675.5" y="195" width="3" height="3" />
+      </g>
     </svg>
   )
 }
@@ -66,6 +119,7 @@ function Mountains() {
       {/* A still lake below, the ridges mirrored in it and fading into the dark. */}
       <div className="hz-floor hz-floor-mountains">
         <Ridges className="hz-lake" />
+        <span className="hz-path" />
         <span className="hz-lake-sheen" />
       </div>
     </>
@@ -240,6 +294,7 @@ function City() {
       {ready && <Skyline className="hz-up hz-city" />}
       {/* Over the reflection: ripples breaking it, lamps along the bank, cars passing. */}
       <div className="hz-floor hz-river-top">
+        <span className="hz-path" />
         <span className="hz-river-ripples" />
         <div className="hz-bank">
           {LAMPS.map((l, i) => (
@@ -472,6 +527,10 @@ function Cyberpunk({ time }: { time: string }) {
   const pct = (v: number, of: number): string => `${(v / of) * 100}%`
   return (
     <div className="hz-cyber" ref={wrap} style={{ '--hz-w': `${width}px` } as React.CSSProperties}>
+      {/* Behind the towers: the city's glow on the sky, and searchlights. */}
+      <span className="hz-smog" />
+      <span className="hz-searchlight" />
+      <span className="hz-searchlight is-second" />
       <div className="hz-cyber-box">
         <canvas ref={canvas} className="hz-cyber-canvas" />
         {layout &&
@@ -482,6 +541,9 @@ function Cyberpunk({ time }: { time: string }) {
           layout.lights.slice(0, 12).map((l, i) => (
             <span key={`l${i}`} className="hz-blink" style={{ left: pct(l.x, layout.w), top: pct(l.y, layout.h), width: pct(1, layout.w), height: pct(1, layout.h), animationDelay: `${(i * 0.9) % 4}s` }} />
           ))}
+      </div>
+      <div className="hz-floor hz-floor-clear">
+        <span className="hz-path is-pixel" />
       </div>
       {sprites.length > 0 &&
         width > 0 &&
@@ -504,6 +566,112 @@ function Cyberpunk({ time }: { time: string }) {
   )
 }
 
+// ——— Space: a colony on a moon under a ringed giant, ships coming and going ———
+
+// Far ships small, slow and dim, high in the sky; near ones larger and quicker, lower. Each lane
+// runs at a slight slope of its own.
+const SHIP_LANES: { kind: ShipKind; top: number; scale: number; dim: number; duration: number; delay: number; left: boolean; tilt: number; tint: number }[] = [
+  { kind: 'cruiser', top: 0.09, scale: 0.34, dim: 0.6, duration: 130, delay: -80, left: false, tilt: -3, tint: 1 },
+  { kind: 'freighter', top: 0.2, scale: 0.46, dim: 0.72, duration: 104, delay: -31, left: false, tilt: 2, tint: 2 },
+  { kind: 'shuttle', top: 0.3, scale: 0.5, dim: 0.75, duration: 46, delay: -24, left: true, tilt: -2, tint: 0 },
+  { kind: 'cruiser', top: 0.5, scale: 0.62, dim: 0.88, duration: 66, delay: -12, left: true, tilt: 1.5, tint: 0 },
+  { kind: 'freighter', top: 0.6, scale: 0.7, dim: 0.92, duration: 88, delay: -58, left: true, tilt: -1, tint: 1 },
+  { kind: 'shuttle', top: 0.68, scale: 0.8, dim: 1, duration: 29, delay: -6, left: false, tilt: -4, tint: 2 },
+  { kind: 'shuttle', top: 0.84, scale: 0.95, dim: 1, duration: 21, delay: -11, left: true, tilt: 2.5, tint: 1 }
+]
+
+function Space({ time }: { time: string }) {
+  const wrap = useRef<HTMLDivElement>(null)
+  const canvas = useRef<HTMLCanvasElement>(null)
+  const [layout, setLayout] = useState<SpaceLayout | null>(null)
+  const [sprites, setSprites] = useState<SpaceSprites | null>(null)
+
+  useEffect(() => {
+    const box = wrap.current
+    const c = canvas.current
+    if (!box || !c) return
+    let idle = 0
+    // Painted in an idle moment, so opening a chat isn't held up by it.
+    const draw = (): void => {
+      cancelIdleCallback(idle)
+      idle = requestIdleCallback(
+        () => {
+          const rect = box.getBoundingClientRect()
+          const line = box.closest('.empty-sky')?.querySelector('.empty-horizon')?.getBoundingClientRect()
+          if (!rect.width || !rect.height || !line) return
+          const palette = readPalette(box)
+          setLayout(paintSpace(c, Math.round(rect.width), Math.round(rect.height), Math.round(line.top - rect.top), palette, time))
+          setSprites(spaceSprites(palette))
+        },
+        { timeout: 400 }
+      )
+    }
+    draw()
+    const resized = new ResizeObserver(draw)
+    resized.observe(box)
+    // A new theme repaints it in the theme's colours.
+    const themed = new MutationObserver(draw)
+    themed.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'style'] })
+    return () => {
+      cancelIdleCallback(idle)
+      resized.disconnect()
+      themed.disconnect()
+    }
+  }, [time])
+
+  const pct = (v: number, of: number): string => `${(v / of) * 100}%`
+  return (
+    <div className="hz-space" ref={wrap} style={{ '--hz-w': `${layout?.w ?? 0}px` } as React.CSSProperties}>
+      <canvas ref={canvas} className="hz-space-canvas" />
+      {layout && sprites && (
+        <>
+          {layout.beacons.map((b, i) => (
+            <span key={`b${i}`} className="hz-blink hz-space-beacon" style={{ left: pct(b.x, layout.w), top: pct(b.y, layout.h), animationDelay: `${(i * 0.7) % 2.2}s` }} />
+          ))}
+          {SHIP_LANES.map((lane, i) => (
+            <div key={`s${i}`} className="hz-ship-lane" style={{ top: `calc(var(--horizon-at) * ${lane.top})`, rotate: `${lane.tilt}deg` }}>
+              <span
+                className={`hz-ship ${lane.left ? 'is-left' : ''}`}
+                style={{
+                  width: SHIP_SIZE[lane.kind][0] * lane.scale * layout.scale,
+                  height: SHIP_SIZE[lane.kind][1] * lane.scale * layout.scale,
+                  opacity: lane.dim,
+                  backgroundImage: `url(${sprites.ships[lane.kind][lane.tint]})`,
+                  animationDuration: `${lane.duration}s`,
+                  animationDelay: `${lane.delay}s`
+                }}
+              />
+            </div>
+          ))}
+          {/* A shuttle lifts off the pad every so often and climbs away. */}
+          <span
+            className="hz-launch"
+            style={{ left: layout.pad.x, top: layout.pad.y, width: SHIP_SIZE.shuttle[0] * 0.8 * layout.scale, height: SHIP_SIZE.shuttle[1] * 0.8 * layout.scale, backgroundImage: `url(${sprites.ships.shuttle[1]})` }}
+          />
+          {/* The rover on its road between the pad and the colony, there and back. */}
+          <span
+            className="hz-rover"
+            style={
+              {
+                left: layout.rover.x,
+                top: layout.rover.y,
+                width: 30 * layout.scale,
+                height: 16 * layout.scale,
+                backgroundImage: `url(${sprites.rover})`,
+                '--run-x': `${layout.rover.dx}px`,
+                '--run-y': `${layout.rover.dy}px`
+              } as React.CSSProperties
+            }
+          />
+          {/* Far off, now and then, a ship jumps away. */}
+          <span className="hz-warp" />
+          <span className="hz-warp is-second" />
+        </>
+      )}
+    </div>
+  )
+}
+
 // ——— The grid, as it was ———
 
 function Grid() {
@@ -522,6 +690,7 @@ export function HorizonScene({ kind, time }: { kind: Horizon; time: string }) {
   if (kind === 'city') return <City />
   if (kind === 'dunes') return <Dunes />
   if (kind === 'cyberpunk') return <Cyberpunk time={time} />
+  if (kind === 'space') return <Space time={time} />
   return <Grid />
 }
 

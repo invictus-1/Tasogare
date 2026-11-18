@@ -15,7 +15,8 @@ const HORIZONS: { id: Horizon; label: string; note: string }[] = [
   { id: 'mountains', label: 'Mountains', note: 'Low-poly ridges fading into mist toward the horizon.' },
   { id: 'city', label: 'City', note: 'A skyline at dusk, with windows lighting up here and there.' },
   { id: 'dunes', label: 'Dunes', note: 'Desert dunes catching the last light on their crests.' },
-  { id: 'cyberpunk', label: 'Cyberpunk', note: 'A pixel-art city of neon and billboards, flying cars weaving through it, all mirrored in the wet street.' }
+  { id: 'cyberpunk', label: 'Cyberpunk', note: 'A pixel-art city of neon and billboards, flying cars weaving through it, all mirrored in the wet street.' },
+  { id: 'space', label: 'Space', note: 'A colony on a cratered moon under a ringed giant: ships coming and going, a station overhead, a nebula behind it all.' }
 ]
 
 const SNOW: { id: Extras['snow']; label: string }[] = [
@@ -66,8 +67,9 @@ export function ExtrasSettings() {
         </div>
         <p className="field-note">{HORIZONS.find((h) => h.id === horizon)?.note}</p>
         <Switch name="sessionSky" label="Night falls on a long session" note="The sky at the top of a chat slowly darkens over a few hours of writing. You'd only notice if you scroll up." />
+        <Switch name="moonPhase" label="The moon keeps its phase" note="At night the moon shows tonight's real phase, from a thin crescent to full, instead of always being full." />
         <Switch name="seasons" label="Seasons" note="Snow in winter, petals in spring, fireflies in summer, leaves in autumn, and a few special nights of the year." />
-        <Switch name="weather" label="Weather" note="Now and then the sky clouds over and it rains, or snows, for a while. Never over the desert." />
+        <Switch name="weather" label="Weather" note="Now and then the sky clouds over and it rains, or snows, for a while. Never over the desert, or in space." />
         {extras.weather && (
           <div className="tw-seg extras-snow" role="radiogroup" aria-label="When it snows">
             {SNOW.map((s) => (

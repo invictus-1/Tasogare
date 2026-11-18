@@ -2,6 +2,16 @@
 
 Each version's section becomes its release notes on the releases page (`npm run release`), and Tasogare shows them in Settings > Updates.
 
+## Unreleased
+
+- **Space, under the sky:** a new scene in Extras → Under the sky. A colony on a cratered moon under a ringed giant: glass domes with a town inside, habitats, a comms tower, solar panels and a landing pad; a nebula, a ring station, asteroids and a small blue world rising; ships crossing in their lanes, a shuttle that lifts off the pad and climbs away, a rover on its road, and now and then a ship jumping away far off. Painted once in the theme's colours, at every hour of the sky.
+- **The cyberpunk city's street is a true mirror:** the water now shows the towers that stand over it, dark shapes in the sky's glow, wobbling a little more with every row, their lights smeared down the wet ground. Before, it was rows of bars that matched nothing above them.
+- **Signs that belong to their buildings:** in the cyberpunk city a rooftop board is no wider than its roof and stands on legs, screens are mounted on a wall, blade signs hang off the side on brackets, and shop fronts light the street. Neon haze sits low over the roofs, and two searchlights sweep behind the towers.
+- **A moon worth looking at:** at night the moon has seas and craters, an edge that falls into shade, a glow and a faint ring of haze. With **The moon keeps its phase** on (Extras), it shows tonight's real phase, its dark side faintly there.
+- **A fuller sky:** the galaxy's band carries its own dust of stars and clouds of the theme's colours.
+- **Water that answers the sky:** the city's river and the mountains' lake show their reflections properly, and every scene with water carries the sun's path on it, or the moon's, under wherever it stands (at sea the path used to stay in the middle at night, with the moon off to the right).
+- **The mountains' lake mirrors them again:** in installed copies the lake's reflection was drawn up behind the mountains, out of sight. It is back below the waterline, with snow on the higher peaks, pines along the shore, and a cabin with its lamp lit.
+
 ## 1.8.2
 
 - **Model search in the Judge:** the judge model, and each writer in a battle, are picked from the same menu as in chat: type to filter the list, by provider, with a refresh. Before, they were plain lists to scroll.

@@ -21,6 +21,14 @@ export function seasonFor(date = new Date()): 'snow' | 'petals' | 'fireflies' | 
   return 'leaves'
 }
 
+/** How much of the moon is lit on a date (0 new, 1 full) and whether it is growing. */
+export function moonPhase(date = new Date()): { lit: number; waxing: boolean } {
+  // Days since a known new moon (6 January 2000, 18:14 UTC), through a month of 29.53 days.
+  const month = 29.530588853
+  const age = ((((date.getTime() - Date.UTC(2000, 0, 6, 18, 14)) / 86_400_000) % month) + month) % month
+  return { lit: (1 - Math.cos((2 * Math.PI * age) / month)) / 2, waxing: age < month / 2 }
+}
+
 export type Weather = 'clear' | 'rain' | 'snow'
 
 /** How long one spell of weather lasts: the roll is the same all through it, so switching chats
@@ -29,10 +37,11 @@ export const WEATHER_SPELL_MS = 20 * 60 * 1000
 
 /**
  * The weather in the sky for a moment, rolled once per spell: mostly clear, now and then rain, and
- * snow either only in winter (December to February) or any time. No rain or snow over the desert.
+ * snow either only in winter (December to February) or any time. No rain or snow over the desert,
+ * or in space.
  */
 export function weatherFor(date: Date, horizon: string, snow: 'winter' | 'always'): Weather {
-  if (horizon === 'dunes') return 'clear'
+  if (horizon === 'dunes' || horizon === 'space') return 'clear'
   // A small hash of the spell's number, so every spell has its own roll and the same one each visit.
   let t = Math.floor(date.getTime() / WEATHER_SPELL_MS) * 2654435761
   t = Math.imul(t ^ (t >>> 15), 0x2c1b3c6d)

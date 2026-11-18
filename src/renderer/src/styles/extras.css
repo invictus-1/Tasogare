@@ -22,7 +22,29 @@
 .empty-sky[data-sky='night']::before { background: linear-gradient(180deg, color-mix(in srgb, var(--night) 35%, transparent), color-mix(in srgb, var(--night) 20%, transparent) var(--horizon-at), transparent calc(var(--horizon-at) + 1%)); }
 .empty-sky[data-sky='night'] .empty-horizon { opacity: .45; }
 /* At night the sun is a pale moon, high and small, off to the side so it never sits behind words. */
-.empty-sky[data-sky='night'] .empty-sun { translate: min(30vw, 400px) -95%; scale: .36; -webkit-mask-image: none; mask-image: none; background: radial-gradient(circle at 38% 36%, color-mix(in srgb, #fff 70%, var(--ink)) 0%, color-mix(in srgb, var(--ink) 75%, var(--iris)) 70%, color-mix(in srgb, var(--ink) 45%, var(--dusk)) 100%); box-shadow: 0 0 60px 10px color-mix(in srgb, var(--ink) 18%, transparent); }
+/* Its face has seas and a few bright-rimmed craters, its edge falls into shade, and it wears a glow
+   and a faint ring of haze. All still: gradients painted once. */
+.empty-sky[data-sky='night'] .empty-sun {
+  --sea: color-mix(in srgb, color-mix(in srgb, var(--iris) 45%, var(--night)) 30%, transparent);
+  --rim: color-mix(in srgb, #fff 26%, transparent);
+  translate: min(30vw, 400px) -95%; scale: .36; -webkit-mask-image: none; mask-image: none;
+  background:
+    radial-gradient(circle at 66% 24%, transparent 0 1.6%, var(--rim) 2.1% 2.9%, transparent 3.6%),
+    radial-gradient(circle at 44% 70%, transparent 0 2.2%, var(--rim) 2.8% 3.6%, transparent 4.4%),
+    radial-gradient(circle at 74% 58%, transparent 0 1.2%, var(--rim) 1.7% 2.3%, transparent 3%),
+    radial-gradient(circle at 26% 44%, transparent 0 1%, var(--rim) 1.5% 2%, transparent 2.6%),
+    radial-gradient(ellipse 17% 13% at 36% 30%, var(--sea) 0 50%, transparent 100%),
+    radial-gradient(ellipse 12% 15% at 52% 43%, var(--sea) 0 45%, transparent 100%),
+    radial-gradient(ellipse 19% 11% at 31% 56%, var(--sea) 0 50%, transparent 100%),
+    radial-gradient(ellipse 9% 8% at 61% 64%, var(--sea) 0 40%, transparent 100%),
+    radial-gradient(ellipse 11% 8% at 68% 37%, var(--sea) 0 45%, transparent 100%),
+    radial-gradient(circle at 50% 50%, transparent 52%, color-mix(in srgb, var(--dusk) 34%, transparent) 100%),
+    radial-gradient(circle at 38% 34%, color-mix(in srgb, #fff 84%, var(--ink)) 0%, color-mix(in srgb, var(--ink) 80%, var(--iris)) 64%, color-mix(in srgb, var(--ink) 52%, var(--dusk)) 100%);
+  box-shadow: 0 0 calc(var(--sun) * .22) calc(var(--sun) * .05) color-mix(in srgb, var(--ink) 30%, transparent), 0 0 calc(var(--sun) * .9) calc(var(--sun) * .34) color-mix(in srgb, var(--iris) 13%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--ink) 7%, transparent); outline-offset: calc(var(--sun) * .62);
+}
+/* Tonight's phase (Extras): the dark side, shaped by the sky (Sky: moonShade), still faintly there. */
+.empty-sky[data-sky='night'][data-moon] .empty-sun::after { content: ''; position: absolute; inset: -1px; border-radius: 50%; background: color-mix(in srgb, var(--night) 90%, var(--iris)); opacity: .93; -webkit-mask-image: var(--moon-shade); mask-image: var(--moon-shade); -webkit-mask-size: 100% 100%; mask-size: 100% 100%; }
 
 /* A long session: the top of the chat has slowly gone toward night. */
 .sky-late { position: absolute; inset: 0; pointer-events: none; background: color-mix(in srgb, var(--night) calc(var(--session-night) * 100%), transparent); }

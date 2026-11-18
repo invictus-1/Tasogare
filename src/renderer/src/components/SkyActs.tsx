@@ -758,7 +758,9 @@ const PEEK_SPOTS: Record<Horizon, [number, number][]> = {
   mountains: [[0.06, 0.92]],
   city: [[0.06, 0.92]],
   dunes: [[0.06, 0.92]],
-  cyberpunk: [[0.06, 0.92]]
+  cyberpunk: [[0.06, 0.92]],
+  // Clear of the colony on the right.
+  space: [[0.06, 0.56]]
 }
 
 /** On the mountains and the dunes he comes up from behind a peak or a crest, so the scene itself hides the rest of him. */

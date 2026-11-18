@@ -179,6 +179,8 @@ function measureTop(win: BrowserWindow, outDir: string, horizon: string): void {
           idle.sort((a, b) => a - b)
           const refresh = idle[Math.floor(idle.length / 2)]
           // Back and forth over the first 1,400px (the sky, then the first messages), 14px a frame.
+          // The scene is painted once, before this: none while scrolling.
+          const paints0 = { fresh: globalThis.twilightScenePaints?.fresh ?? 0, copied: globalThis.twilightScenePaints?.copied ?? 0 }
           const t = []
           let prev = performance.now()
           let dir = 1
@@ -189,7 +191,7 @@ function measureTop(win: BrowserWindow, outDir: string, horizon: string): void {
           }
           const s = [...t].sort((a, b) => a - b)
           const q = (p) => +s[Math.min(s.length - 1, Math.floor(p * s.length))].toFixed(2)
-          return { horizon: ${JSON.stringify(horizon)}, css: ${JSON.stringify(process.env.TWILIGHT_SELFTEST_CSS ?? '')}, displayFrameMs: +refresh.toFixed(2), frames: t.length, p50: q(0.5), p95: q(0.95), p99: q(0.99), max: +s[s.length - 1].toFixed(2), overBudget: t.filter((x) => x > refresh * 1.5).length, topPx: document.querySelector('.thread-top')?.offsetHeight ?? null }
+          return { horizon: ${JSON.stringify(horizon)}, css: ${JSON.stringify(process.env.TWILIGHT_SELFTEST_CSS ?? '')}, displayFrameMs: +refresh.toFixed(2), frames: t.length, p50: q(0.5), p95: q(0.95), p99: q(0.99), max: +s[s.length - 1].toFixed(2), overBudget: t.filter((x) => x > refresh * 1.5).length, topPx: document.querySelector('.thread-top')?.offsetHeight ?? null, paintsWhileScrolling: [(globalThis.twilightScenePaints?.fresh ?? 0) - paints0.fresh, (globalThis.twilightScenePaints?.copied ?? 0) - paints0.copied] }
         })()`)
         writeFileSync(join(outDir, 'selftest-top.json'), JSON.stringify(result, null, 2))
       } catch (err) {

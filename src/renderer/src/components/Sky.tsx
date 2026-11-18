@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { clockTime, seasonFor, weatherFor, type Weather } from '@shared/sky'
+import { clockTime, moonPhase, seasonFor, weatherFor, type Weather } from '@shared/sky'
 import { useExtras, type Horizon, type SkyTime } from '../extras'
 import { useMotion } from '../look'
 import { actFor, PeekingPlatypus, peeksBehind } from './SkyActs'
@@ -155,6 +155,18 @@ function SkyEgg({ name, spotted, horizon }: { name: Egg; spotted: boolean; horiz
   )
 }
 
+/** The moon's dark side tonight, as a picture the sky masks its shade with (extras.css): the limb
+ *  on one side, the edge of the light on the other. Nothing when the moon is as good as full. */
+function moonShade(): string | null {
+  const { lit, waxing } = moonPhase()
+  // Never quite gone: the thinnest crescent stays, so there is always a moon to find.
+  const k = Math.max(0.08, lit)
+  if (k > 0.97) return null
+  const rx = (Math.abs(1 - 2 * k) * 50).toFixed(1)
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><filter id="f"><feGaussianBlur stdDeviation="1.2"/></filter><path filter="url(#f)" d="M50 0A50 50 0 0 0 50 100A${rx} 50 0 0 ${k < 0.5 ? 0 : 1} 50 0Z"${waxing ? '' : ' transform="matrix(-1 0 0 1 100 0)"'}/></svg>`
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`
+}
+
 /**
  * The sky behind an empty chat and above every chat, drawn retro: a deep field of stars and a band
  * of the galaxy, a striped sun on the horizon and a glowing grid running toward you. It follows
@@ -177,10 +189,17 @@ export function EmptySky({ watch = false, session = false }: { watch?: boolean; 
   const season = extras.seasons ? seasonFor() : null
   // Up to most of the way to night over three hours.
   const late = session && extras.sessionSky ? Math.min(0.75, (Date.now() - sessionStart) / (3 * 60 * 60 * 1000)) : 0
+  // Tonight's phase, when the moon keeps it: the shape of its dark side.
+  const shade = extras.moonPhase && time === 'night' ? moonShade() : null
+  const style = { ...(late ? { '--session-night': late.toFixed(2) } : {}), ...(shade ? { '--moon-shade': shade } : {}) } as React.CSSProperties
   return (
-    <div className="empty-sky is-retro" data-sky={time} data-horizon={extras.horizon} aria-hidden="true" style={late ? ({ '--session-night': late.toFixed(2) } as React.CSSProperties) : undefined}>
+    <div className="empty-sky is-retro" data-sky={time} data-horizon={extras.horizon} data-moon={shade ? 'phase' : undefined} aria-hidden="true" style={style}>
       <span className="empty-galaxy" />
       <svg className="empty-field" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid slice">
+        {/* The galaxy's own dust of stars, thick along its band. */}
+        {DUST.map((s, i) => (
+          <circle key={`d${i}`} cx={s.x} cy={s.y} r={s.r} className="empty-dot empty-dot-ink" opacity={s.o} />
+        ))}
         {FIELD.map((s, i) => (
           <g key={i}>
             {/* The brightest have a soft halo, as a bright star does through air. */}
@@ -238,6 +257,14 @@ const FIELD = Array.from({ length: 220 }, () => {
     tone: rand() > 0.88 ? (rand() > 0.5 ? 'iris' : 'horizon') : 'ink'
   }
 })
+// Fainter and far more of them along the galaxy's band (which runs up to the right), thinning away from it.
+const dust = seeded(2311)
+const DUST = Array.from({ length: 150 }, () => {
+  const x = dust() * 1000
+  // Roughly a bell curve across the band, from three rolls.
+  const off = (dust() + dust() + dust() - 1.5) * 90
+  return { x: Math.round(x * 10) / 10, y: Math.round((212 - 0.194 * (x - 500) + off) * 10) / 10, r: dust() > 0.9 ? 0.8 : 0.45, o: Math.round((0.18 + dust() * 0.4) * 100) / 100 }
+}).filter((s) => s.y > 0 && s.y < 560)
 // The stars that twinkle: a few big, the brightest with flares, some faintly warm or cool.
 const STARS = Array.from({ length: 26 }, (_, i) => ({
   x: (i * 37.7 + 6) % 100,
