@@ -375,6 +375,7 @@ function registerIpc(): void {
     viewDeletion: (_e, id: string, deletionId: string) => chat.viewDeletion(id, deletionId),
     restoreDeletion: (_e, id: string, deletionId: string, pane?: Pane) => chat.restoreDeletion(id, deletionId, pane),
     editMessage: (e, id: string, nodeId: string, text: string, pane?: Pane, send?: boolean) => chat.editMessage(e.sender, id, nodeId, text, pane, send),
+    setAttachmentRemoved: (_e, id: string, nodeId: string, index: number, removed: boolean) => chat.setAttachmentRemoved(id, nodeId, index, removed),
     switchBranch: (_e, id: string, nodeId: string, direction: -1 | 1, pane?: Pane) =>
       chat.switchBranch(id, nodeId, direction, pane),
     stop: (_e, id: string, target?: SendTarget) => chat.stop(id, target),

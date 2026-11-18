@@ -260,7 +260,7 @@ export interface NodeView {
   siblingIndex: number
   siblingCount: number
   /** Files attached to a user message (their text is part of the message sent). */
-  attachments?: { name: string; chars: number; kind?: AttachmentKind; bytes?: number }[]
+  attachments?: { name: string; chars: number; kind?: AttachmentKind; bytes?: number; /** Taken out of the chat: no longer sent. */ removed?: boolean }[]
   /** Choices the model offered with a present_choices tool call. */
   toolChoices?: ChoiceSet
   /** A summary that stands in for everything above it (a compacted chat): how much it carried over. */
@@ -606,6 +606,8 @@ export interface TwilightApi {
   /** Edits a message as a new version: a user message gets a fresh reply; a reply is saved as written. */
   /** Saves an edit as a new version; a message of yours is sent unless send is false. */
   editMessage(id: string, nodeId: string, text: string, pane?: Pane, send?: boolean): Promise<ConversationView>
+  /** Takes a file attached to a message out of the chat, so nothing sent from then on holds it, or puts it back. */
+  setAttachmentRemoved(id: string, nodeId: string, index: number, removed: boolean): Promise<ConversationView>
   switchBranch(id: string, nodeId: string, direction: -1 | 1, pane?: Pane): Promise<ConversationView>
   stop(id: string, target?: SendTarget): Promise<void>
   /** Opens split compare with pane B as a copy of pane A at `nodeId` (default: A's latest message). */

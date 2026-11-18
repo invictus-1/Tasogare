@@ -11,7 +11,7 @@ import { compactionOf, sinceCompaction } from './providers/compactionBlocks'
 import { toWorkspace, workspaceSystemPrompt } from './workspaces'
 import { getPersona } from './library'
 import { CHOICES_INSTRUCTION, CHOICES_TOOL_INSTRUCTION } from '@shared/choices'
-import { CLOCK_OPEN, clockBlock, INSTRUCTION_OPEN, instructionBlock, isContextText } from '@shared/attachments'
+import { CLOCK_OPEN, clockBlock, INSTRUCTION_OPEN, instructionBlock, isContextText, type AttachmentKind } from '@shared/attachments'
 import { DECLINED, IMAGE_TOOL, type ToolApproval, type ToolApprovalResponse } from '@shared/mcp'
 import { allowTool, callTool, chatTools, type ChatTool } from './mcp'
 import { generateImage, imageConfig, IMAGE_TOOL_DEF } from './images'
@@ -541,6 +541,103 @@ export function editMessage(contents: WebContents, id: string, nodeId: string, t
   return view(id)
 }
 
+type FileBlock = { type: string; text?: string; [key: string]: unknown }
+
+/**
+ * An attached file as its message keeps it: what its chip shows and, while it is out of the chat,
+ * the block itself with the summaries that had carried it (and where in each).
+ */
+interface StoredAttachment {
+  name: string
+  chars: number
+  kind?: AttachmentKind
+  bytes?: number
+  removed?: { block: FileBlock; carried: { nodeId: string; at: number }[] }
+}
+
+const isFileBlock = (b: FileBlock): boolean =>
+  b.type === 'image' || b.type === 'document' || (b.type === 'text' && typeof b.text === 'string' && b.text.startsWith('<document name='))
+
+/** A summary's carried blocks, changed in place and stored. */
+function changeCarried(node: db.NodeRow, change: (carried: FileBlock[]) => void): void {
+  const stored = JSON.parse(node.content!) as { type: string; blocks?: FileBlock[] }[]
+  const entry = stored.find((b) => b.type === 'carried')
+  if (!entry?.blocks) return
+  change(entry.blocks)
+  db.updateNode(node.id, { content: JSON.stringify(stored) })
+}
+
+/**
+ * Takes a file attached to a message out of the chat, or puts it back: to swap an old copy of a
+ * document for a new one, say. Its block leaves the message, and any summary below that carried
+ * it, so nothing sent from then on holds it. The block is kept beside the message's list of files
+ * and goes back exactly where it was, in the message and in those summaries. Either way the
+ * messages after it are read fresh once; the cache still holds up to the message the file was in.
+ */
+export function setAttachmentRemoved(id: string, nodeId: string, index: number, removed: boolean): ConversationView {
+  if (isRunning(id)) throw new Error(removed ? 'Wait for the reply to finish before removing a file.' : 'Wait for the reply to finish before putting a file back.')
+  notCompacting(id)
+  const all = db.loadAllNodes(id)
+  const node = all.get(nodeId)
+  const list = node?.attachments ? (JSON.parse(node.attachments) as StoredAttachment[]) : []
+  const item = list[index]
+  if (!node || node.role !== 'user' || !item) throw new Error('That file is no longer on the message.')
+  if (!!item.removed === removed) return view(id)
+  const blocks = node.content ? (JSON.parse(node.content) as FileBlock[]) : []
+  const files = blocks.flatMap((b, i) => (isFileBlock(b) ? [i] : []))
+  // The files still in the message stand in the order of their chips, so this one's place among
+  // them is the number of those before it.
+  const before = list.slice(0, index).filter((a) => !a.removed).length
+  const same = (key: string) => (b: FileBlock): boolean => JSON.stringify(b) === key
+  const chainOf = (n: db.NodeRow): db.NodeRow[] => {
+    const chain: db.NodeRow[] = []
+    for (let p = n.parent_id ? all.get(n.parent_id) : undefined; p; p = p.parent_id ? all.get(p.parent_id) : undefined) chain.push(p)
+    return chain
+  }
+  if (removed) {
+    const at = files[before]
+    if (at === undefined) throw new Error('That file is no longer in the message.')
+    const [block] = blocks.splice(at, 1)
+    const key = JSON.stringify(block)
+    const content = JSON.stringify(blocks)
+    const carried: { nodeId: string; at: number }[] = []
+    for (const n of all.values()) {
+      if (!compactionOf(n)?.carried.some(same(key))) continue
+      // Only summaries below this message, and only where no other message above them still
+      // holds the same file (stored blocks sit in a message's content as they are, so a plain
+      // search finds one).
+      const chain = chainOf(n)
+      if (!chain.some((p) => p.id === node.id)) continue
+      if (chain.some((p) => p.role === 'user' && (p.id === node.id ? content : (p.content ?? '')).includes(key))) continue
+      changeCarried(n, (blocksCarried) => {
+        const i = blocksCarried.findIndex(same(key))
+        blocksCarried.splice(i, 1)
+        carried.push({ nodeId: n.id, at: i })
+      })
+    }
+    item.removed = { block, carried }
+    db.updateNode(node.id, { content, attachments: JSON.stringify(list) })
+  } else {
+    const { block, carried } = item.removed!
+    const key = JSON.stringify(block)
+    // Before the next file still there; after the last one if it was the last; with none left,
+    // after the time and instruction blocks a message opens with.
+    const lead = blocks.findIndex((b) => !(b.type === 'text' && typeof b.text === 'string' && (b.text.startsWith(CLOCK_OPEN) || b.text.startsWith(INSTRUCTION_OPEN))))
+    const at = files[before] ?? (files.length ? files[files.length - 1] + 1 : lead < 0 ? blocks.length : lead)
+    blocks.splice(at, 0, block)
+    for (const c of carried) {
+      const n = all.get(c.nodeId)
+      if (!n || !compactionOf(n) || !chainOf(n).some((p) => p.id === node.id)) continue
+      changeCarried(n, (blocksCarried) => {
+        if (!blocksCarried.some(same(key))) blocksCarried.splice(Math.min(c.at, blocksCarried.length), 0, block)
+      })
+    }
+    delete item.removed
+    db.updateNode(node.id, { content: JSON.stringify(blocks), attachments: JSON.stringify(list) })
+  }
+  return view(id)
+}
+
 export function switchBranch(id: string, nodeId: string, direction: -1 | 1, pane: Pane = 'a'): ConversationView {
   const conv = db.getConversation(id)
   const nodes = db.loadNodes(id)
@@ -997,7 +1094,7 @@ function generate(
           messageLimit: settings.messageLimit ?? undefined,
           turnsBefore: db.ancestors(nodes, userNodeId).length - 2,
           prompt: nodes.get(userNodeId)?.text,
-          attachments: nodes.get(userNodeId)?.attachments ? JSON.parse(nodes.get(userNodeId)!.attachments!) : undefined,
+          attachments: nodes.get(userNodeId)?.attachments ? db.attachmentsView(nodes.get(userNodeId)!.attachments!) : undefined,
           response: row.text,
           thinking: row.thinking ?? undefined,
           usage: row.usage ? JSON.parse(row.usage) : undefined,

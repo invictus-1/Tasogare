@@ -21,7 +21,7 @@ import { ConfidenceView } from './Confidence'
 import { ReadAloudButton } from './Dictate'
 import { SentAt } from './SentAt'
 import { DiffBody, useDiffed } from './SplitDiff'
-import { AlertIcon, BookIcon, BranchIcon, CalendarIcon, ChevronLeft, ImageIcon, SlidersIcon, ChevronRight, CheckIcon, CopyIcon, DocIcon, GridIcon, PaperclipIcon, PenIcon, PulseIcon, RefreshIcon, SearchIcon, SplitIcon, StarIcon, ToolIcon, TrashIcon } from './Icons'
+import { AlertIcon, BookIcon, BranchIcon, CalendarIcon, ChevronLeft, CloseIcon, ImageIcon, UndoIcon, SlidersIcon, ChevronRight, CheckIcon, CopyIcon, DocIcon, GridIcon, PaperclipIcon, PenIcon, PulseIcon, RefreshIcon, SearchIcon, SplitIcon, StarIcon, ToolIcon, TrashIcon } from './Icons'
 
 const COLLAPSE_AT = 3000
 
@@ -235,11 +235,31 @@ function UserMessage({ node, waiting = false }: { node: NodeView; waiting?: bool
             {node.attachments.map((a, i) => (
               <span
                 key={`${a.name}-${i}`}
-                className="tw-badge attach-chip"
-                title={a.kind === 'image' ? 'Sent as an image' : a.kind === 'pdf' ? 'Sent as a PDF' : `${a.chars.toLocaleString()} characters, sent in full`}
+                className={`tw-badge attach-chip ${a.removed ? 'is-removed' : ''}`}
+                title={a.removed ? 'Taken out of this chat: no longer sent' : a.kind === 'image' ? 'Sent as an image' : a.kind === 'pdf' ? 'Sent as a PDF' : `${a.chars.toLocaleString()} characters, sent in full`}
               >
                 {a.kind === 'image' ? <ImageIcon size={13} /> : a.kind === 'pdf' ? <DocIcon size={13} /> : <PaperclipIcon size={13} />}
-                {a.name}
+                <span className="attach-name">{a.name}</span>
+                {/* Out of the chat, a file stays listed here so it can go back where it was. */}
+                {a.removed ? (
+                  <button
+                    className="attach-remove"
+                    aria-label={`Put ${a.name} back`}
+                    title="Put it back where it was"
+                    onClick={() => void useStore.getState().setAttachmentRemoved(node.id, i, false)}
+                  >
+                    <UndoIcon size={12} />
+                  </button>
+                ) : (
+                  <button
+                    className="attach-remove"
+                    aria-label={`Remove ${a.name} from this chat`}
+                    title="Take this file out of the chat, to send a newer copy. Messages after it are read fresh once, not from cache."
+                    onClick={() => void useStore.getState().setAttachmentRemoved(node.id, i, true)}
+                  >
+                    <CloseIcon size={11} />
+                  </button>
+                )}
               </span>
             ))}
           </div>

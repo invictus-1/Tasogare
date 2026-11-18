@@ -115,6 +115,7 @@ interface State {
   restoreDeletion(deletionId: string, pane?: Pane): Promise<void>
   refreshDeletions(): Promise<void>
   editMessage(nodeId: string, text: string, pane: Pane, send?: boolean): Promise<void>
+  setAttachmentRemoved(nodeId: string, index: number, removed: boolean): Promise<void>
   dismissUndo(): void
   stop(target?: SendTarget): Promise<void>
   updateSettings(patch: Partial<ChatSettings>, pane?: Pane): Promise<void>
@@ -354,6 +355,7 @@ export const useStore = create<State>((set, get) => {
       if (deletions && get().current?.id === current.id) set({ deletions })
     },
     editMessage: (nodeId, text, pane, send = true) => withCurrent((id) => api.editMessage(id, nodeId, text, pane, send)),
+    setAttachmentRemoved: (nodeId, index, removed) => withCurrent((id) => api.setAttachmentRemoved(id, nodeId, index, removed)),
     dismissUndo: () => set({ undo: null }),
     offerUndo: (label, run, scope = 'app') => set({ undo: { label, run, scope } }),
     async runUndo() {

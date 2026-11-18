@@ -325,6 +325,9 @@ h1, h2, h3 { margin: 0; }
 .attach-size { color: var(--ink-faint); font-variant-numeric: tabular-nums; }
 .attach-remove { display: inline-flex; background: none; border: 0; padding: 0; color: var(--ink-faint); cursor: pointer; }
 .attach-remove:hover { color: var(--ink); }
+.attach-chip.is-removed { background: none; box-shadow: inset 0 0 0 1px var(--line); }
+.attach-chip.is-removed > svg { opacity: .55; }
+.attach-chip.is-removed .attach-name { text-decoration: line-through; color: var(--ink-faint); }
 .msg-attachments { display: flex; flex-wrap: wrap; gap: var(--space-1); margin-bottom: var(--space-2); }
 
 /* Workspace dialog */

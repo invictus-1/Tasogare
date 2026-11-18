@@ -1,6 +1,6 @@
 import { compactionOf, summaryText } from './compactionBlocks'
 import { CHOICES_TOOL } from '@shared/choices'
-import { isContextText } from '@shared/attachments'
+import { FILE_REMOVED_NOTE, isContextText } from '@shared/attachments'
 import { isLocalUrl, isOpenRouter } from '@shared/webTools'
 import type { ChatSettings, ModelInfo, ModelOptions, ProviderConfig, WebSource } from '@shared/types'
 import type { NodeRow } from '../db'
@@ -201,7 +201,10 @@ export const openaiProvider: Provider = {
         continue
       }
       for (const round of rounds) messages.push(...roundMessages(round, clientNames))
-      const text = blocks.map((b) => b.text).join('\n\n')
+      let text = blocks.map((b) => b.text).join('\n\n')
+      // A message that was only a file, with the file since taken out of the chat, still takes its
+      // turn, so the replies either side of it stay two turns.
+      if (node.role === 'user' && !text && !mediaParts(node).length && node.attachments?.includes('"removed"')) text = FILE_REMOVED_NOTE
       const calls = node.role === 'assistant' && node.status === 'done' ? storedCalls(node.content) : []
       if (!text && !calls.length && !mediaParts(node).length) continue
       if (calls.length) {

@@ -419,7 +419,7 @@ export function toView(node: NodeRow, nodes: Map<string, NodeRow>): NodeView {
     createdAt: node.created_at,
     siblingIndex: siblings.findIndex((s) => s.id === node.id),
     siblingCount: siblings.length,
-    attachments: node.attachments ? JSON.parse(node.attachments) : undefined,
+    attachments: node.attachments ? attachmentsView(node.attachments) : undefined,
     toolChoices: node.role === 'assistant' ? (toolChoicesOf(node.content) ?? undefined) : undefined,
     instructionUpdate: node.role === 'user' ? instructionUpdateOf(node.content) : undefined,
     dateTime: node.role === 'user' ? dateTimeOf(node.content) : undefined,
@@ -428,6 +428,15 @@ export function toView(node: NodeRow, nodes: Map<string, NodeRow>): NodeView {
     ...(node.role === 'assistant' ? toolsOf(node.content) : {}),
     ...(node.role === 'assistant' && node.content?.startsWith('[{"type":"compaction"') ? { compaction: compactionView(node.content) } : {})
   }
+}
+
+/**
+ * A message's files as the window lists them. One taken out of the chat keeps its block beside its
+ * entry (to go back where it was); the list shown says only that it is out.
+ */
+export function attachmentsView(stored: string): NonNullable<NodeView['attachments']> {
+  const list = JSON.parse(stored) as (Omit<NonNullable<NodeView['attachments']>[number], 'removed'> & { removed?: unknown })[]
+  return list.map(({ removed, ...shown }) => (removed ? { ...shown, removed: true } : shown))
 }
 
 /** A summary node, as the window shows it: how many things it carried over. */

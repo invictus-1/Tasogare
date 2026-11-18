@@ -66,5 +66,8 @@ export const instructionBlock = (text: string): string => `${INSTRUCTION_OPEN}\n
 export const instructionOf = (block: string): string =>
   block.slice(block.indexOf('\n\n') + 2).replace(/\n<\/instruction_update>$/, '')
 
+/** What a message says to the model when the only thing in it was a file since taken out of the chat. */
+export const FILE_REMOVED_NOTE = '(A file was attached here and has since been taken out of the conversation.)'
+
 export const formatBytes = (n: number): string =>
   n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${Math.round(n / 1024)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`

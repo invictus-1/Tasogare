@@ -1381,6 +1381,107 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
           afterReq.indexOf('conversation_summary') < afterReq.indexOf('Second evening') && !afterReq.includes('First light on the quay'),
         { marker: marker?.compaction, sent: afterReq.slice(0, 300) }
       )
+      // A file can be taken out of a chat, to send a newer copy, and put back where it was.
+      const cf = chat.create(null).id
+      chat.send(contents, cf, 'Which lamps does the note count?', 'a', [
+        { name: 'Lamps.md', text: 'Nine lamps on the quay.' },
+        { name: 'Tides.md', text: 'High water at six.' }
+      ])
+      await idle(cf)
+      const fileNode = chat.view(cf).path[0].id
+      const storedBefore = db.loadNodes(cf).get(fileNode)!.content
+      const fileOut = chat.setAttachmentRemoved(cf, fileNode, 0, true).path[0]
+      check(
+        'a file taken out of a chat is marked on its message, and its text is kept from the window',
+        fileOut.attachments?.map((a) => !!a.removed).join() === 'true,false' && !JSON.stringify(fileOut).includes('Nine lamps'),
+        fileOut.attachments
+      )
+      const beforeOut = log.length
+      chat.send(contents, cf, 'And now?', 'a', [{ name: 'Lamps.md', text: 'Eleven lamps on the quay.' }])
+      await idle(cf)
+      // The mock's replies quote the message they answered, so only your own messages are read.
+      const sentOut = JSON.stringify((log.slice(beforeOut).find((r) => r.messages.at(-1)?.content.endsWith('And now?'))?.messages ?? []).filter((m) => m.role === 'user'))
+      check(
+        'a file taken out is no longer sent, the rest of its message is, and a newer copy goes with the next one',
+        !sentOut.includes('Nine lamps') && sentOut.includes('High water at six.') && sentOut.includes('Which lamps does the note count?') && sentOut.includes('Eleven lamps on the quay.'),
+        sentOut.slice(0, 500)
+      )
+      const fileBack = chat.setAttachmentRemoved(cf, fileNode, 0, false).path[0]
+      check('a file put back is in its message exactly as it was', db.loadNodes(cf).get(fileNode)!.content === storedBefore && fileBack.attachments?.every((a) => !a.removed) === true, fileBack.attachments)
+      // The second of two goes back after the first, and the first before the second.
+      chat.setAttachmentRemoved(cf, fileNode, 1, true)
+      chat.setAttachmentRemoved(cf, fileNode, 0, true)
+      const bothOut = db.loadNodes(cf).get(fileNode)!.content ?? ''
+      chat.setAttachmentRemoved(cf, fileNode, 1, false)
+      chat.setAttachmentRemoved(cf, fileNode, 0, false)
+      check('files taken out and put back in any order end where they started', !bothOut.includes('<document name=') && bothOut.includes('Which lamps') && db.loadNodes(cf).get(fileNode)!.content === storedBefore, bothOut)
+      // A message that was only a file still takes its turn once the file is out.
+      const co = chat.create(null).id
+      chat.send(contents, co, '', 'a', [{ name: 'Lamps.md', text: 'Nine lamps on the quay.' }])
+      await idle(co)
+      chat.setAttachmentRemoved(co, chat.view(co).path[0].id, 0, true)
+      const beforeOnly = log.length
+      chat.send(contents, co, 'Go on')
+      await idle(co)
+      const onlyReq = (log.slice(beforeOnly).find((r) => r.messages.at(-1)?.content === 'Go on')?.messages ?? []).filter((m) => m.role !== 'system')
+      const onlyClaude = toMessages(db.ancestors(db.loadNodes(co), chat.view(co).path.at(-1)!.id))
+      check(
+        'a message that was only a file still takes its turn once the file is out',
+        onlyReq.map((m) => m.role).join() === 'user,assistant,user' &&
+          onlyReq[0].content.startsWith('(A file was attached here') &&
+          onlyClaude.map((m) => m.role).join() === 'user,assistant,user,assistant' &&
+          String(onlyClaude[0].content[0]?.text).startsWith('(A file was attached here'),
+        { sent: onlyReq, claude: onlyClaude.map((m) => m.role) }
+      )
+      // In a compacted chat the file leaves the summary that carried it, and goes back into it.
+      const ccFile = chat.view(cc).path[0].id
+      const ccOut = chat.setAttachmentRemoved(cc, ccFile, 0, true)
+      const beforeCarried = log.length
+      chat.send(contents, cc, 'Without the lamps')
+      await idle(cc)
+      const carriedReq = JSON.stringify(log.slice(beforeCarried).find((r) => r.messages.at(-1)?.content === 'Without the lamps')?.messages ?? [])
+      const ccBack = chat.setAttachmentRemoved(cc, ccFile, 0, false)
+      const beforeBack = log.length
+      chat.send(contents, cc, 'With them again')
+      await idle(cc)
+      const backReq = JSON.stringify(log.slice(beforeBack).find((r) => r.messages.at(-1)?.content === 'With them again')?.messages ?? [])
+      check(
+        'a file taken out of a compacted chat leaves its summary too, and goes back into it',
+        ccOut.path.find((n) => n.compaction)?.compaction?.carried === 0 &&
+          carriedReq.includes('conversation_summary') &&
+          !carriedReq.includes('Nine lamps') &&
+          ccBack.path.find((n) => n.compaction)?.compaction?.carried === 1 &&
+          backReq.includes('Nine lamps on the quay.'),
+        { out: ccOut.path.find((n) => n.compaction)?.compaction, sent: carriedReq.slice(0, 300), back: backReq.slice(0, 300) }
+      )
+      // On the message, a file's chip takes it out and puts it back.
+      await reloadUi()
+      const chipUi = await win.webContents.executeJavaScript(`(async () => {
+        const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+        const until = async (test) => { for (let end = Date.now() + 3000; Date.now() < end && !test(); ) await wait(25); return !!test() }
+        document.querySelector('[data-mode="chat"]')?.click()
+        await wait(200)
+        ;[...document.querySelectorAll('.tw-conv')].find((r) => r.querySelector('.tw-conv-title')?.textContent === 'Which lamps does the note count?')?.click()
+        const chips = () => [...document.querySelectorAll('.msg-user-row')[0]?.querySelectorAll('.attach-chip') ?? []]
+        await until(() => chips().length === 2)
+        const labels = chips().map((c) => c.querySelector('.attach-remove')?.getAttribute('aria-label'))
+        chips()[0]?.querySelector('.attach-remove')?.click()
+        const out = await until(() => chips()[0]?.classList.contains('is-removed'))
+        const struck = out && getComputedStyle(chips()[0].querySelector('.attach-name')).textDecorationLine === 'line-through'
+        return { labels, out, struck, backLabel: chips()[0]?.querySelector('.attach-remove')?.getAttribute('aria-label') }
+      })()`)
+      await shot('e2e-file-out.png')
+      chipUi.back = await win.webContents.executeJavaScript(`(async () => {
+        const chips = () => [...document.querySelectorAll('.msg-user-row')[0]?.querySelectorAll('.attach-chip') ?? []]
+        chips()[0]?.querySelector('.attach-remove')?.click()
+        for (let end = Date.now() + 3000; Date.now() < end && chips()[0]?.classList.contains('is-removed'); ) await new Promise((r) => setTimeout(r, 25))
+        return chips().length === 2 && !chips()[0].classList.contains('is-removed')
+      })()`)
+      check(
+        "a file's chip on its message takes it out of the chat and puts it back",
+        chipUi.labels.join() === 'Remove Lamps.md from this chat,Remove Tides.md from this chat' && chipUi.out && chipUi.struck && chipUi.backLabel === 'Put Lamps.md back' && chipUi.back && db.loadNodes(cf).get(fileNode)!.content === storedBefore,
+        chipUi
+      )
       // Past your size, a quiet bar offers it; compacting puts a marker in the chat.
       chat.setCompactionSettings({ threshold: 10 })
       const cb = chat.create(null).id

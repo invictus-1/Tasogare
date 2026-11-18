@@ -3,7 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { ChatSettings, ModelInfo, ModelOptions, ProviderConfig, Usage } from '@shared/types'
 import type { NodeRow } from '../db'
 import { CHOICES_TOOL } from '@shared/choices'
-import { isContextText } from '@shared/attachments'
+import { FILE_REMOVED_NOTE, isContextText } from '@shared/attachments'
 import { domainOf } from '@shared/webTools'
 import { MAX_TOOL_ROUNDS, TOO_MANY_ROUNDS, mergeExtraParams, textBlocks, wantsChoiceTool, type ClientOutcome, type ClientToolDef, type GenerateRequest, type GenerateResult, type Provider } from './types'
 
@@ -124,6 +124,9 @@ export function toMessages(history: NodeRow[], serverTools: ReadonlySet<string> 
     if (node.role === 'user') {
       role = 'user'
       content = node.content ? (JSON.parse(node.content) as Block[]) : [{ type: 'text', text: node.text }]
+      // A message that was only a file, with the file since taken out of the chat, still takes its
+      // turn: the API accepts no empty message, and two replies in a row would run together.
+      if (!content.length) content = [{ type: 'text', text: FILE_REMOVED_NOTE }]
       // After a present_choices call, the reader's answer is that call's result. Tool results go
       // first in the turn; attached documents follow. Rebuilt the same way every time, so cached.
       const prev = messages.at(-1)

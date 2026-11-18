@@ -2,6 +2,10 @@
 
 Each version's section becomes its release notes on the releases page (`npm run release`), and Tasogare shows them in Settings > Updates.
 
+## Unreleased
+
+- **Take a file out of a chat:** every file on a message of yours now has a × on its chip. It takes the file out of the chat, so nothing sent from then on holds it: when a document changes mid-chat, take the old copy out and attach the new one to your next message. The chip stays on the message, struck through, with an arrow that puts the file back exactly where it was. In a compacted chat the file leaves the summary that carried it too. The messages after the file are read fresh once, not from cache, the next time you send.
+
 ## 1.9.0
 
 - **Space, under the sky:** a new scene in Extras → Under the sky. A colony on a cratered moon under a ringed giant: glass domes with a town inside, habitats, a comms tower, solar panels and a landing pad; a nebula, a ring station, asteroids and a small blue world rising; ships crossing in their lanes, a shuttle that lifts off the pad and climbs away, a rover on its road, and now and then a ship jumping away far off. Painted once in the theme's colours, at every hour of the sky.

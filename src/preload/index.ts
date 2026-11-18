@@ -83,6 +83,7 @@ const methods: Exclude<keyof TwilightApi, 'onStream' | 'onUpdate' | 'onInsights'
   'viewDeletion',
   'restoreDeletion',
   'editMessage',
+  'setAttachmentRemoved',
   'switchBranch',
   'stop',
   'cloneIntoSplit',
