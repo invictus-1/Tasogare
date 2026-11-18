@@ -4,6 +4,9 @@ What's shipped, what's next, and ideas not yet committed to. Tasogare shows this
 
 ## Shipped
 
+### 1.9.2 · November 2026
+- [x] **Claude replies after a file is taken out** · Core — thinking written before the change is left out of what is sent, and a request Claude refuses for old thinking goes again once without it
+
 ### 1.9.1 · November 2026
 - [x] **Take a file out of a chat** · Core — a × on each attached file takes it out, so an old copy of a document can leave before the new one is sent; the chip stays to put it back where it was
 
