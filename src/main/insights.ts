@@ -2,9 +2,9 @@
 // (in a worker thread, skipping files that haven't changed) and keeps each file's analysis. Words
 // written are measured as growth between scans and booked to the day and hour they happened:
 //   - the first scan of a folder is a baseline, so a finished manuscript isn't "written today";
-//   - a new file counts as written, and so does growth; but a new file over IMPORT_LIMIT words, or
-//     one file jumping by more than that between scans, may be an import or a paste rather than a
-//     day's work, so it's held aside and the dashboard asks whether to count it;
+//   - a new file counts as written, and so does growth, however large; an addition over
+//     ADDITION_LOGGED words (a paste, an import, a long session between scans) is also listed with
+//     its date and time, so one that wasn't writing can be taken back off its day;
 //   - shrinking a file books removed words, never negative writing.
 // Scans run at launch, when the folder changes on disk (debounced), and on Rescan.
 
@@ -14,13 +14,14 @@ import { watch, type FSWatcher } from 'node:fs'
 import { join } from 'node:path'
 import {
   ACHIEVEMENTS,
+  ADDITION_LOGGED,
   STOPWORDS,
   type AchievementStats,
   type DayCount,
   type DocAnalysis,
   type InsightsSummary,
   type TrackedCharacter,
-  type WordJump
+  type WordAddition
 } from '@shared/insights'
 import type { InsightsEvent } from '@shared/types'
 import createWorker from './insights.worker?nodeWorker'
@@ -28,7 +29,9 @@ import * as db from './db'
 import * as docs from './docs'
 import * as judge from './judge'
 
-const IMPORT_LIMIT = 20_000
+/** How many large additions are listed, and how many removed ones can still be put back. */
+const ADDITIONS_KEPT = 300
+const REMOVED_KEPT = 20
 const COLORS = ['#c4a0ff', '#7dd3fc', '#ffb48a', '#5fd3a8', '#f9a8d4', '#9497ff', '#f5c76a', '#a3e635', '#fb7185', '#67e8f9']
 
 const listeners = new Set<WebContents>()
@@ -147,6 +150,7 @@ async function runScan(): Promise<void> {
   }
   const baseline = !db.kvGet<boolean>('insights.baselined')
   const characters = getCharacters()
+  settleHeld()
   const key = charsKey(characters)
   const list = await docs.listDocs()
   const known = new Map((h.prepare('SELECT path, mtime, size, words, chars_key FROM doc_stats').all() as Row[]).map((r) => [r.path, r]))
@@ -160,7 +164,7 @@ async function runScan(): Promise<void> {
   let written = 0
   let removed = 0
   let done = 0
-  const jumps: { path: string; words: number }[] = []
+  const large: { path: string; words: number }[] = []
   // A file that vanished and one that appeared with the same size is a move or a rename, not new
   // writing: the new path picks up where the old one left off.
   const present = new Set(list.map((d) => d.path))
@@ -180,13 +184,14 @@ async function runScan(): Promise<void> {
     const row = known.get(d.path)
     if (row) {
       const delta = analysis.words - row.words
-      // A jump this size between two scans may be a paste or an import: held aside, to ask about.
-      if (delta > 0 && delta <= IMPORT_LIMIT) written += delta
-      else if (delta > IMPORT_LIMIT) jumps.push({ path: d.path, words: delta })
-      else if (delta < 0) removed -= delta
+      // Growth counts, however large; a large one is listed too, so it can be taken back.
+      if (delta > 0) {
+        written += delta
+        if (delta > ADDITION_LOGGED) large.push({ path: d.path, words: delta })
+      } else if (delta < 0) removed -= delta
     } else if (!baseline) {
-      if (analysis.words <= IMPORT_LIMIT) written += analysis.words
-      else jumps.push({ path: d.path, words: analysis.words })
+      written += analysis.words
+      if (analysis.words > ADDITION_LOGGED) large.push({ path: d.path, words: analysis.words })
     }
     upsert.run(d.path, d.mtime, d.size, analysis.words, key, JSON.stringify(analysis))
     if (++done % 4 === 0 || done === todo.length) emitInsights({ kind: 'progress', done, total: todo.length })
@@ -206,10 +211,9 @@ async function runScan(): Promise<void> {
     db.kvSet('insights.baselined', true)
     if (!db.kvGet<string>('insights.since')) db.kvSet('insights.since', dayOf())
   }
-  if (jumps.length) {
+  if (large.length) {
     const at = Date.now()
-    const held = db.kvGet<WordJump[]>('insights.jumps') ?? []
-    db.kvSet('insights.jumps', [...held, ...jumps.map((j, i) => ({ id: `${at}-${i}`, path: j.path, words: j.words, day: dayOf(new Date(at)), at }))])
+    keepAdditions([...large.map((j, i) => ({ id: `${at}-${i}`, path: j.path, words: j.words, day: dayOf(new Date(at)), at })), ...additionsList()])
   }
   db.kvSet('insights.scannedAt', Date.now())
   cache = null
@@ -226,25 +230,63 @@ async function runScan(): Promise<void> {
   unlockAchievements(baseline)
 }
 
-/** Your answer to a held jump: counted as written on the day it appeared, or let go. */
-export function answerJump(id: string, count: boolean): InsightsSummary {
-  const held = db.kvGet<WordJump[]>('insights.jumps') ?? []
-  const jump = held.find((j) => j.id === id)
-  if (jump && count) {
-    db.handle()
-      .prepare('INSERT INTO writing_days (day, written, removed) VALUES (?, ?, 0) ON CONFLICT(day) DO UPDATE SET written = written + excluded.written')
-      .run(jump.day, jump.words)
-    const hours = db.kvGet<number[]>('insights.hours') ?? Array(24).fill(0)
-    hours[new Date(jump.at).getHours()] += jump.words
-    db.kvSet('insights.hours', hours)
-  }
-  db.kvSet(
-    'insights.jumps',
-    held.filter((j) => j.id !== id)
-  )
+// ——— Large additions ———
+
+const additionsList = (): WordAddition[] => db.kvGet<WordAddition[]>('insights.additions') ?? []
+
+function keepAdditions(list: WordAddition[]): void {
+  db.kvSet('insights.additions', [...list].sort((a, b) => b.at - a.at).slice(0, ADDITIONS_KEPT))
+}
+
+/** Adds an addition's words to its day and hour, or (with a negative sign) takes them off again. */
+function book(a: WordAddition, sign: 1 | -1): void {
+  db.handle()
+    .prepare('INSERT INTO writing_days (day, written, removed) VALUES (?, ?, 0) ON CONFLICT(day) DO UPDATE SET written = MAX(0, written + ?)')
+    .run(a.day, Math.max(0, sign * a.words), sign * a.words)
+  const hours = db.kvGet<number[]>('insights.hours') ?? Array(24).fill(0)
+  const hour = new Date(a.at).getHours()
+  hours[hour] = Math.max(0, hours[hour] + sign * a.words)
+  db.kvSet('insights.hours', hours)
+}
+
+/**
+ * Additions held aside by versions before 1.9.3, which asked whether to count them: they are
+ * counted now, on their own days, and listed with the rest, so one can still be taken back.
+ */
+function settleHeld(): void {
+  const held = db.kvGet<WordAddition[]>('insights.jumps')
+  if (!held) return
+  for (const a of held) book(a, 1)
+  db.kvDelete('insights.jumps')
+  if (held.length) keepAdditions([...additionsList(), ...held])
   cache = null
-  if (jump && count) unlockAchievements(false)
-  emitInsights({ kind: 'updated' })
+}
+
+/** Takes a large addition back off its day: it was a paste or an import, not writing. */
+export function removeAddition(id: string): InsightsSummary {
+  const list = additionsList()
+  const gone = list.find((a) => a.id === id)
+  if (gone) {
+    book(gone, -1)
+    keepAdditions(list.filter((a) => a.id !== id))
+    db.kvSet('insights.additionsRemoved', [gone, ...(db.kvGet<WordAddition[]>('insights.additionsRemoved') ?? []).filter((a) => a.id !== id)].slice(0, REMOVED_KEPT))
+    cache = null
+    emitInsights({ kind: 'updated' })
+  }
+  return summary()
+}
+
+/** Puts back an addition taken off a moment ago (the undo after Remove). */
+export function restoreAddition(id: string): InsightsSummary {
+  const removed = db.kvGet<WordAddition[]>('insights.additionsRemoved') ?? []
+  const back = removed.find((a) => a.id === id)
+  if (back && !additionsList().some((a) => a.id === id)) {
+    book(back, 1)
+    keepAdditions([back, ...additionsList()])
+    db.kvSet('insights.additionsRemoved', removed.filter((a) => a.id !== id))
+    cache = null
+    emitInsights({ kind: 'updated' })
+  }
   return summary()
 }
 
@@ -271,6 +313,7 @@ function unlockAchievements(quietly: boolean): void {
 
 export function summary(): InsightsSummary {
   if (cache) return cache
+  settleHeld()
   const h = db.handle()
   const rows = h.prepare('SELECT path, words, analysis FROM doc_stats').all() as Pick<Row, 'path' | 'words' | 'analysis'>[]
   const files = rows.map((r) => ({ path: r.path, a: JSON.parse(r.analysis) as DocAnalysis }))
@@ -400,7 +443,7 @@ export function summary(): InsightsSummary {
       .slice(0, 24)
       .map(([name, count]) => ({ name, count })),
     achievements: ACHIEVEMENTS.map((def) => ({ def, value: stats[def.metric], unlockedAt: unlocked[def.id] ?? null })),
-    jumps: db.kvGet<WordJump[]>('insights.jumps') ?? []
+    additions: additionsList()
   }
   return cache
 }

@@ -96,6 +96,9 @@ h1, h2, h3 { margin: 0; }
 .folder-name { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .folder-count { font-size: 12px; font-weight: 400; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
 .folder-head:hover .folder-count { visibility: hidden; }
+/* A workspace past ten chats scrolls in its own box (Sidebar: FOLDER_ROWS), a chat row being 52px. */
+.folder-chats { position: relative; }
+.folder-scroll { max-height: calc(10 * 52px); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; border-bottom: 1px solid var(--line); }
 .folder-empty { margin: 0; padding: 2px var(--space-3) var(--space-2) 44px; font-size: 12px; color: var(--ink-faint); }
 .recent { min-height: 40px; border-radius: var(--radius-sm); }
 /* Drop targets: a solid iris outline, not color alone. */
@@ -942,12 +945,18 @@ body.resizing .resize-handle { pointer-events: auto; }
 .ins-bar.now { background: linear-gradient(180deg, color-mix(in srgb, #fff 50%, var(--horizon)), var(--horizon)); opacity: 1; box-shadow: 0 0 18px -4px var(--horizon); }
 .ins-bar-col:hover .ins-bar { opacity: 1; }
 .ins-bar-label { position: absolute; bottom: -20px; font-size: 11px; color: var(--ink-faint); white-space: nowrap; }
-/* Words that appeared at once, waiting to be counted or let go. */
-.ins-jumps { display: flex; flex-direction: column; gap: var(--space-2); border-color: color-mix(in srgb, var(--horizon) 40%, var(--line)); }
-.ins-jump { display: flex; align-items: center; gap: var(--space-2); }
-.ins-jump-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.ins-jump-text strong { font-weight: 600; color: var(--ink); }
-.ins-jump-text span { font-size: 12px; color: var(--ink-faint); }
+/* Large additions, counted and listed so one that was not writing can be taken back. */
+.ins-additions { gap: var(--space-2); padding-top: var(--space-3); padding-bottom: var(--space-3); }
+.ins-additions-head { display: flex; align-items: center; gap: var(--space-2); width: 100%; padding: 0; border: 0; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.ins-additions-head svg { flex: none; color: var(--ink-faint); }
+.ins-additions-head strong { font-weight: 600; }
+.ins-additions-head span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--ink-faint); }
+.ins-additions-list { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow-y: auto; }
+.ins-addition { display: flex; align-items: center; gap: var(--space-3); min-height: 38px; padding: 4px 0; border-top: 1px solid var(--line); font-size: 13px; }
+.ins-addition-words { flex: none; width: 110px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ins-addition-file { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-muted); }
+.ins-addition-when { flex: none; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.ins-addition-actions { flex: none; display: inline-flex; gap: var(--space-1); }
 /* The label over a chart's bar or day (InsightsView: useChartTip): instant, in the theme's colours. */
 .chart-tip { position: fixed; z-index: 3000; transform: translate(-50%, calc(-100% - 10px)); pointer-events: none; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 11px; border-radius: 9px; background: color-mix(in srgb, var(--surface-overlay) 92%, transparent); border: 1px solid color-mix(in srgb, var(--iris) 45%, var(--line)); box-shadow: var(--shadow-lg), 0 0 18px -6px color-mix(in srgb, var(--iris) 60%, transparent); white-space: nowrap; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); animation: chart-tip-in 90ms ease-out; }
 .chart-tip::after { content: ''; position: absolute; left: 50%; bottom: -5px; width: 8px; height: 8px; margin-left: -4px; rotate: 45deg; background: inherit; border-right: inherit; border-bottom: inherit; }

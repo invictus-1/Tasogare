@@ -2791,22 +2791,42 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
       await docs.writeDoc(tracked.path, 'Wren started here.\n')
       await insights.scan()
       ins = insights.summary()
-      check('a big new file is an import, and cutting text is not writing', ins.today === grown, ins.today)
+      check('a big new file counts as written, and cutting text is not writing', ins.today === grown + 25000, ins.today)
       await docs.writeDoc(tracked.path, `Wren started here.\n\n${growth}\n`)
       await insights.scan()
       ins = insights.summary()
-      check('writing it back counts again', ins.today === grown + grown - 3, { today: ins.today, grown })
+      check('writing it back counts again', ins.today === grown + 25000 + grown - 3, { today: ins.today, grown })
+      // Exactly 5,000 words is counted but not listed: only more than that is.
+      const fiveDoc = await docs.createDoc('Five thousand')
+      await docs.writeDoc(fiveDoc.path, 'word '.repeat(5000))
+      await insights.scan()
+      ins = insights.summary()
+      check('an addition of 5,000 words is counted and not listed', ins.today === grown + 25000 + grown - 3 + 5000 && !ins.additions.some((a) => a.path.includes('Five thousand')), { today: ins.today, listed: ins.additions.map((a) => a.path) })
       const pasteDoc = await docs.createDoc('Pasted chapter')
       await insights.scan()
       const beforePaste = insights.summary().today
       await docs.writeDoc(pasteDoc.path, 'paste '.repeat(21000))
       await insights.scan()
-      check('pasting a novel into an existing file is not writing', insights.summary().today === beforePaste, { before: beforePaste, after: insights.summary().today })
-      const jumps32 = insights.summary().jumps
+      check('a novel pasted into a file is counted as written at once, without asking', insights.summary().today === beforePaste + 21000, { before: beforePaste, after: insights.summary().today })
+      const added32 = insights.summary().additions
       check(
-        'the big new file and the big paste are held aside, to ask about',
-        jumps32.length === 2 && jumps32.some((j) => j.path.includes('Imported novel') && j.words === 25000) && jumps32.some((j) => j.path.includes('Pasted chapter') && j.words === 21000),
-        jumps32
+        'the big new file and the big paste are listed, newest first, with their date and time',
+        added32.length === 2 && added32[0].path.includes('Pasted chapter') && added32[0].words === 21000 && added32[1].path.includes('Imported novel') && added32[1].words === 25000 && added32.every((a) => a.at > 0 && a.day === added32[0].day),
+        added32
+      )
+      // An addition held to ask about by an earlier version is counted on its day and listed.
+      const beforeHeld = insights.summary().today
+      db.kvSet('insights.jumps', [{ id: 'held-1', path: 'Old import.md', words: 7000, day: added32[0].day, at: Date.now() - 60_000 }])
+      await insights.scan()
+      ins = insights.summary()
+      const heldOk = ins.today === beforeHeld + 7000 && ins.additions.some((a) => a.id === 'held-1') && db.kvGet('insights.jumps') === undefined
+      const takenOff = insights.removeAddition('held-1')
+      const putBack = insights.restoreAddition('held-1')
+      const takenAgain = insights.removeAddition('held-1')
+      check(
+        'an addition held by an earlier version is counted and listed; removing one takes its words off its day, and it can be put back',
+        heldOk && takenOff.today === beforeHeld && !takenOff.additions.some((a) => a.id === 'held-1') && putBack.today === beforeHeld + 7000 && putBack.additions.some((a) => a.id === 'held-1') && takenAgain.today === beforeHeld && insights.restoreAddition('nothing').today === beforeHeld,
+        { heldOk, off: takenOff.today, back: putBack.today, again: takenAgain.today, beforeHeld }
       )
       await insights.setCharacters([
         { name: 'Wren', aliases: [], color: '' },
@@ -2826,14 +2846,32 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         await wait(500)
         const page = (label) => [...document.querySelectorAll('.insights-nav-item')].find((b) => b.textContent.startsWith(label))?.click()
         const out = { hero: !!document.querySelector('.ins-hero .ins-hero-n'), tabs: document.querySelectorAll('.insights-nav-item').length, stats: [...document.querySelectorAll('.ins-stat-label')].map((e) => e.textContent), bars: document.querySelectorAll('.ins-bar').length }
-        // Words that appeared at once wait on the dashboard: the paste is counted, the import let go.
-        out.jumps = [...document.querySelectorAll('.ins-jump strong')].map((e) => e.textContent)
-        const jumpCard = (name) => [...document.querySelectorAll('.ins-jump')].find((e) => e.textContent.includes(name))
-        jumpCard('Pasted chapter')?.querySelector('.ins-jump-count')?.click()
-        await wait(300)
-        jumpCard('Imported novel')?.querySelector('.ins-jump-skip')?.click()
-        await wait(300)
-        out.jumpsAfter = document.querySelectorAll('.ins-jump').length
+        // Large additions are listed on the dashboard, folded away: the import is taken off, put back with Undo, and taken off again.
+        const today = async () => (await window.twilight.getInsights()).today
+        out.todayBefore = await today()
+        out.addHead = document.querySelector('.ins-additions-head')?.textContent ?? ''
+        out.foldedAtFirst = !document.querySelector('.ins-addition')
+        document.querySelector('.ins-additions-head')?.click()
+        await wait(200)
+        const row = (name) => [...document.querySelectorAll('.ins-addition')].find((r) => r.textContent.includes(name))
+        out.addRows = [...document.querySelectorAll('.ins-addition')].map((r) => r.querySelector('.ins-addition-words').textContent + ' ' + r.querySelector('.ins-addition-file').textContent)
+        row('Imported novel')?.querySelector('.ins-addition-remove')?.click()
+        await wait(100)
+        out.confirmText = row('Imported novel')?.querySelector('.ins-addition-confirm')?.textContent ?? ''
+        row('Imported novel')?.querySelector('.ins-addition-confirm')?.click()
+        await wait(400)
+        out.todayRemoved = await today()
+        out.rowsRemoved = document.querySelectorAll('.ins-addition').length
+        out.toast = document.querySelector('.toast-info span')?.textContent ?? ''
+        ;[...document.querySelectorAll('.toast-info button')].find((b) => b.textContent === 'Undo')?.click()
+        await wait(400)
+        out.todayBack = await today()
+        out.rowsBack = document.querySelectorAll('.ins-addition').length
+        row('Imported novel')?.querySelector('.ins-addition-remove')?.click()
+        await wait(100)
+        row('Imported novel')?.querySelector('.ins-addition-confirm')?.click()
+        await wait(400)
+        out.todayFinal = await today()
         // Pointing at a bar, or a day on the heatmap, shows its label at once, drawn by Tasogare rather than the browser.
         const hover = async (el) => (el?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })), await wait(50))
         const leave = async (el) => (el?.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body })), await wait(50))
@@ -2864,9 +2902,16 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
       check('heatmap marks today', insUi.heatCells >= 1, insUi.heatCells)
       const counted32 = insights.summary()
       check(
-        'the dashboard asks about each: Count them books the words to their day, Not my writing lets them go',
-        insUi.jumps.length === 2 && insUi.jumps.some((t: string) => t === '21,000 words appeared in Pasted chapter at once') && insUi.jumpsAfter === 0 && counted32.jumps.length === 0 && counted32.today === beforePaste + 21000,
-        { shown: insUi.jumps, after: insUi.jumpsAfter, today: counted32.today, expected: beforePaste + 21000 }
+        'the dashboard lists large additions, folded away until opened, newest first',
+        /^2 large additions counted/.test(insUi.addHead) && /Latest: 21,000 words in Pasted chapter/.test(insUi.addHead) && insUi.foldedAtFirst === true &&
+          insUi.addRows.join('|') === '21,000 words Pasted chapter|25,000 words Imported novel',
+        { head: insUi.addHead, rows: insUi.addRows }
+      )
+      check(
+        'Remove asks once, takes the words off their day, and Undo puts them back',
+        /^Take 25,000 words off /.test(insUi.confirmText) && insUi.todayRemoved === insUi.todayBefore - 25000 && insUi.rowsRemoved === 1 && /^25,000 words taken off /.test(insUi.toast) &&
+          insUi.todayBack === insUi.todayBefore && insUi.rowsBack === 2 && insUi.todayFinal === insUi.todayBefore - 25000 && counted32.today === insUi.todayFinal && counted32.additions.length === 1,
+        { confirm: insUi.confirmText, before: insUi.todayBefore, removed: insUi.todayRemoved, back: insUi.todayBack, final: insUi.todayFinal, toast: insUi.toast }
       )
       check(
         'pointing at a bar or a heatmap day shows its date and words at once, in the theme, not the browser\'s slow label',
@@ -6650,6 +6695,61 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
       await shot('e2e-data.png')
       await js(`document.querySelector('.rail-item[data-mode="chat"]')?.click()`)
 
+      // 49b. A workspace past ten chats scrolls in its own box; one with fewer doesn't; the open chat is
+      // brought into view in that box.
+      const manyFolder = db.createFolder('Many chats')
+      const manyIds = Array.from({ length: 12 }, () => chat.create(manyFolder.id).id)
+      const fewFolder = db.createFolder('Few chats')
+      const fewIds = Array.from({ length: 3 }, () => chat.create(fewFolder.id).id)
+      await reloadUi()
+      const folders49 = await js<Record<string, unknown>>(`(async () => {
+        const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+        const until = async (test) => { for (let end = Date.now() + 4000; Date.now() < end && !test(); ) await wait(30) }
+        // Chats from elsewhere only: clicking the section you are on opens or shuts the sidebar.
+        if (document.querySelector('.rail-item[data-mode="chat"]')?.getAttribute('aria-selected') !== 'true') document.querySelector('.rail-item[data-mode="chat"]')?.click()
+        await wait(200)
+        const group = (name) => [...document.querySelectorAll('.folder')].find((f) => f.querySelector('.folder-name')?.textContent === name)
+        // Looked at with the sidebar open, as it is left after.
+        const closed = () => !!document.querySelector('.app.sidebar-closed')
+        const wasClosed = closed()
+        if (wasClosed) document.querySelector('[aria-label="Toggle sidebar (Ctrl+B)"]')?.click()
+        await until(() => !closed() && group('Many chats') && group('Few chats'))
+        const many = group('Many chats').querySelector('.folder-chats')
+        const few = group('Few chats').querySelector('.folder-chats')
+        const out = {}
+        out.rows = many.querySelectorAll('.tw-conv').length
+        out.manyScrolls = many.classList.contains('folder-scroll') && many.scrollHeight > many.clientHeight + 40
+        out.shown = Math.round(many.clientHeight / 52)
+        out.fewScrolls = few.classList.contains('folder-scroll') || few.scrollHeight > few.clientHeight
+        many.scrollTop = 0
+        many.dispatchEvent(new WheelEvent('wheel', { deltaY: 200, bubbles: true }))
+        many.scrollTop = 200
+        out.scrolls = many.scrollTop > 0
+        many.scrollTop = 0
+        await wait(100)
+        // The last chat, opened while it is out of sight in the box, is scrolled into it.
+        const rows = [...many.querySelectorAll('.tw-conv')]
+        rows.at(-1).click()
+        await until(() => rows.at(-1).getAttribute('aria-current') === 'true')
+        await wait(200)
+        const box = many.getBoundingClientRect()
+        const last = rows.at(-1).getBoundingClientRect()
+        out.followed = many.scrollTop > 0 && last.top >= box.top - 1 && last.bottom <= box.bottom + 1
+        out.wasClosed = wasClosed
+        out.seen = !closed() && many.getBoundingClientRect().width > 150
+        return out
+      })()`)
+      check(
+        'a workspace past ten chats scrolls in its own box and brings the open chat into view; a small one does not scroll',
+        folders49.rows === 12 && folders49.manyScrolls === true && folders49.shown === 10 && folders49.fewScrolls === false && folders49.scrolls === true && folders49.followed === true && folders49.seen === true,
+        folders49
+      )
+      await shot('e2e-folder-scroll.png')
+      if (folders49.wasClosed) await js(`document.querySelector('[aria-label="Toggle sidebar (Ctrl+B)"]')?.click()`)
+      for (const id of [...manyIds, ...fewIds]) db.deleteConversationForever(id)
+      db.deleteFolder(manyFolder.id)
+      db.deleteFolder(fewFolder.id)
+      await reloadUi()
       // 50. The Chats button: from another section it shows the sky by itself, or the last chat if chosen.
       const chats50 = await js<{ before: string; msgs: number; kept: string; box: boolean; stored: string | null }>(`(async () => {
         const wait = (ms) => new Promise((r) => setTimeout(r, ms))

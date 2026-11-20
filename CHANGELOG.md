@@ -2,6 +2,11 @@
 
 Each version's section becomes its release notes on the releases page (`npm run release`), and Tasogare shows them in Settings > Updates.
 
+## Unreleased
+
+- **Large additions are counted without asking:** words that appear in a file all at once (a paste, an import, a long stretch written between scans) count as writing straight away, instead of waiting on the dashboard for Count them or Not my writing. Anything over 5,000 words is listed under Large additions on the dashboard, with the file and the date and time it appeared. If one wasn't your writing, Remove takes its words off that day (it asks once, and Undo puts them back). Additions still waiting to be answered from an earlier version are counted on their own days and listed with the rest.
+- **A long workspace scrolls:** a workspace in the chat list with more than ten chats shows ten and scrolls the rest in its own box, by mouse wheel or by dragging its scroll bar, so the workspaces and chats below it stay in sight. Opening one of its chats from elsewhere brings it into view in that box.
+
 ## 1.9.2
 
 - **Taking a file out no longer stops Claude from replying:** in 1.9.1, after a file was taken out of a chat, the next message to Claude failed with "Invalid signature in thinking block". Claude signs its thinking against everything sent before it, so thinking written below the file, with the file still there, no longer matched. That thinking is now left out of what is sent (the replies themselves stay), and thinking written afterwards is kept.

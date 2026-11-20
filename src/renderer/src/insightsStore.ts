@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { useStore } from './store'
 import type { AiState, InsightsSummary, TrackedCharacter } from '@shared/insights'
 
 export type InsightsPage = 'dashboard' | 'heatmap' | 'words' | 'characters' | 'story' | 'focus' | 'insights' | 'achievements' | 'reports'
@@ -17,7 +18,8 @@ interface InsightsState {
   setCharacters(list: TrackedCharacter[]): Promise<void>
   dismissUnlocked(): void
   /** Count a held jump in words as written, or let it go. */
-  answerJump(id: string, count: boolean): Promise<void>
+  /** Takes a large addition back off its day, with an undo. */
+  removeAddition(id: string): Promise<void>
 }
 
 const api = window.twilight
@@ -56,5 +58,11 @@ export const useInsights = create<InsightsState>((set, get) => ({
   },
 
   dismissUnlocked: () => set({ unlocked: [] }),
-  answerJump: async (id, count) => set({ summary: await api.answerWordJump(id, count) })
+  async removeAddition(id) {
+    const gone = get().summary?.additions.find((a) => a.id === id)
+    set({ summary: await api.removeWordAddition(id) })
+    if (!gone) return
+    const day = new Date(gone.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    useStore.getState().offerUndo(`${gone.words.toLocaleString()} words taken off ${day}`, async () => set({ summary: await api.restoreWordAddition(id) }))
+  }
 }))

@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import type { AchievementDef, InsightsSummary, TrackedCharacter, WordJump } from '@shared/insights'
+import { ADDITION_LOGGED, type AchievementDef, type InsightsSummary, type TrackedCharacter, type WordAddition } from '@shared/insights'
 import { useInsights, type InsightsPage } from '../insightsStore'
 import { useStore } from '../store'
 import {
   BoltIcon,
   BookIcon,
   CalendarIcon,
+  ChevronDown,
+  ChevronRight,
   CloseIcon,
   FeatherIcon,
   FlameIcon,
@@ -220,34 +222,71 @@ function TodayHero({ s }: { s: InsightsSummary }) {
   )
 }
 
+const fileName = (path: string): string => path.split(/[\\/]/).pop()?.replace(/\.md$/i, '') ?? path
+const when = (at: number): string => new Date(at).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+
 /**
- * Words that appeared in a file all at once (a paste or an import) aren't counted as writing on
- * their own; each waits here for you to say whether it was yours, to be counted on its day.
+ * Large additions (a paste, an import, a long session between scans) are counted as writing like
+ * the rest, and listed here with their date and time, so one that wasn't writing can be taken off
+ * its day. Folded away until opened, so the dashboard stays the numbers.
  */
-function Jumps({ jumps }: { jumps: WordJump[] }) {
-  const answer = useInsights((st) => st.answerJump)
-  if (!jumps.length) return null
-  const name = (path: string): string => path.split(/[\\/]/).pop()?.replace(/\.md$/i, '') ?? path
+function Additions({ list }: { list: WordAddition[] }) {
+  const remove = useInsights((st) => st.removeAddition)
+  const [open, setOpen] = useState(false)
+  const [confirming, setConfirming] = useState<string | null>(null)
+  if (!list.length) return null
+  const latest = list[0]
   return (
-    <section className="ins-card ins-jumps" aria-label="Words that appeared at once">
-      {jumps.map((j) => (
-        <div key={j.id} className="ins-jump">
-          <div className="ins-jump-text">
-            <strong>
-              {n(j.words)} words appeared in {name(j.path)} at once
-            </strong>
-            <span>
-              {dayLabel(j.day, { weekday: 'long', month: 'short', day: 'numeric' })}. A paste or an import isn't counted as writing unless you say so.
-            </span>
-          </div>
-          <button className="tw-btn tw-btn-sm ins-jump-count" onClick={() => void answer(j.id, true)}>
-            Count them
-          </button>
-          <button className="tw-btn tw-btn-ghost tw-btn-sm ins-jump-skip" onClick={() => void answer(j.id, false)}>
-            Not my writing
-          </button>
-        </div>
-      ))}
+    <section className="ins-card ins-additions" aria-label="Large additions">
+      <button className="ins-additions-head" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        <strong>
+          {n(list.length)} large {list.length === 1 ? 'addition' : 'additions'} counted
+        </strong>
+        <span>
+          Latest: {n(latest.words)} words in {fileName(latest.path)}, {when(latest.at)}
+        </span>
+      </button>
+      {open && (
+        <>
+          <p className="field-note">
+            Anything over {n(ADDITION_LOGGED)} words at once is counted as writing and listed here. If one was a paste or an import, remove it and its words come off its day.
+          </p>
+          <ul className="ins-additions-list">
+            {list.map((a) => (
+              <li key={a.id} className="ins-addition" data-addition={a.id}>
+                <span className="ins-addition-words">{n(a.words)} words</span>
+                <span className="ins-addition-file" title={a.path}>
+                  {fileName(a.path)}
+                </span>
+                <span className="ins-addition-when">{when(a.at)}</span>
+                <span className="ins-addition-actions">
+                  {confirming === a.id ? (
+                    <>
+                      <button
+                        className="tw-btn tw-btn-sm danger-text ins-addition-confirm"
+                        onClick={() => {
+                          setConfirming(null)
+                          void remove(a.id)
+                        }}
+                      >
+                        Take {n(a.words)} words off {dayLabel(a.day, { month: 'short', day: 'numeric' })}
+                      </button>
+                      <button className="tw-btn tw-btn-ghost tw-btn-sm" onClick={() => setConfirming(null)}>
+                        Keep
+                      </button>
+                    </>
+                  ) : (
+                    <button className="tw-btn tw-btn-ghost tw-btn-sm ins-addition-remove" onClick={() => setConfirming(a.id)}>
+                      Remove
+                    </button>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </section>
   )
 }
@@ -259,7 +298,7 @@ function Dashboard({ s }: { s: InsightsSummary }) {
     <>
       <PageHead title="Dashboard" sub="Words written, counted as your files grow, wherever you write them" />
       <TodayHero s={s} />
-      <Jumps jumps={s.jumps} />
+      <Additions list={s.additions} />
       <div className="ins-grid3">
         <Stat index={0} label="This week" value={s.week} sub="last 7 days" icon={<FeatherIcon />} tone="var(--dusk)" />
         <Stat index={1} label="This month" value={s.month} sub={new Date().toLocaleDateString(undefined, { month: 'long' })} icon={<TrendIcon />} tone="var(--horizon)" />

@@ -208,6 +208,8 @@ What's shipped, what's next, and ideas not yet committed to. Tasogare shows this
 - [x] **Installer** · Core — Windows installer and portable zip, with Tasogare artwork
 
 ## Next
+- [~] **Large additions counted, and taken back if wrong** · Core — done, in the next release: a big paste or import counts without asking, and anything over 5,000 words is listed with its date and time, to be removed from its day
+- [~] **A long workspace scrolls** · Chat — done, in the next release: a workspace past ten chats scrolls in its own box
 - [~] **Your feedback on 1.0** · Core — fixes from real use
 
 ## Later

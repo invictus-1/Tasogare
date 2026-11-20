@@ -200,14 +200,18 @@ export interface DayCount {
 }
 
 /** A big jump in one file between two scans (a paste or an import), held until you say whether it was your writing. */
-export interface WordJump {
+/** A large addition: over ADDITION_LOGGED words in one file between two scans, counted as writing and listed so it can be taken back. */
+export interface WordAddition {
   id: string
   path: string
   words: number
-  /** The day and moment it appeared, which it's counted to if you say so. */
+  /** The day and moment it appeared, which it is counted to. */
   day: string
   at: number
 }
+
+/** Additions bigger than this are listed with their date and time, to be removed if they were not writing. */
+export const ADDITION_LOGGED = 5_000
 
 export interface InsightsSummary {
   scannedAt: number | null
@@ -247,7 +251,8 @@ export interface InsightsSummary {
   suggestions: { name: string; count: number }[]
   achievements: { def: AchievementDef; value: number; unlockedAt: number | null }[]
   /** Big jumps waiting for you to say whether they were your writing. */
-  jumps: WordJump[]
+  /** Large additions, newest first. */
+  additions: WordAddition[]
 }
 
 // ——— The AI pages (run only when asked, with a model you choose) ———

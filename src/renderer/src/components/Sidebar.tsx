@@ -1,4 +1,4 @@
-import { memo, useEffect, useState, type DragEvent, type ReactNode } from 'react'
+import { memo, useEffect, useRef, useState, type DragEvent, type ReactNode } from 'react'
 import type { ChatFolder, ConversationSummary, DocEntry } from '@shared/types'
 import { modelName, useStore } from '../store'
 import { useBlind } from './Arena'
@@ -214,6 +214,9 @@ const ChatRow = memo(function ChatRow({ c, active, model, depth }: { c: Conversa
   )
 })
 
+/** A workspace shows this many chats before it scrolls. */
+const FOLDER_ROWS = 10
+
 function ChatFolderGroup({ folder, chats }: { folder: ChatFolder; chats: ConversationSummary[] }) {
   const [renaming, setRenaming] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -222,6 +225,18 @@ function ChatFolderGroup({ folder, chats }: { folder: ChatFolder; chats: Convers
   const blind = useBlind()
   const store = useStore.getState()
   const drop = useDrop(CHAT_MIME, (id) => void store.moveChat(id, folder.id))
+  // The open chat is brought into the workspace's own scroll when it is one of these (opened from
+  // search, say), moving only that box.
+  const list = useRef<HTMLDivElement>(null)
+  const holds = !!currentId && chats.some((c) => c.id === currentId)
+  useEffect(() => {
+    const box = list.current
+    const row = box?.querySelector<HTMLElement>('.tw-conv[aria-current="true"]')
+    if (!box || !row || box.scrollHeight <= box.clientHeight) return
+    const top = row.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop
+    if (top < box.scrollTop) box.scrollTop = top
+    else if (top + row.offsetHeight > box.scrollTop + box.clientHeight) box.scrollTop = top + row.offsetHeight - box.clientHeight
+  }, [currentId, holds, folder.collapsed])
   return (
     <div className={`folder ${drop.over ? 'drop-over' : ''}`} {...drop.props}>
       <div className="folder-head" onClick={() => !renaming && void store.toggleFolder(folder.id)} onDoubleClick={() => setRenaming(true)}>
@@ -277,8 +292,15 @@ function ChatFolderGroup({ folder, chats }: { folder: ChatFolder; chats: Convers
           </button>
         </span>
       </div>
-      {!folder.collapsed &&
-        chats.map((c) => <ChatRow key={c.id} c={c} active={c.id === currentId} model={blind && c.id === currentId ? '' : modelName(models, c.modelId)} depth={1} />)}
+      {/* Past FOLDER_ROWS chats a workspace scrolls in its own box, so one big workspace doesn't push
+          the rest of the list out of sight. */}
+      {!folder.collapsed && chats.length > 0 && (
+        <div ref={list} className={`folder-chats ${chats.length > FOLDER_ROWS ? 'folder-scroll' : ''}`}>
+          {chats.map((c) => (
+            <ChatRow key={c.id} c={c} active={c.id === currentId} model={blind && c.id === currentId ? '' : modelName(models, c.modelId)} depth={1} />
+          ))}
+        </div>
+      )}
       {!folder.collapsed && chats.length === 0 && <p className="folder-empty">Drag chats here</p>}
       {editing && <WorkspaceDialog workspace={folder} onClose={() => setEditing(false)} />}
     </div>
