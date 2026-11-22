@@ -13,6 +13,7 @@ import type { BranchMap } from './branchMap'
 import type { ReplyConfidence, Samplers } from './confidence'
 import type { VoiceState } from './voice'
 import type { BattleSetup, BattleSummary, BattleView } from './battle'
+import type { ModelFallback } from './fallback'
 import type { AiConfig, AiState, InsightsSummary, StoryOptions, StoryPlan, TrackedCharacter } from './insights'
 import type { JudgeInput, Judgment, JudgmentSummary, Leaderboard, Rubric } from './judge'
 import type { Library, Persona, SavedPrompt } from './library'
@@ -186,6 +187,8 @@ export interface Usage {
   webSearches?: number
   /** The model's token probabilities were kept for this reply (Confidence). */
   confidence?: boolean
+  /** Another model answered than the one asked for (Claude's server-side fallback), and why. */
+  fallback?: ModelFallback
 }
 
 /** Settings → Usage: how far back the numbers go. */
@@ -750,6 +753,9 @@ export interface TwilightApi {
   /** A quiet Windows notification when a long reply finishes in the background (the taskbar glows either way). */
   getDoneNotification(): Promise<boolean>
   setDoneNotification(on: boolean): Promise<boolean>
+  /** Whether a message Claude declines is answered by Anthropic's fallback model. */
+  getClaudeFallback(): Promise<boolean>
+  setClaudeFallback(on: boolean): Promise<boolean>
   setSpellcheck(on: boolean): Promise<boolean>
   // ——— Data: backups and where it lives ———
   getDataInfo(): Promise<DataInfo>

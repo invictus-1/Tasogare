@@ -1,7 +1,8 @@
 import { compactionOf, summaryText } from './compactionBlocks'
 import Anthropic from '@anthropic-ai/sdk'
 import type { ChatSettings, ModelInfo, ModelOptions, ProviderConfig, Usage } from '@shared/types'
-import type { NodeRow } from '../db'
+import { fallbackOf, refusalText, type FallbackBlock, type ModelFallback, type UsageIteration } from '@shared/fallback'
+import { kvGet, kvSet, type NodeRow } from '../db'
 import { CHOICES_TOOL } from '@shared/choices'
 import { FILE_REMOVED_NOTE, isContextText } from '@shared/attachments'
 import { domainOf } from '@shared/webTools'
@@ -14,6 +15,17 @@ import { MAX_TOOL_ROUNDS, TOO_MANY_ROUNDS, mergeExtraParams, textBlocks, wantsCh
 
 /** Models older than the 4.6 generation take budget_tokens thinking, which Tasogare does not send. */
 const NO_ADAPTIVE_THINKING = /^claude-(3|haiku-4-5|sonnet-4-5|sonnet-4$|sonnet-4-2|opus-4$|opus-4-1|opus-4-2|opus-4-5)/
+/**
+ * Whether a message Claude declines is answered by Anthropic's fallback model (Settings → General).
+ * On unless turned off: off, the refusal comes back with what was flagged, and nothing goes to another
+ * model, whose replies cost more and which a chat then stays with for about an hour.
+ */
+export const claudeFallbackOn = (): boolean => kvGet<boolean>('claudeFallback') !== false
+export function setClaudeFallback(on: boolean): boolean {
+  kvSet('claudeFallback', !!on)
+  return claudeFallbackOn()
+}
+
 /** Models that accept the server-side refusal fallback. */
 const SUPPORTS_FALLBACK = /^claude-(opus-5|opus-5-5|fable-5-1|sonnet-5-5)$/
 
@@ -38,7 +50,29 @@ const SERVER_RESULTS = new Set([
  * Block types replayed from a stored reply; anything else (another provider's bookkeeping, a
  * picture Tasogare made) is left out. tool_results marks where Tasogare ran a round of tools.
  */
-const REPLAYED = new Set(['text', 'thinking', 'redacted_thinking', 'tool_use', 'server_tool_use', 'tool_results', ...SERVER_RESULTS])
+const REPLAYED = new Set(['text', 'thinking', 'redacted_thinking', 'tool_use', 'server_tool_use', 'tool_results', 'fallback', ...SERVER_RESULTS])
+
+/**
+ * A reply with a `fallback` block, sent back as the API asks: thinking from before the last
+ * switch (the declining model's) is left out, and so is a tool call from before it that was never
+ * answered; the block itself stays exactly where it was, since the API checks the thinking around
+ * it by its place. Without fallbacks in the request (another model chosen since), the block goes too.
+ */
+function echoFallback(blocks: Block[], keepBlock: boolean): Block[] {
+  const last = blocks.map((b) => b.type).lastIndexOf('fallback')
+  if (last < 0) return blocks
+  const answered = new Set(blocks.flatMap((b) => (b.type === 'tool_results' ? ((b.results ?? []) as Block[]).map((r) => r.tool_use_id) : [])))
+  return blocks.filter((b, i) => {
+    if (b.type === 'fallback') return keepBlock
+    if (i > last) return true
+    if (b.type === 'thinking' || b.type === 'redacted_thinking' || b.type === 'connector_text') return false
+    if (b.type === 'tool_use') return answered.has(b.id)
+    return true
+  })
+}
+
+/** A response's blocks after its last `fallback` block: the model that answered, whose tool calls are the ones to run. */
+const afterFallback = (blocks: Block[]): Block[] => blocks.slice(blocks.map((b) => b.type).lastIndexOf('fallback') + 1)
 const isDocument = (b: Block): boolean => b.type === 'image' || b.type === 'document' || (b.type === 'text' && typeof b.text === 'string' && isContextText(b.text))
 
 /**
@@ -100,7 +134,10 @@ export function replyTurns(blocks: Block[], available: ReadonlySet<string> | nul
  * The conversation in Claude's format. `serverTools` names the web tools in this request
  * (web_search, web_fetch): replies that used them replay their calls only while they're sent.
  */
-export function toMessages(history: NodeRow[], serverTools: ReadonlySet<string> = new Set(), clientTools: ReadonlySet<string> | null = null): Message[] {
+/**
+ * `fallbacks`: the request carries server-side fallbacks, so a reply's `fallback` blocks go back with it.
+ */
+export function toMessages(history: NodeRow[], serverTools: ReadonlySet<string> = new Set(), clientTools: ReadonlySet<string> | null = null, fallbacks = false): Message[] {
   const messages: Message[] = []
   const add = (role: 'user' | 'assistant', content: Block[]): void => {
     const last = messages[messages.length - 1]
@@ -144,7 +181,7 @@ export function toMessages(history: NodeRow[], serverTools: ReadonlySet<string> 
       // Replay Claude's own blocks unchanged (thinking blocks included) so the prefix and any
       // preserved thinking stay valid. Other providers store plain text blocks.
       content = node.content
-        ? keepServerTools((JSON.parse(node.content) as Block[]).filter((b) => REPLAYED.has(b.type) && !(b.type === 'text' && !b.text)), serverTools)
+        ? keepServerTools(echoFallback((JSON.parse(node.content) as Block[]).filter((b) => REPLAYED.has(b.type) && !(b.type === 'text' && !b.text)), fallbacks), serverTools)
         : textBlocks(node)
       if (node.status !== 'done') content = content.filter((b) => b.type === 'text')
       if (!content.length) continue
@@ -308,12 +345,13 @@ export function anthropicRequest(req: Pick<GenerateRequest, 'system' | 'history'
   const tools = anthropicTools(settings, req.clientTools)
   const serverTools = new Set(tools.map((t) => t.name as string).filter((n) => n === 'web_search' || n === 'web_fetch'))
   const clientTools = new Set((req.clientTools ?? []).map((t) => t.name))
+  const fallbacks = SUPPORTS_FALLBACK.test(model) && claudeFallbackOn()
 
   const body: Record<string, unknown> = {
     model,
     // Claude needs max_tokens; "model default" means the model's maximum, capped at 64k.
     max_tokens: Math.min(settings.maxTokens ?? 64000, options.maxOutput ?? 128000),
-    messages: toMessages(req.history, serverTools, clientTools),
+    messages: toMessages(req.history, serverTools, clientTools, fallbacks),
     ...cache
   }
   if (req.system) body.system = [{ type: 'text', text: req.system, ...cache }]
@@ -327,7 +365,7 @@ export function anthropicRequest(req: Pick<GenerateRequest, 'system' | 'history'
   // A compacted chat's summary block is only understood with the compaction beta, on every request
   // that carries it (without it the API rejects the block as an unknown type).
   if ((body.messages as Message[]).some((m) => m.content.some((b) => b.type === 'compaction'))) betas.push(COMPACTION_BETA)
-  if (SUPPORTS_FALLBACK.test(model)) {
+  if (fallbacks) {
     betas.push('server-side-fallback-2026-07-01')
     body.fallbacks = 'default'
   }
@@ -365,7 +403,7 @@ function activityLabel(name: string, input: { query?: string; url?: string }): s
 const MAX_CONTINUATIONS = 4
 
 /** What goes back to the API from the reply so far: Tasogare's own blocks (pictures made) left out. */
-const sendable = (content: Block[]): Message[] => replyTurns(content.filter((b) => REPLAYED.has(b.type)))
+const sendable = (content: Block[]): Message[] => replyTurns(echoFallback(content.filter((b) => REPLAYED.has(b.type)), true))
 
 async function generateAnthropic(req: GenerateRequest): Promise<GenerateResult> {
   if (!req.apiKey) throw new Error('Add an Anthropic API key in Settings → Providers.')
@@ -386,7 +424,10 @@ async function generateAnthropic(req: GenerateRequest): Promise<GenerateResult> 
   // Text after a tool call starts a new paragraph, as replyText() joins it.
   let broke = false
   let stopReason: string | null = null
+  let stopDetails: { category?: string | null; explanation?: string | null } | null = null
   let finalModel = model
+  // Another model than the one asked for answered (a fallback), and why: the first switch is kept.
+  let fallback: ModelFallback | undefined
   const clientNames = new Set((req.clientTools ?? []).map((t) => t.name))
   let toolRounds = 0
   for (let round = 0; round <= MAX_CONTINUATIONS; round++) {
@@ -445,7 +486,7 @@ async function generateAnthropic(req: GenerateRequest): Promise<GenerateResult> 
           text,
           thinking: thinking || undefined,
           content: content.length ? [...content, ...(rest ? [{ type: 'text', text: rest }] : [])] : text ? [{ type: 'text', text }] : null,
-          usage: { input: usage.input, output: usage.output, cacheRead: usage.cacheRead, cacheWrite: usage.cacheWrite, ms: Date.now() - started },
+          usage: { input: usage.input, output: usage.output, cacheRead: usage.cacheRead, cacheWrite: usage.cacheWrite, ms: Date.now() - started, ...(fallback ? { fallback } : {}) },
           modelId: finalModel
         }
       }
@@ -462,9 +503,14 @@ async function generateAnthropic(req: GenerateRequest): Promise<GenerateResult> 
     usage.cacheWrite += u.cache_creation_input_tokens ?? 0
     usage.webSearches += u.server_tool_use?.web_search_requests ?? 0
     stopReason = final.stop_reason
+    stopDetails = (final as unknown as { stop_details?: typeof stopDetails }).stop_details ?? null
+    const here = fallbackOf(model, final.model, final.content as unknown as FallbackBlock[], (u as unknown as { iterations?: UsageIteration[] | null }).iterations)
+    if (here && (!fallback || (fallback.unexplained && !here.unexplained))) fallback = here
+    else if (here && fallback) fallback = { ...fallback, to: here.to }
     // Calls to Tasogare's own tools: run them, add the round, and let the reply carry on. A call
     // to present_choices among them ends the reply instead (its answer is your next message).
-    const calls = (final.content as unknown as Block[]).filter((b) => b.type === 'tool_use')
+    // A tool call from before a switch was the declining model's, and isn't run.
+    const calls = afterFallback(final.content as unknown as Block[]).filter((b) => b.type === 'tool_use')
     if (stopReason === 'tool_use' && req.runTools && calls.length && calls.every((c) => clientNames.has(String(c.name)))) {
       const asked = calls.map((c) => ({ id: String(c.id), name: String(c.name), input: (c.input ?? {}) as Record<string, unknown> }))
       if (++toolRounds > MAX_TOOL_ROUNDS) {
@@ -498,9 +544,10 @@ async function generateAnthropic(req: GenerateRequest): Promise<GenerateResult> 
       cacheWrite: usage.cacheWrite,
       ms: Date.now() - started,
       ...(usage.webSearches ? { webSearches: usage.webSearches } : {}),
-      ...(stopReason === 'max_tokens' ? { cutOff: true } : {})
+      ...(stopReason === 'max_tokens' ? { cutOff: true } : {}),
+      ...(fallback ? { fallback } : {})
     },
-    error: stopReason === 'refusal' ? 'The model declined this request.' : undefined
+    error: stopReason === 'refusal' ? refusalText(stopDetails) : undefined
   }
 }
 

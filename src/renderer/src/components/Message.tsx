@@ -14,6 +14,7 @@ import { toggleBookmark, useBookmarks } from '../bookmarks'
 import { modelName, paneOf, useStore } from '../store'
 import { readStream, subscribeStream } from '../stream'
 import { extractChoices } from '@shared/choices'
+import { fallbackText } from '@shared/fallback'
 import { useWriting } from '../writingStore'
 import { ChoiceCard } from './ChoiceCard'
 import { BlindContext } from './Arena'
@@ -650,6 +651,10 @@ function AssistantMessage({ node, next, isLast }: { node: NodeView; next?: NodeV
   const blind = useContext(BlindContext)
   // The confidence heatmap stands in for the body while it's on (replies whose probabilities were kept).
   const [heatmap, setHeatmap] = useState(false)
+  // Why another model wrote this reply, opened from its mark in the header.
+  const [why, setWhy] = useState(false)
+  // In a blind split the mark would name the models, so it waits until they are revealed.
+  const fallback = blind ? undefined : node.usage?.fallback
   if (editing) {
     return (
       <div className="msg tw-msg-ai">
@@ -664,7 +669,19 @@ function AssistantMessage({ node, next, isLast }: { node: NodeView; next?: NodeV
         {blind ? `Model ${pane.toUpperCase()}` : modelName(models, node.modelId)}
         {node.usage && <span className="msg-time">· {(node.usage.ms / 1000).toFixed(1)}s</span>}
         {node.status === 'stopped' && <span className="msg-time">· stopped</span>}
+        {fallback && (
+          <button
+            className="msg-fallback"
+            aria-expanded={why}
+            title={`Not the model you chose: ${modelName(models, fallback.from)} was asked. Click for why.`}
+            onClick={() => setWhy((w) => !w)}
+          >
+            <AlertIcon size={12} />
+            instead of {modelName(models, fallback.from)}
+          </button>
+        )}
       </div>
+      {fallback && why && <p className="msg-fallback-why">{fallbackText(fallback, (id) => modelName(models, id))}</p>}
       <EarlierPrompt createdAt={node.createdAt} />
       {streaming ? (
         <StreamingBody nodeId={node.id} />

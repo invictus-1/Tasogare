@@ -212,6 +212,7 @@ What's shipped, what's next, and ideas not yet committed to. Tasogare shows this
 - [x] **Installer** · Core — Windows installer and portable zip, with Tasogare artwork
 
 ## Next
+- [~] **Why another model answered** · Chat — done, in the next release: a reply from Anthropic's fallback model is marked beside its name, with what was flagged and why, and Settings → General can turn the fallback off
 - [~] **Your feedback on 1.0** · Core — fixes from real use
 
 ## Later

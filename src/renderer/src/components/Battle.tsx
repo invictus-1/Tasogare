@@ -1,6 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { countWords, describeSettings, MAX_PASSES, passageOf, passReady, sideCut, sideWriting, tallyBattle, writerSettings, type BattlePass, type BattleSetup, type BattleSide, type BattleWriter, type WriterSettings } from '@shared/battle'
 import { modelKey, type ModelDefaults } from '@shared/modelDefaults'
+import { fallbackText } from '@shared/fallback'
 import { formatTokens } from '@shared/pricing'
 import type { CacheTtl } from '@shared/types'
 import { useJudge } from '../judgeStore'
@@ -445,6 +446,8 @@ function SidePanel({ id, pass, index, side, writer, judged }: { id: string; pass
   const parts = side.turns.filter((t) => t.text.trim() || t.status === 'streaming').length
   const last = side.turns.at(-1)
   const letter = LETTERS[index]
+  const fell = side.turns.find((t) => t.usage?.fallback)?.usage?.fallback
+  const fellAll = side.turns.filter((t) => t.text.trim()).every((t) => t.usage?.fallback)
   useEffect(() => setConfirming(false), [pass, writing, side.finished])
   return (
     <section className={`battle-side battle-side-${letter.toLowerCase()} ${side.finished ? 'battle-locked' : ''}`} data-side={letter}>
@@ -457,6 +460,13 @@ function SidePanel({ id, pass, index, side, writer, judged }: { id: string; pass
           {writer.label !== modelName(models, writer.modelId) ? ` · ${modelName(models, writer.modelId)}` : ''}
         </span>
       </header>
+      {/* A fallback wrote some of this side: the comparison is not of the model chosen. */}
+      {fell && (
+        <p className="msg-fallback-why battle-fallback">
+          {fellAll ? `All of this pass was written by ${modelName(models, fell.to)}` : `Part of this pass was written by ${modelName(models, fell.to)}`}, not {modelName(models, fell.from)}.{' '}
+          {fallbackText(fell, (id) => modelName(models, id))}
+        </p>
+      )}
       <div className="battle-text">
         {written && <div className="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(`${id}:${pass}:${index}`, written) }} />}
         {writing && <LiveTurn nodeId={`${id}:${pass}:${index}:${side.turns.length - 1}`} />}

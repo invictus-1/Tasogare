@@ -471,6 +471,7 @@ function GeneralSection() {
         </label>
       </div>
       <LongChats />
+      <ClaudeFallbackSwitch />
       <DoneSignal />
       <SpellcheckSwitch />
       <div className="settings-card">
@@ -637,6 +638,26 @@ function DoneSignal() {
         <input type="checkbox" checked={on} onChange={(e) => void window.twilight.setDoneNotification(e.target.checked).then(setOn)} />
         Also show a quiet Windows notification
       </label>
+    </div>
+  )
+}
+
+/** Whether a message Claude declines is answered by Anthropic's fallback model, or comes back as a refusal. */
+function ClaudeFallbackSwitch() {
+  const [on, setOn] = useState(true)
+  useEffect(() => void window.twilight.getClaudeFallback().then(setOn), [])
+  return (
+    <div className="settings-card claude-fallback">
+      <h3 className="t-heading">When Claude declines a message</h3>
+      <label className="check">
+        <input type="checkbox" checked={on} onChange={(e) => void window.twilight.setClaudeFallback(e.target.checked).then(setOn)} />
+        Let Anthropic answer it with another model
+      </label>
+      <p className="field-note">
+        Claude Opus 5.5, Opus 5, Fable 5.1 and Sonnet 5.5 run a safety check that can decline a message, sometimes for nothing. On, Anthropic answers it with another model
+        instead (usually Opus 4.8, which costs more), the reply is marked, and the chat can stay with that model for about an hour. Off, you get the refusal and what was
+        flagged, and every message goes to the model you chose.
+      </p>
     </div>
   )
 }

@@ -2,6 +2,14 @@
 
 Each version's section becomes its release notes on the releases page (`npm run release`), and Tasogare shows them in Settings > Updates.
 
+## Unreleased
+
+- **A reply from another Claude model is marked, with the reason:** Tasogare turns on Anthropic's fallback for the models that take it (Opus 5.5, Opus 5, Fable 5.1, Sonnet 5.5), so when one of them declines a message, Anthropic answers it with another model instead (often Opus 4.8). Such a reply now shows **instead of** the model you chose, in amber beside its name. Click it for why: what Anthropic's safety check flagged (cyber, bio, competing AI work, asking for the model's hidden reasoning, or another policy area), and that later messages in the chat may go straight to that model for about an hour. A reply sent straight there for that reason says so too, and so does one from another model with no reason given.
+- **A setting to turn the fallback off:** Settings → General → When Claude declines a message. On (as before), Anthropic answers a declined message with another model, now marked. Off, you get the refusal with what was flagged, and every message goes to the model you chose; a chat is never moved to Opus 4.8, whose replies cost more, and nothing stays there for an hour.
+- **A battle side written partly by a fallback says so,** so a comparison is never quietly between the wrong models.
+- **A refusal says what was flagged,** in place of only "The model declined this request."
+- **After a fallback, the chat goes back to Claude the way Anthropic asks:** the switch is sent with the reply where it happened, and the declining model's thinking before it is left out, so the next message isn't rejected.
+
 ## 1.9.3
 
 - **Large additions are counted without asking:** words that appear in a file all at once (a paste, an import, a long stretch written between scans) count as writing straight away, instead of waiting on the dashboard for Count them or Not my writing. Anything over 5,000 words is listed under Large additions on the dashboard, with the file and the date and time it appeared. If one wasn't your writing, Remove takes its words off that day (it asks once, and Undo puts them back). Additions still waiting to be answered from an earlier version are counted on their own days and listed with the rest.

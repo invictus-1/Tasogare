@@ -147,6 +147,11 @@ h1, h2, h3 { margin: 0; }
 .tw-msg-ai { display: flex; flex-direction: column; gap: var(--space-2); }
 .tw-msg-head { display: flex; align-items: center; gap: var(--space-1); font-size: 12px; line-height: 16px; font-weight: 500; color: var(--ink-muted); }
 .msg-time { color: var(--ink-faint); font-weight: 400; }
+/* A reply another model wrote than the one asked for (Claude's fallback), and why */
+.msg-fallback { display: inline-flex; align-items: center; gap: 4px; height: 18px; margin-left: var(--space-1); padding: 0 7px; border: 1px solid color-mix(in srgb, var(--warning) 50%, transparent); border-radius: var(--radius-full); background: color-mix(in srgb, var(--warning) 12%, transparent); color: var(--warning); font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; }
+.msg-fallback:hover { background: color-mix(in srgb, var(--warning) 20%, transparent); }
+.msg-fallback:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.msg-fallback-why { margin: 4px 0 6px; padding-left: var(--space-2); border-left: 2px solid color-mix(in srgb, var(--warning) 60%, transparent); font-size: 12px; line-height: 18px; color: var(--ink-muted); }
 .msg-pending { display: flex; align-items: center; gap: var(--space-2); color: var(--ink-faint); font-size: 13px; }
 .msg-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: var(--control-sm); }
 .tw-msg-actions { display: flex; align-items: center; gap: 2px; color: var(--ink-faint); }

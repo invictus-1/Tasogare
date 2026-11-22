@@ -128,6 +128,8 @@ const methods: Exclude<keyof TwilightApi, 'onStream' | 'onUpdate' | 'onInsights'
   'toggleBookmark',
   'getDoneNotification',
   'setDoneNotification',
+  'getClaudeFallback',
+  'setClaudeFallback',
   'setSpellcheck',
   'getDataInfo',
   'listBackups',

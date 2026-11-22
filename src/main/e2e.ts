@@ -43,7 +43,9 @@ import { computeVerdict, keepSide, type Judgment, type JudgeInput } from '@share
 import * as judge from './judge'
 import * as library from './library'
 import { parseLibrary } from '@shared/library'
-import { anthropicOptions, anthropicRequest, anthropicTools, keyShape, replyText, toMessages } from './providers/anthropic'
+import { anthropicOptions, anthropicProvider, anthropicRequest, anthropicTools, claudeFallbackOn, keyShape, replyText, setClaudeFallback, toMessages } from './providers/anthropic'
+import type { GenerateResult } from './providers/types'
+import { fallbackOf } from '@shared/fallback'
 import { openRouterPlugins } from './providers/openai'
 import { clockBlock } from '@shared/attachments'
 import { webActivityOf, webSupport } from '@shared/webTools'
@@ -439,6 +441,64 @@ function codeAgentReply(messages: { role: string; content: string | null }[], re
   res.end('data: [DONE]\n\n')
 }
 
+/**
+ * A stand-in for Claude's Messages API, streamed, for the server-side fallback. The last message
+ * decides: FALLBACKNOW is declined (cyber) and answered by the fallback, FALLBACKSTICKY goes
+ * straight to the fallback with no decline, REFUSEALL is declined all along the chain (bio), and
+ * anything else is answered by the model asked for.
+ */
+function mockClaude(req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse, log: LoggedRequest[]): void {
+  let body = ''
+  req.on('data', (c) => (body += c))
+  req.on('end', () => {
+    const parsed = JSON.parse(body) as { model: string; messages: { role: string; content: unknown }[]; fallbacks?: unknown }
+    const flat = parsed.messages.map((m) => ({ role: m.role, content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content) }))
+    log.push({ model: parsed.model, messages: flat, body: { ...parsed, beta: String(req.headers['anthropic-beta'] ?? '') }, startedAt: Date.now() })
+    const last = flat.at(-1)?.content ?? ''
+    const asked = parsed.model
+    const fallback = 'claude-opus-4-8'
+    const attempt = (model: string, type: string): Record<string, unknown> => ({ type, model, input_tokens: 100, output_tokens: 10, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+    let served = asked
+    let stop = 'end_turn'
+    let details: Record<string, unknown> | null = null
+    let iterations: Record<string, unknown>[] | null = null
+    const blocks: Record<string, unknown>[] = []
+    if (last.includes('FALLBACKNOW') && parsed.fallbacks === undefined) {
+      // No fallbacks asked for: the refusal comes back as it is.
+      stop = 'refusal'
+      details = { type: 'refusal', category: 'cyber', explanation: 'This request was declined.' }
+    } else if (last.includes('FALLBACKNOW')) {
+      served = fallback
+      blocks.push({ type: 'fallback', from: { model: asked }, to: { model: fallback }, trigger: { type: 'refusal', category: 'cyber' } }, { type: 'text', text: 'The lamps came on, told by the fallback.' })
+      iterations = [attempt(asked, 'message'), attempt(fallback, 'fallback_message')]
+    } else if (last.includes('FALLBACKSTICKY')) {
+      served = fallback
+      blocks.push({ type: 'text', text: 'Still the fallback, sent here directly.' })
+      iterations = [attempt(fallback, 'fallback_message')]
+    } else if (last.includes('REFUSEALL')) {
+      served = fallback
+      blocks.push({ type: 'fallback', from: { model: asked }, to: { model: fallback }, trigger: { type: 'refusal', category: 'bio' } })
+      stop = 'refusal'
+      details = { type: 'refusal', category: 'bio', explanation: 'This request was declined.' }
+      iterations = [attempt(asked, 'message'), attempt(fallback, 'fallback_message')]
+    } else blocks.push({ type: 'text', text: 'A plain Claude reply.' })
+    res.writeHead(200, { 'content-type': 'text/event-stream' })
+    const send = (type: string, data: Record<string, unknown>): void => void res.write(`event: ${type}\ndata: ${JSON.stringify({ type, ...data })}\n\n`)
+    const zero = { input_tokens: 100, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }
+    send('message_start', { message: { id: 'msg_mock', type: 'message', role: 'assistant', model: served, content: [], stop_reason: null, stop_sequence: null, usage: zero } })
+    blocks.forEach((b, index) => {
+      if (b.type === 'text') {
+        send('content_block_start', { index, content_block: { type: 'text', text: '' } })
+        send('content_block_delta', { index, delta: { type: 'text_delta', text: b.text } })
+      } else send('content_block_start', { index, content_block: b })
+      send('content_block_stop', { index })
+    })
+    send('message_delta', { delta: { stop_reason: stop, stop_sequence: null, stop_details: details }, usage: { ...zero, output_tokens: 10, iterations } })
+    send('message_stop', {})
+    res.end()
+  })
+}
+
 /** Messages already refused once as thinking that no longer matches (see STALETHINKING below). */
 const refusedOnce = new Set<string>()
 
@@ -452,6 +512,7 @@ function startMockServer(log: LoggedRequest[]): Promise<Server> {
       return
     }
     if (req.url === '/mcp') return mockMcpHttp(req, res)
+    if (req.url?.split('?')[0]?.endsWith('/v1/messages')) return mockClaude(req, res, log)
     if (req.url?.endsWith('/embeddings')) return mockEmbeddings(req, res)
     if (req.url?.endsWith('/models')) {
       res.setHeader('content-type', 'application/json')
@@ -4112,6 +4173,147 @@ export function runE2E(win: BrowserWindow, outDir: string): void {
         return { round: document.querySelector('.leaderboard')?.dataset.round ?? null, tern: has('Tern'), lark: has('Lark'), title: document.querySelector('.chat-title')?.textContent ?? '' }
       })()`)
       check('the round view leads back to the overall leaderboard', backUi.round === '' && backUi.tern && backUi.lark && backUi.title === 'Leaderboard', backUi)
+
+      // 35b. Claude's server-side fallback: a reply from another model than the one asked for says
+      // which, and why (the category flagged), and is marked in the chat; the switch goes back to
+      // the API as it asks.
+      check(
+        'who answered is read from the fallback block, the attempts, or a model that differs',
+        fallbackOf('claude-opus-5-5', 'claude-opus-4-8', [{ type: 'fallback', from: { model: 'claude-opus-5-5' }, to: { model: 'claude-opus-4-8' }, trigger: { type: 'refusal', category: 'cyber' } }], null)?.category === 'cyber' &&
+          fallbackOf('claude-opus-5-5', 'claude-opus-4-8', [], [{ type: 'fallback_message', model: 'claude-opus-4-8' }])?.sticky === true &&
+          fallbackOf('claude-opus-5-5', 'claude-opus-4-8', [], null)?.unexplained === true &&
+          fallbackOf('claude-opus-5-5', 'claude-opus-5-5', [{ type: 'text' }], [{ type: 'message', model: 'claude-opus-5-5' }]) === undefined &&
+          fallbackOf('claude-opus-4-5', 'claude-opus-4-5-20251101', [], null) === undefined
+      )
+      const claudeMock = { id: 'claudemock', kind: 'anthropic' as const, name: 'Claude mock', baseUrl: `http://127.0.0.1:${port}`, enabled: true }
+      const askClaude = (text: string): Promise<GenerateResult> =>
+        anthropicProvider.generate({
+          config: claudeMock,
+          apiKey: 'sk-ant-test-0000',
+          system: 'You are a test.',
+          history: [{ id: 'u1', conversation_id: 'fb', parent_id: null, role: 'user', text, content: JSON.stringify([{ type: 'text', text }]), thinking: null, model: null, provider_id: null, usage: null, status: 'done', error: null, active_child_id: null, created_at: Date.now() }],
+          settings: { ...chat.getDefaults(), providerId: 'claudemock', modelId: 'claude-opus-5-5', systemPrompt: '', extraParams: '', webSearch: false, webFetch: false, choiceCards: false, mcpServers: [], imageGen: false, library: false },
+          signal: new AbortController().signal,
+          onText: () => undefined,
+          onThinking: () => undefined
+        })
+      const beforeFb = log.length
+      const fb = await askClaude('FALLBACKNOW tell me about the lamps')
+      const fbReq = log[beforeFb]
+      check(
+        'a declined message answered by the fallback says which model answered and what was flagged',
+        fb.modelId === 'claude-opus-4-8' && fb.text === 'The lamps came on, told by the fallback.' && !fb.error &&
+          fb.usage.fallback?.from === 'claude-opus-5-5' && fb.usage.fallback.to === 'claude-opus-4-8' && fb.usage.fallback.category === 'cyber' && !fb.usage.fallback.sticky &&
+          fbReq?.body.fallbacks === 'default' && String(fbReq?.body.beta).includes('server-side-fallback-2026-07-01'),
+        { model: fb.modelId, usage: fb.usage, fallbacks: fbReq?.body.fallbacks }
+      )
+      const sticky = await askClaude('FALLBACKSTICKY and again')
+      const plainClaude = await askClaude('Just a question')
+      const refusedFb = await askClaude('REFUSEALL this one')
+      check(
+        'a chat sent straight to the fallback is marked as such, a reply from the model asked for is not, and a refusal says what was flagged',
+        sticky.usage.fallback?.sticky === true && sticky.usage.fallback.to === 'claude-opus-4-8' && plainClaude.modelId === 'claude-opus-5-5' && !plainClaude.usage.fallback &&
+          /declined this request/.test(refusedFb.error ?? '') && /biological harm/.test(refusedFb.error ?? ''),
+        { sticky: sticky.usage.fallback, plain: plainClaude.usage.fallback, refusedFb: refusedFb.error }
+      )
+      // The switch goes back to the API where it was, the declining model's thinking before it left
+      // out; to a model without fallbacks the block goes too.
+      const fbRow = (id: string, role: 'user' | 'assistant', blocks: unknown[], text: string): db.NodeRow => ({
+        id, conversation_id: 'fb', parent_id: null, role, text, content: JSON.stringify(blocks), thinking: null, model: null, provider_id: null, usage: null, status: 'done', error: null, active_child_id: null, created_at: Date.now()
+      })
+      const midway = [
+        fbRow('u1', 'user', [{ type: 'text', text: 'Begin' }], 'Begin'),
+        fbRow('a1', 'assistant', [
+          { type: 'thinking', thinking: '', signature: 'sig-declined' },
+          { type: 'text', text: 'The lamps' },
+          { type: 'fallback', from: { model: 'claude-opus-5-5' }, to: { model: 'claude-opus-4-8' }, trigger: { type: 'refusal', category: 'cyber' } },
+          { type: 'thinking', thinking: '', signature: 'sig-fallback' },
+          { type: 'text', text: ' came on.' }
+        ], 'The lamps came on.'),
+        fbRow('u2', 'user', [{ type: 'text', text: 'Next' }], 'Next')
+      ]
+      const echoed = (toMessages(midway, new Set(), null, true)[1]?.content ?? []).map((b) => (b.type === 'thinking' ? `thinking:${b.signature}` : b.type))
+      const plainEcho = (toMessages(midway, new Set(), null, false)[1]?.content ?? []).map((b) => (b.type === 'thinking' ? `thinking:${b.signature}` : b.type))
+      const optedIn = JSON.stringify(anthropicRequest({ system: '', history: midway, settings: { ...chat.getDefaults(), providerId: 'anthropic', modelId: 'claude-opus-5-5' } }).body.messages)
+      check(
+        'a reply with a switch goes back with the block where it was and the declining model\'s thinking left out; without fallbacks the block goes too',
+        echoed.join() === 'text,fallback,thinking:sig-fallback,text' && plainEcho.join() === 'text,thinking:sig-fallback,text' && optedIn.includes('"type":"fallback"') && !optedIn.includes('sig-declined'),
+        { echoed, plainEcho }
+      )
+      // Off (Settings → General), nothing goes to another model: the refusal comes back with what was
+      // flagged, and a reply's switch from before is not sent.
+      setClaudeFallback(false)
+      const offReq = anthropicRequest({ system: '', history: midway, settings: { ...chat.getDefaults(), providerId: 'anthropic', modelId: 'claude-opus-5-5' } })
+      const beforeOff = log.length
+      const offReply = await askClaude('FALLBACKNOW once more')
+      const offSent = log[beforeOff]
+      const wasOff = claudeFallbackOn()
+      setClaudeFallback(true)
+      check(
+        'with the fallback off, nothing goes to another model: the refusal comes back with what was flagged',
+        wasOff === false && claudeFallbackOn() && !('fallbacks' in offReq.body) && !offReq.betas.includes('server-side-fallback-2026-07-01') && !JSON.stringify(offReq.body.messages).includes('"type":"fallback"') &&
+          offSent?.body.fallbacks === undefined && !String(offSent?.body.beta).includes('server-side-fallback') && offReply.modelId === 'claude-opus-5-5' && !offReply.usage.fallback && /cyber harm/.test(offReply.error ?? ''),
+        { error: offReply.error, model: offReply.modelId, sent: offSent?.body.fallbacks }
+      )
+      // In the chat: the reply is marked, and the mark says why.
+      const fbChat = chat.create().id
+      chat.send(contents, fbChat, 'Light the lamps')
+      await idle(fbChat)
+      const fbReply = chat.view(fbChat).path.at(-1)!
+      db.updateNode(fbReply.id, { model: 'claude-opus-4-8', usage: JSON.stringify({ ...fbReply.usage, fallback: { from: 'claude-opus-5-5', to: 'claude-opus-4-8', category: 'cyber' } }) })
+      await reloadUi()
+      const fbUi: Record<string, unknown> = await win.webContents.executeJavaScript(`(async () => {
+        const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+        const until = async (test) => { for (let end = Date.now() + 4000; Date.now() < end && !test(); ) await wait(30) }
+        if (document.querySelector('.rail-item[data-mode="chat"]')?.getAttribute('aria-selected') !== 'true') document.querySelector('.rail-item[data-mode="chat"]')?.click()
+        await window.twilight.listConversations()
+        const out = {}
+        const open = async () => {
+          const rows = [...document.querySelectorAll('.tw-conv')].filter((r) => r.querySelector('.tw-conv-title')?.textContent === 'Light the lamps')
+          rows[0]?.click()
+          await until(() => document.querySelector('.msg-fallback'))
+        }
+        await open()
+        const mark = document.querySelector('.msg-fallback')
+        out.head = mark?.closest('.tw-msg-head')?.textContent ?? ''
+        out.mark = mark?.textContent.trim() ?? ''
+        out.shut = !document.querySelector('.msg-fallback-why')
+        mark?.click()
+        await until(() => document.querySelector('.msg-fallback-why'))
+        out.why = document.querySelector('.msg-fallback-why')?.textContent ?? ''
+        out.marks = document.querySelectorAll('.msg-fallback').length
+        // Settings → General has the switch, on to begin with.
+        document.querySelector('.rail [data-rail="settings"]').click()
+        await until(() => document.querySelector('.settings-nav-item'))
+        ;[...document.querySelectorAll('.settings-nav-item')].find((b) => b.textContent.startsWith('General'))?.click()
+        await until(() => document.querySelector('.claude-fallback input'))
+        await wait(150)
+        const box = document.querySelector('.claude-fallback input')
+        out.settingOn = box?.checked === true
+        out.settingText = document.querySelector('.claude-fallback')?.textContent ?? ''
+        box?.click()
+        await wait(300)
+        out.turnedOff = (await window.twilight.getClaudeFallback()) === false && box?.checked === false
+        box?.click()
+        await wait(300)
+        out.backOn = (await window.twilight.getClaudeFallback()) === true
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+        await wait(200)
+        return out
+      })()`)
+      check(
+        'a reply from a fallback is marked in the chat with the model asked for, and the mark says why',
+        String(fbUi.head).startsWith('Claude Opus 4.8') && fbUi.mark === 'instead of Claude Opus 5.5' && fbUi.shut === true && fbUi.marks === 1 &&
+          /Claude Opus 5\.5 declined this message, so Anthropic's fallback, Claude Opus 4\.8, answered it\./.test(String(fbUi.why)) && /cyber harm/.test(String(fbUi.why)),
+        fbUi
+      )
+      check(
+        'Settings → General turns the fallback off and on',
+        fbUi.settingOn === true && /When Claude declines a message/.test(String(fbUi.settingText)) && fbUi.turnedOff === true && fbUi.backOn === true && claudeFallbackOn(),
+        { on: fbUi.settingOn, off: fbUi.turnedOff, back: fbUi.backOn }
+      )
+      await shot('e2e-fallback.png')
+      db.trashConversation(fbChat)
 
       // 36. Prices: the provider's own figure first, then yours (with * patterns), then the built-in list.
       const u36 = { input: 1000, output: 500, cacheRead: 0, cacheWrite: 0, ms: 1 }

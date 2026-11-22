@@ -51,6 +51,7 @@ import * as code from './code/agent'
 import { applyPendingRestore, backupFolder, backupSettings, chooseBackupFolder, createBackup, listBackups, setBackupSettings, stageRestore, startBackupSchedule, takeRestoredWindowSettings } from './backups'
 import { attachContextMenu, setSpellcheck, spellcheckOn } from './contextMenu'
 import { doneNotificationOn, setDoneNotification } from './doneNotice'
+import { claudeFallbackOn, setClaudeFallback } from './providers/anthropic'
 import { keepFresh, librarySettings, libraryStatus, reindex as reindexLibrary, searchLibrary, setLibrarySettings } from './docLibrary'
 import { parseScoutCases, scout, testScout } from './scout'
 import * as local from './localModels'
@@ -569,6 +570,8 @@ function registerIpc(): void {
     },
     getDoneNotification: () => doneNotificationOn(),
     setDoneNotification: (_e, on: boolean) => setDoneNotification(on),
+    getClaudeFallback: () => claudeFallbackOn(),
+    setClaudeFallback: (_e, on: boolean) => setClaudeFallback(on === true),
     setSpellcheck: (e, on: boolean) => setSpellcheck(BrowserWindow.fromWebContents(e.sender), on),
     getDataInfo: () => dataInfo(),
     listBackups: () => listBackups(),
