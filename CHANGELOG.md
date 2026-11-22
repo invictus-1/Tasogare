@@ -2,7 +2,7 @@
 
 Each version's section becomes its release notes on the releases page (`npm run release`), and Tasogare shows them in Settings > Updates.
 
-## Unreleased
+## 1.9.4
 
 - **A reply from another Claude model is marked, with the reason:** Tasogare turns on Anthropic's fallback for the models that take it (Opus 5.5, Opus 5, Fable 5.1, Sonnet 5.5), so when one of them declines a message, Anthropic answers it with another model instead (often Opus 4.8). Such a reply now shows **instead of** the model you chose, in amber beside its name. Click it for why: what Anthropic's safety check flagged (cyber, bio, competing AI work, asking for the model's hidden reasoning, or another policy area), and that later messages in the chat may go straight to that model for about an hour. A reply sent straight there for that reason says so too, and so does one from another model with no reason given.
 - **A setting to turn the fallback off:** Settings → General → When Claude declines a message. On (as before), Anthropic answers a declined message with another model, now marked. Off, you get the refusal with what was flagged, and every message goes to the model you chose; a chat is never moved to Opus 4.8, whose replies cost more, and nothing stays there for an hour.

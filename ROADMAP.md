@@ -4,6 +4,9 @@ What's shipped, what's next, and ideas not yet committed to. Tasogare shows this
 
 ## Shipped
 
+### 1.9.4 · November 2026
+- [x] **Why another model answered** · Chat — a reply from Anthropic's fallback model is marked beside its name, with what was flagged and why, and Settings → General can turn the fallback off
+
 ### 1.9.3 · November 2026
 - [x] **Large additions counted, and taken back if wrong** · Core — a big paste or import counts without asking, and anything over 5,000 words is listed with its date and time, to be removed from its day
 - [x] **A long workspace scrolls** · Chat — a workspace past ten chats scrolls in its own box
@@ -212,7 +215,6 @@ What's shipped, what's next, and ideas not yet committed to. Tasogare shows this
 - [x] **Installer** · Core — Windows installer and portable zip, with Tasogare artwork
 
 ## Next
-- [~] **Why another model answered** · Chat — done, in the next release: a reply from Anthropic's fallback model is marked beside its name, with what was flagged and why, and Settings → General can turn the fallback off
 - [~] **Your feedback on 1.0** · Core — fixes from real use
 
 ## Later
